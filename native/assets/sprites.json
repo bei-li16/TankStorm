@@ -1,0 +1,514 @@
+{
+  "tank_t1": {
+    "atlas": "tank-tiers",
+    "rect": [
+      0,
+      0,
+      512,
+      350
+    ],
+    "muzzle": [
+      377,
+      134
+    ],
+    "pivot": [
+      267,
+      134
+    ]
+  },
+  "tank_t2": {
+    "atlas": "tank-tiers",
+    "rect": [
+      512,
+      0,
+      512,
+      350
+    ],
+    "muzzle": [
+      474,
+      143
+    ],
+    "pivot": [
+      242,
+      142
+    ]
+  },
+  "tank_t3": {
+    "atlas": "tank-tiers",
+    "rect": [
+      0,
+      350,
+      512,
+      354
+    ],
+    "muzzle": [
+      500,
+      122
+    ],
+    "pivot": [
+      242,
+      123
+    ]
+  },
+  "tank_t4": {
+    "atlas": "tank-tiers",
+    "rect": [
+      512,
+      350,
+      512,
+      354
+    ],
+    "muzzle": [
+      482,
+      124
+    ],
+    "pivot": [
+      190,
+      124
+    ]
+  },
+  "tank_t5": {
+    "atlas": "tank-tiers",
+    "rect": [
+      0,
+      704,
+      512,
+      385
+    ],
+    "muzzle": [
+      511,
+      85
+    ],
+    "pivot": [
+      262,
+      85
+    ]
+  },
+  "tank_t6": {
+    "atlas": "tank-tiers",
+    "rect": [
+      512,
+      704,
+      512,
+      385
+    ],
+    "muzzle": [
+      490,
+      145
+    ],
+    "pivot": [
+      228,
+      145
+    ]
+  },
+  "tank_t7": {
+    "atlas": "tank-tiers",
+    "rect": [
+      0,
+      1089,
+      625,
+      447
+    ],
+    "muzzle": [
+      603,
+      142
+    ],
+    "pivot": [
+      300,
+      142
+    ]
+  },
+  "core_tank": {
+    "atlas": "tank-tiers",
+    "rect": [
+      640,
+      1110,
+      365,
+      390
+    ]
+  },
+  "tank_destroyer_t1": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      0,
+      0,
+      512,
+      348
+    ],
+    "muzzle": [
+      459,
+      151
+    ],
+    "pivot": [
+      292,
+      151
+    ]
+  },
+  "tank_destroyer_t2": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      512,
+      0,
+      512,
+      348
+    ],
+    "muzzle": [
+      474,
+      158
+    ],
+    "pivot": [
+      288,
+      158
+    ]
+  },
+  "tank_destroyer_t3": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      0,
+      348,
+      561,
+      352
+    ],
+    "muzzle": [
+      552,
+      157
+    ],
+    "pivot": [
+      330,
+      147
+    ]
+  },
+  "tank_destroyer_t4": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      565,
+      348,
+      459,
+      352
+    ],
+    "muzzle": [
+      431,
+      201
+    ],
+    "pivot": [
+      255,
+      196
+    ]
+  },
+  "tank_destroyer_t5": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      0,
+      700,
+      581,
+      393
+    ],
+    "muzzle": [
+      579,
+      167
+    ],
+    "pivot": [
+      295,
+      167
+    ]
+  },
+  "tank_destroyer_t6": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      580,
+      700,
+      444,
+      393
+    ],
+    "muzzle": [
+      420,
+      200
+    ],
+    "pivot": [
+      268,
+      200
+    ]
+  },
+  "tank_destroyer_t7": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      0,
+      1093,
+      624,
+      443
+    ],
+    "muzzle": [
+      611,
+      181
+    ],
+    "pivot": [
+      355,
+      165
+    ]
+  },
+  "core_tank_destroyer": {
+    "atlas": "tank_destroyer-tiers",
+    "rect": [
+      640,
+      1130,
+      370,
+      350
+    ]
+  },
+  "spg_t1": {
+    "atlas": "spg-tiers",
+    "rect": [
+      0,
+      0,
+      512,
+      360
+    ],
+    "muzzle": [
+      480,
+      175
+    ],
+    "pivot": [
+      263,
+      175
+    ]
+  },
+  "spg_t2": {
+    "atlas": "spg-tiers",
+    "rect": [
+      512,
+      0,
+      512,
+      360
+    ],
+    "muzzle": [
+      468,
+      148
+    ],
+    "pivot": [
+      242,
+      158
+    ]
+  },
+  "spg_t3": {
+    "atlas": "spg-tiers",
+    "rect": [
+      0,
+      360,
+      512,
+      340
+    ],
+    "muzzle": [
+      502,
+      127
+    ],
+    "pivot": [
+      295,
+      126
+    ]
+  },
+  "spg_t4": {
+    "atlas": "spg-tiers",
+    "rect": [
+      512,
+      360,
+      512,
+      340
+    ],
+    "muzzle": [
+      477,
+      116
+    ],
+    "pivot": [
+      253,
+      116
+    ]
+  },
+  "spg_t5": {
+    "atlas": "spg-tiers",
+    "rect": [
+      0,
+      700,
+      512,
+      390
+    ],
+    "muzzle": [
+      502,
+      168
+    ],
+    "pivot": [
+      275,
+      168
+    ]
+  },
+  "spg_t6": {
+    "atlas": "spg-tiers",
+    "rect": [
+      512,
+      700,
+      512,
+      390
+    ],
+    "muzzle": [
+      493,
+      133
+    ],
+    "pivot": [
+      278,
+      124
+    ]
+  },
+  "spg_t7": {
+    "atlas": "spg-tiers",
+    "rect": [
+      0,
+      1090,
+      550,
+      446
+    ],
+    "muzzle": [
+      537,
+      171
+    ],
+    "pivot": [
+      287,
+      168
+    ]
+  },
+  "core_spg": {
+    "atlas": "spg-tiers",
+    "rect": [
+      574,
+      1110,
+      390,
+      378
+    ]
+  },
+  "rocket_t1": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      0,
+      0,
+      512,
+      350
+    ],
+    "muzzle": [
+      284,
+      66
+    ],
+    "pivot": [
+      89,
+      95
+    ]
+  },
+  "rocket_t2": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      512,
+      0,
+      512,
+      350
+    ],
+    "muzzle": [
+      255,
+      71
+    ],
+    "pivot": [
+      55,
+      99
+    ]
+  },
+  "rocket_t3": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      0,
+      350,
+      512,
+      345
+    ],
+    "muzzle": [
+      313,
+      39
+    ],
+    "pivot": [
+      85,
+      64
+    ]
+  },
+  "rocket_t4": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      512,
+      350,
+      512,
+      345
+    ],
+    "muzzle": [
+      267,
+      41
+    ],
+    "pivot": [
+      83,
+      66
+    ]
+  },
+  "rocket_t5": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      0,
+      695,
+      512,
+      405
+    ],
+    "muzzle": [
+      341,
+      49
+    ],
+    "pivot": [
+      264,
+      180
+    ]
+  },
+  "rocket_t6": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      512,
+      695,
+      512,
+      405
+    ],
+    "muzzle": [
+      326,
+      35
+    ],
+    "pivot": [
+      80,
+      76
+    ]
+  },
+  "rocket_t7": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      0,
+      1100,
+      559,
+      436
+    ],
+    "muzzle": [
+      371,
+      74
+    ],
+    "pivot": [
+      86,
+      74
+    ]
+  },
+  "core_rocket": {
+    "atlas": "rocket-tiers",
+    "rect": [
+      591,
+      1110,
+      390,
+      375
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+# Node / TypeScript dependencies and generated output
+node_modules/
+/dist/
+/build/
+/out/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Downloaded toolchains, exported games and local QA output
+/.tools/
+/release/
+/artifacts/
+/tmp/
+/temp/
+/start-game.cmd
+
+# Godot cache and compiled resources.
+# Keep *.png.import / *.wav.import settings and *.gd.uid identifiers in Git.
+.godot/
+.import/
+.mono/
+export_credentials.cfg
+*.gdc
+*.ctex
+*.stex
+*.translation
+
+# Never commit compiled executables, native runtimes or game packages
+*.[eE][xX][eE]
+*.[dD][lL][lL]
+*.com
+*.msi
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.app/
+*.so
+*.so.*
+*.dylib
+*.pdb
+*.obj
+*.o
+*.a
+*.lib
+*.wasm
+*.bin
+*.pck
+*.apk
+*.aab
+*.dmg
+*.iso
+*.[zZ][iI][pP]
+*.7z
+*.rar
+*.tar
+*.tgz
+*.gz
+*.xz
+*.tpz
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Local secrets, player data and machine-specific settings
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+*.pfx
+*.p12
+root-access.cfg
+preferences.cfg
+saves/
+*.save.json
+*.bak
+*.tmp
+*.dmp
+
+# Editor / OS metadata
+.idea/
+.vscode/
+.vs/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~

@@ -1,0 +1,345 @@
+{
+  "schemaVersion": 1,
+  "researchDate": "2026-10-01",
+  "timezone": "Asia/Shanghai",
+  "scope": "early_classic_background_materials",
+  "sources": [
+    {
+      "sourceId": "S00",
+      "title": "用户分享的坦克风云分析",
+      "url": "https://chatgpt.com/share/6abe6fd7-98e8-83e9-8421-d0a1bcac9269",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "D",
+      "accessStatus": "browser_body_read",
+      "supports": "分析框架与检索线索；不是原版规则来源"
+    },
+    {
+      "sourceId": "S01",
+      "title": "雷尚坦克风云官网",
+      "url": "https://tk.rayjoy.com/",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "官方入口与四类兵种；混合年代页面"
+    },
+    {
+      "sourceId": "S02",
+      "title": "坦克风云三周年庆典",
+      "url": "https://tk.rayjoy.com/wap.php?action=article&id=212",
+      "publicationDate": "2016-11-23",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "回溯2013-11-23；后期将领授勋"
+    },
+    {
+      "sourceId": "S03",
+      "title": "真悦公司历程",
+      "url": "https://www.rjoy.com/about.html",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "2014年1月全球上线；港台巨炮连队"
+    },
+    {
+      "sourceId": "S04",
+      "title": "TapTap坦克风云产品页",
+      "url": "https://www.taptap.cn/app/35038",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "B",
+      "accessStatus": "web_body_read",
+      "supports": "厂商与平台2017-01-12字段；不作为游戏诞生日期"
+    },
+    {
+      "sourceId": "S05",
+      "title": "新兵调教坦克风云入门指南",
+      "url": "https://news.17173.com/content/03312014/114231772.shtml",
+      "publicationDate": "2014-03-31",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "B",
+      "accessStatus": "web_body_read_with_ai_notice",
+      "supports": "五资源、部分克制、军团门槛与采运；页面有第三方AI提示"
+    },
+    {
+      "sourceId": "S06",
+      "title": "4399坦克风云战火新手攻略",
+      "url": "https://news.4399.com/gonglue/tkfy/xinde/m/370500.html",
+      "publicationDate": "2014-03-27",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "B",
+      "accessStatus": "browser_body_read_after_web_decode_failure",
+      "supports": "工厂与自动战斗；资源、指挥官图示入口"
+    },
+    {
+      "sourceId": "S07",
+      "title": "4399坦克风云角色科技",
+      "url": "https://news.4399.com/gonglue/tkfy/xinde/m/370620.html",
+      "publicationDate": "2014-03-27",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "B",
+      "accessStatus": "browser_body_read",
+      "supports": "17项角色科技和每级5%的公开描述"
+    },
+    {
+      "sourceId": "S08",
+      "title": "4399坦克风云指挥官属性",
+      "url": "https://news.4399.com/gonglue/tkfy/xinde/m/370587.html",
+      "publicationDate": "2014-03-27",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "B",
+      "accessStatus": "browser_body_read",
+      "supports": "统率、战力、军衔、声望、荣誉；存在疑似笔误"
+    },
+    {
+      "sourceId": "S09",
+      "title": "全军突击单挑策略",
+      "url": "https://tk.rayjoy.com/tank/news/231.html",
+      "publicationDate": "2017-03-10",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "四类战车、统帅与部署；非首发年代"
+    },
+    {
+      "sourceId": "S10",
+      "title": "资源大作战打造最强主城",
+      "url": "https://tk.rayjoy.com/tank/news/232.html",
+      "publicationDate": "2017-03-17",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "自产、野矿、玩家基地掠夺"
+    },
+    {
+      "sourceId": "S11",
+      "title": "官网资源篇玩家心得",
+      "url": "https://tk.rayjoy.com/wap.php?action=article&id=61",
+      "publicationDate": "2016-09-05",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "侦察、水晶、修理、载重与兵损经验；无已核验比例"
+    },
+    {
+      "sourceId": "S12",
+      "title": "官网排兵布阵玩家心得",
+      "url": "https://tk.rayjoy.com/wap.php?action=article&id=62",
+      "publicationDate": "2016-09-05",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "火箭收益、站位与诱饵的特定版本观察"
+    },
+    {
+      "sourceId": "S13",
+      "title": "官网排兵布阵",
+      "url": "https://tk.rayjoy.com/tank/game_psp/tactics/149.html",
+      "publicationDate": "2016-10-21",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "注明玩家来源；四类团队效果方向"
+    },
+    {
+      "sourceId": "S14",
+      "title": "官网一些词缀解释",
+      "url": "https://tk.rayjoy.com/tank/game_psp/2016/1024/185.html",
+      "publicationDate": "2016-10-24",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "前后排编号、150%暴击和40回合的晚期描述"
+    },
+    {
+      "sourceId": "S15",
+      "title": "官网平民攻略",
+      "url": "https://tk.rayjoy.com/wap.php?action=article&id=63",
+      "publicationDate": "2016-09-05",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "发展路径与资源兵损取舍"
+    },
+    {
+      "sourceId": "S16",
+      "title": "官网综合汇总玩家心得",
+      "url": "https://tk.rayjoy.com/tank/game_psp/zonghe/150.html",
+      "publicationDate": "2016-10-21",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "后期系统与发展经验；概率技巧未验证"
+    },
+    {
+      "sourceId": "S17",
+      "title": "九游排兵布阵与独立评论区",
+      "url": "https://www.9game.cn/tkfyol/186385.html",
+      "publicationDate": "2014-03-27",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "B/C",
+      "accessStatus": "web_body_read",
+      "supports": "早期玩家攻略；同页评论跨多个年份，不能混用日期"
+    },
+    {
+      "sourceId": "S18",
+      "title": "TapTap坦克风云玩家评价",
+      "url": "https://www.taptap.cn/app/35038/review",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "可见怀旧、战友、付费和误消费个案；非代表性调查"
+    },
+    {
+      "sourceId": "S19",
+      "title": "TapTap坦克风云社区",
+      "url": "https://www.taptap.cn/app/35038/topic",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "C",
+      "accessStatus": "web_body_read",
+      "supports": "可见访问慢、渠道启动与闪退个案"
+    },
+    {
+      "sourceId": "T01",
+      "title": "PixiJS官方",
+      "url": "https://pixijs.com/",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "候选2D渲染方案；未冻结版本"
+    },
+    {
+      "sourceId": "T02",
+      "title": "Fastify官方文档",
+      "url": "https://fastify.dev/docs/latest/",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "候选HTTP接口框架；非原版技术证据"
+    },
+    {
+      "sourceId": "T03",
+      "title": "MDN IndexedDB API",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API",
+      "publicationDate": "2025-04-03",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "浏览器结构化事务存储"
+    },
+    {
+      "sourceId": "T04",
+      "title": "SQLite适用场景",
+      "url": "https://www.sqlite.org/whentouse.html",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "本地文件与小型应用服务器存储的选择依据"
+    },
+    {
+      "sourceId": "L01",
+      "title": "手游之家百科",
+      "url": "https://hjtk.sjwyx.com/baike/",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "D",
+      "accessStatus": "direct_fetch_403_search_excerpt_only",
+      "supports": "暴击双倍等只作线索，不能确定修复率、技能值或完整原版规则"
+    },
+    {
+      "sourceId": "S20",
+      "title": "4399坦克风云战车相克表",
+      "url": "https://news.4399.com/gonglue/tkfy/xinde/m/370619.html",
+      "publicationDate": "2014-03-27",
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "B",
+      "accessStatus": "browser_body_read_after_navigation_timeout",
+      "supports": "四类克制表、125%和80%的公开描述；自行火炮对坦克原文有坦克炮字样"
+    },
+    {
+      "sourceId": "S21",
+      "title": "官网游戏资料索引",
+      "url": "https://tk.rayjoy.com/tank/game_data/index.html",
+      "publicationDate": null,
+      "accessDate": "2026-10-01",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "资料标题及发布时间，不证明系统首次出现时间"
+    },
+    {
+      "sourceId": "S22",
+      "title": "官网主战坦克目录",
+      "url": "https://tk.rayjoy.com/wap.php?action=list&id=14",
+      "publicationDate": null,
+      "accessDate": "2026-10-02",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "官方车型名称；跨年代目录，不证明单一早期版本的线性进阶或掉落规则"
+    },
+    {
+      "sourceId": "S23",
+      "title": "官网歼击车目录",
+      "url": "https://tk.rayjoy.com/wap.php?action=list&id=15",
+      "publicationDate": null,
+      "accessDate": "2026-10-02",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "官方车型名称；跨年代目录，不证明单一早期版本的线性进阶或掉落规则"
+    },
+    {
+      "sourceId": "S24",
+      "title": "官网自行火炮目录",
+      "url": "https://tk.rayjoy.com/wap.php?action=list&id=16",
+      "publicationDate": null,
+      "accessDate": "2026-10-02",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "官方车型名称；跨年代目录，不证明单一早期版本的线性进阶或掉落规则"
+    },
+    {
+      "sourceId": "S25",
+      "title": "官网火箭车目录",
+      "url": "https://tk.rayjoy.com/wap.php?action=list&id=17",
+      "publicationDate": null,
+      "accessDate": "2026-10-02",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "官方车型名称；跨年代目录，不证明单一早期版本的线性进阶或掉落规则"
+    },
+    {
+      "sourceId": "S-V07-01",
+      "title": "官网：总攻击新姿势，攻击方式革新",
+      "url": "https://tk.rayjoy.com/wap.php?action=article&id=95",
+      "publicationDate": "2016-10-08",
+      "accessDate": "2026-10-02",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "原有模式为坦克横排、歼击车单体、火炮纵列、火箭全体；区别于后续进阶模式"
+    },
+    {
+      "sourceId": "S-V07-02",
+      "title": "官网：自行火炮机动发力",
+      "url": "https://tk.rayjoy.com/wap.php?action=article&id=93",
+      "publicationDate": "2016-10-08",
+      "accessDate": "2026-10-02",
+      "evidenceGrade": "A",
+      "accessStatus": "web_body_read",
+      "supports": "火炮对坦克为 80%；高仰角炮管作为外形区分依据"
+    }
+  ],
+  "limitations": [
+    "没有登录或实测原版客户端",
+    "没有完整早期单位、建筑、科技和关卡数据表",
+    "没有读取贴吧正文",
+    "未以下载站改包或私服数据作为可信规则",
+    "技术架构与多数数值是本项目建议"
+  ]
+}

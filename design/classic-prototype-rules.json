@@ -1,0 +1,1318 @@
+{
+  "schemaVersion": 1,
+  "rulesetId": "classic-prototype-v0.1",
+  "title": "坦克风云经典玩法原型规则",
+  "status": "proposal_not_original_game_data",
+  "researchDate": "2026-10-01",
+  "scope": "single_player_classic_prototype",
+  "note": "所有数值为设计建议；部分克制系数参考公开历史描述，映射与未列项仍有不确定性。该文件不是完整可运行游戏内容包。",
+  "defaultProvenance": {
+    "status": "proposed",
+    "sourceIds": [],
+    "appliesToEra": "TankStorm prototype",
+    "note": "为可玩原型自拟，未验证原版"
+  },
+  "battle": {
+    "slots": 6,
+    "frontSlots": [
+      1,
+      2,
+      3
+    ],
+    "rearSlots": [
+      4,
+      5,
+      6
+    ],
+    "columns": [
+      [
+        1,
+        4
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        3,
+        6
+      ]
+    ],
+    "maxRounds": 40,
+    "initiativeTie": "attacker_first",
+    "turnOrder": "alternate_sides_by_slot",
+    "timeoutOutcome": "defender_wins",
+    "hpModel": "aggregate_hp_ceil_survivors",
+    "partialHpAfterBattle": "restore_surviving_units_to_full",
+    "multiplierScale": 10000,
+    "rounding": "floor_once_after_full_product",
+    "baseHitBps": 9500,
+    "minHitBps": 1000,
+    "maxHitBps": 10000,
+    "baseCritBps": 1000,
+    "maxCritBps": 7500,
+    "critMultiplierBps": 15000,
+    "rng": {
+      "algorithm": "xorshift32",
+      "seedMin": 1,
+      "seedMax": 4294967295,
+      "shifts": [
+        13,
+        17,
+        5
+      ],
+      "drawsPerTarget": 2,
+      "targetOrder": "slot_id_ascending",
+      "rollBps": "floor(uint32*10000/4294967296)",
+      "consumeCritRollOnMiss": true
+    },
+    "auraStackPolicy": "maximum_per_class_recompute_at_action_start",
+    "classProfiles": {
+      "tank": {
+        "attackPattern": "front_row",
+        "patternMultiplierBps": 10000,
+        "damageType": "cannon",
+        "aura": {
+          "kind": "team_attack_bps",
+          "value": 500
+        }
+      },
+      "tank_destroyer": {
+        "attackPattern": "single_front",
+        "patternMultiplierBps": 10000,
+        "damageType": "piercing",
+        "aura": {
+          "kind": "team_crit_bps",
+          "value": 500
+        }
+      },
+      "spg": {
+        "attackPattern": "column",
+        "patternMultiplierBps": 10000,
+        "damageType": "explosive",
+        "aura": {
+          "kind": "reduce_piercing_damage_bps",
+          "value": 1000
+        }
+      },
+      "rocket": {
+        "attackPattern": "all_alive",
+        "patternMultiplierBps": 10000,
+        "damageType": "rocket",
+        "aura": {
+          "kind": "reduce_rocket_damage_bps",
+          "value": 1000
+        }
+      }
+    },
+    "losses": {
+      "training": {
+        "repairableBps": 0,
+        "destroyedBps": 0,
+        "persistCasualties": false
+      },
+      "stage": {
+        "repairableBps": 7000,
+        "persistCasualties": true,
+        "rounding": "aggregate_per_unit_id_floor_repairable"
+      },
+      "world": {
+        "repairableBps": 7000,
+        "persistCasualties": true,
+        "rounding": "aggregate_per_unit_id_floor_repairable"
+      },
+      "dungeon": {
+        "repairableBps": 7000,
+        "persistCasualties": true,
+        "rounding": "aggregate_per_unit_id_floor_repairable"
+      }
+    },
+    "unsupportedInV01": [
+      "chain_attack",
+      "alien_tech",
+      "generals",
+      "aircraft",
+      "super_weapons"
+    ],
+    "defaultUnitStats": {
+      "accuracyBps": 0,
+      "evasionBps": 0,
+      "critBps": 0,
+      "armorBps": 0
+    }
+  },
+  "economy": {
+    "resources": [
+      "iron",
+      "oil",
+      "lead",
+      "titanium",
+      "crystal"
+    ],
+    "optionalCurrency": "gold",
+    "initialWallet": {
+      "iron": 1500,
+      "oil": 1500,
+      "lead": 1500,
+      "titanium": 0,
+      "crystal": 500,
+      "gold": 50
+    },
+    "productionCapacityPerResource": 10000,
+    "protectedPerResource": 1000,
+    "overflow": {
+      "passive": "stop_at_capacity",
+      "external_income": "allow_over_capacity",
+      "discardPassiveRemainderWhenFull": true
+    },
+    "baseRatePerHour": {
+      "iron": 120,
+      "oil": 100,
+      "lead": 80,
+      "titanium": 20,
+      "crystal": 30
+    },
+    "titaniumUnlockHeadquartersLevel": 8,
+    "buildingCurve": {
+      "baseDurationSeconds": 30,
+      "costGrowth": 1.35,
+      "durationGrowth": 1.3,
+      "rateGrowth": 1.2,
+      "runtime": "precomputed_integer_tables_required"
+    },
+    "techBonusPerLevelBps": 500,
+    "modifierPolicy": "add_within_group_multiply_between_groups",
+    "durationPolicy": "base_duration_divided_by_one_plus_speed_bonus",
+    "costCharged": "on_submit",
+    "completedUnitCredit": "per_unit_completion",
+    "cancelProductionRefund": "full_original_cost_of_uncompleted_units",
+    "cancelRepairRefund": "full_original_crystal_cost_of_uncompleted_units",
+    "activeJobCap": {
+      "building": 1,
+      "research": 1,
+      "production": 1,
+      "repair": 1
+    },
+    "waitingQueueSupported": false,
+    "taskSpeedPolicy": "snapshot_at_job_start"
+  },
+  "commander": {
+    "leadershipLevelMin": 1,
+    "perSlotCapacityBase": 20,
+    "perLeadershipLevelExtra": 5,
+    "leadershipUpgrade": "deterministic_with_books",
+    "maxPrototypeHeadquartersLevel": 20
+  },
+  "world": {
+    "size": {
+      "width": 32,
+      "height": 32
+    },
+    "defaultSeed": 2601001,
+    "marchSlots": 2,
+    "distance": "euclidean",
+    "travelSecondsPerTile": 8,
+    "travelRounding": "ceil",
+    "mineGatherRatePerHour": 300,
+    "cargoWeightPerResourceUnit": 1,
+    "lootOrder": [
+      "iron",
+      "oil",
+      "lead",
+      "titanium",
+      "crystal"
+    ],
+    "resourceCredit": "on_arrival_home",
+    "scoutCost": {
+      "crystal": 3
+    },
+    "minePvpInM1": false,
+    "npcMayAttackOccupiedMineInM1": false,
+    "defeatedGathererOverflow": "destroy_excess_cargo_no_automatic_transfer",
+    "eventPriority": {
+      "job_completion": 10,
+      "mine_depletion": 20,
+      "march_arrival_or_return": 30,
+      "daily_reset": 40,
+      "npc_decision": 50
+    }
+  },
+  "time": {
+    "authorityUnit": "utc_milliseconds",
+    "displayTimezone": "Asia/Shanghai",
+    "dailyResetTimezone": "Asia/Shanghai",
+    "backwardClockPolicy": "clamp_to_last_world_time"
+  },
+  "content": {
+    "unitCount": 28,
+    "tutorialStagesPlanned": 12,
+    "stagesIncluded": false,
+    "buildingLevelTablesIncluded": false,
+    "questTablesIncluded": false
+  },
+  "units": [
+    {
+      "unitId": "tank_t1",
+      "classId": "tank",
+      "tier": 1,
+      "name": "轻型坦克",
+      "attack": 20,
+      "hp": 160,
+      "load": 10,
+      "cost": {
+        "iron": 20,
+        "oil": 10,
+        "lead": 5,
+        "titanium": 0,
+        "crystal": 0
+      },
+      "productionSeconds": 5,
+      "repairCost": {
+        "crystal": 3
+      },
+      "repairSeconds": 5,
+      "unlock": {
+        "factoryLevel": 1
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "tank_destroyer_t1",
+      "classId": "tank_destroyer",
+      "tier": 1,
+      "name": "轻型歼击车",
+      "attack": 32,
+      "hp": 90,
+      "load": 8,
+      "cost": {
+        "iron": 15,
+        "oil": 10,
+        "lead": 15,
+        "titanium": 0,
+        "crystal": 0
+      },
+      "productionSeconds": 6,
+      "repairCost": {
+        "crystal": 3
+      },
+      "repairSeconds": 5,
+      "unlock": {
+        "factoryLevel": 1
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "spg_t1",
+      "classId": "spg",
+      "tier": 1,
+      "name": "轻型自行火炮",
+      "attack": 18,
+      "hp": 80,
+      "load": 8,
+      "cost": {
+        "iron": 12,
+        "oil": 12,
+        "lead": 18,
+        "titanium": 0,
+        "crystal": 0
+      },
+      "productionSeconds": 7,
+      "repairCost": {
+        "crystal": 3
+      },
+      "repairSeconds": 5,
+      "unlock": {
+        "factoryLevel": 1
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "rocket_t1",
+      "classId": "rocket",
+      "tier": 1,
+      "name": "轻型火箭车",
+      "attack": 18,
+      "hp": 70,
+      "load": 8,
+      "cost": {
+        "iron": 10,
+        "oil": 15,
+        "lead": 20,
+        "titanium": 0,
+        "crystal": 0
+      },
+      "productionSeconds": 9,
+      "repairCost": {
+        "crystal": 3
+      },
+      "repairSeconds": 5,
+      "unlock": {
+        "factoryLevel": 1
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "tank_t2",
+      "classId": "tank",
+      "tier": 2,
+      "name": "中型坦克",
+      "attack": 40,
+      "hp": 320,
+      "load": 15,
+      "cost": {
+        "iron": 60,
+        "oil": 30,
+        "lead": 15,
+        "titanium": 5,
+        "crystal": 0
+      },
+      "productionSeconds": 10,
+      "repairCost": {
+        "crystal": 6
+      },
+      "repairSeconds": 10,
+      "unlock": {
+        "factoryLevel": 6
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "tank_destroyer_t2",
+      "classId": "tank_destroyer",
+      "tier": 2,
+      "name": "中型歼击车",
+      "attack": 64,
+      "hp": 180,
+      "load": 12,
+      "cost": {
+        "iron": 45,
+        "oil": 30,
+        "lead": 45,
+        "titanium": 5,
+        "crystal": 0
+      },
+      "productionSeconds": 12,
+      "repairCost": {
+        "crystal": 6
+      },
+      "repairSeconds": 10,
+      "unlock": {
+        "factoryLevel": 6
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "spg_t2",
+      "classId": "spg",
+      "tier": 2,
+      "name": "中型自行火炮",
+      "attack": 36,
+      "hp": 160,
+      "load": 12,
+      "cost": {
+        "iron": 36,
+        "oil": 36,
+        "lead": 54,
+        "titanium": 5,
+        "crystal": 0
+      },
+      "productionSeconds": 14,
+      "repairCost": {
+        "crystal": 6
+      },
+      "repairSeconds": 10,
+      "unlock": {
+        "factoryLevel": 6
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "rocket_t2",
+      "classId": "rocket",
+      "tier": 2,
+      "name": "中型火箭车",
+      "attack": 36,
+      "hp": 140,
+      "load": 12,
+      "cost": {
+        "iron": 30,
+        "oil": 45,
+        "lead": 60,
+        "titanium": 5,
+        "crystal": 0
+      },
+      "productionSeconds": 18,
+      "repairCost": {
+        "crystal": 6
+      },
+      "repairSeconds": 10,
+      "unlock": {
+        "factoryLevel": 6
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "tank_t3",
+      "classId": "tank",
+      "tier": 3,
+      "name": "重型坦克",
+      "attack": 80,
+      "hp": 640,
+      "load": 20,
+      "cost": {
+        "iron": 180,
+        "oil": 90,
+        "lead": 45,
+        "titanium": 15,
+        "crystal": 0
+      },
+      "productionSeconds": 20,
+      "repairCost": {
+        "crystal": 12
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 12
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "tank_destroyer_t3",
+      "classId": "tank_destroyer",
+      "tier": 3,
+      "name": "重型歼击车",
+      "attack": 128,
+      "hp": 360,
+      "load": 16,
+      "cost": {
+        "iron": 135,
+        "oil": 90,
+        "lead": 135,
+        "titanium": 15,
+        "crystal": 0
+      },
+      "productionSeconds": 24,
+      "repairCost": {
+        "crystal": 12
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 12
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "spg_t3",
+      "classId": "spg",
+      "tier": 3,
+      "name": "重型自行火炮",
+      "attack": 72,
+      "hp": 320,
+      "load": 16,
+      "cost": {
+        "iron": 108,
+        "oil": 108,
+        "lead": 162,
+        "titanium": 15,
+        "crystal": 0
+      },
+      "productionSeconds": 28,
+      "repairCost": {
+        "crystal": 12
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 12
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "rocket_t3",
+      "classId": "rocket",
+      "tier": 3,
+      "name": "重型火箭车",
+      "attack": 72,
+      "hp": 280,
+      "load": 16,
+      "cost": {
+        "iron": 90,
+        "oil": 135,
+        "lead": 180,
+        "titanium": 15,
+        "crystal": 0
+      },
+      "productionSeconds": 36,
+      "repairCost": {
+        "crystal": 12
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 12
+      },
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": []
+      }
+    },
+    {
+      "unitId": "tank_t4",
+      "classId": "tank",
+      "tier": 4,
+      "name": "豹式坦克",
+      "attack": 120,
+      "hp": 960,
+      "load": 30,
+      "cost": {
+        "iron": 324,
+        "oil": 162,
+        "lead": 81,
+        "titanium": 47,
+        "crystal": 0
+      },
+      "productionSeconds": 30,
+      "repairCost": {
+        "crystal": 40
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 14
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "tank_destroyer_t4",
+      "classId": "tank_destroyer",
+      "tier": 4,
+      "name": "追猎者歼击车",
+      "attack": 192,
+      "hp": 540,
+      "load": 26,
+      "cost": {
+        "iron": 243,
+        "oil": 162,
+        "lead": 243,
+        "titanium": 47,
+        "crystal": 0
+      },
+      "productionSeconds": 34,
+      "repairCost": {
+        "crystal": 40
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 14
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "spg_t4",
+      "classId": "spg",
+      "tier": 4,
+      "name": "野蜂自行火炮",
+      "attack": 108,
+      "hp": 480,
+      "load": 26,
+      "cost": {
+        "iron": 195,
+        "oil": 195,
+        "lead": 292,
+        "titanium": 47,
+        "crystal": 0
+      },
+      "productionSeconds": 38,
+      "repairCost": {
+        "crystal": 40
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 14
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "rocket_t4",
+      "classId": "rocket",
+      "tier": 4,
+      "name": "冰雹火箭车",
+      "attack": 108,
+      "hp": 420,
+      "load": 26,
+      "cost": {
+        "iron": 162,
+        "oil": 243,
+        "lead": 324,
+        "titanium": 47,
+        "crystal": 0
+      },
+      "productionSeconds": 46,
+      "repairCost": {
+        "crystal": 40
+      },
+      "repairSeconds": 20,
+      "unlock": {
+        "factoryLevel": 14
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "tank_t5",
+      "classId": "tank",
+      "tier": 5,
+      "name": "天启坦克",
+      "attack": 180,
+      "hp": 1440,
+      "load": 40,
+      "cost": {
+        "iron": 486,
+        "oil": 243,
+        "lead": 122,
+        "titanium": 81,
+        "crystal": 0
+      },
+      "productionSeconds": 40,
+      "repairCost": {
+        "crystal": 50
+      },
+      "repairSeconds": 25,
+      "unlock": {
+        "factoryLevel": 16
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "tank_destroyer_t5",
+      "classId": "tank_destroyer",
+      "tier": 5,
+      "name": "猛虎歼击车",
+      "attack": 288,
+      "hp": 810,
+      "load": 36,
+      "cost": {
+        "iron": 365,
+        "oil": 243,
+        "lead": 365,
+        "titanium": 81,
+        "crystal": 0
+      },
+      "productionSeconds": 44,
+      "repairCost": {
+        "crystal": 50
+      },
+      "repairSeconds": 25,
+      "unlock": {
+        "factoryLevel": 16
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "spg_t5",
+      "classId": "spg",
+      "tier": 5,
+      "name": "黑豹自行火炮",
+      "attack": 162,
+      "hp": 720,
+      "load": 36,
+      "cost": {
+        "iron": 292,
+        "oil": 292,
+        "lead": 438,
+        "titanium": 81,
+        "crystal": 0
+      },
+      "productionSeconds": 48,
+      "repairCost": {
+        "crystal": 50
+      },
+      "repairSeconds": 25,
+      "unlock": {
+        "factoryLevel": 16
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "rocket_t5",
+      "classId": "rocket",
+      "tier": 5,
+      "name": "尖啸火箭车",
+      "attack": 162,
+      "hp": 630,
+      "load": 36,
+      "cost": {
+        "iron": 243,
+        "oil": 365,
+        "lead": 486,
+        "titanium": 81,
+        "crystal": 0
+      },
+      "productionSeconds": 56,
+      "repairCost": {
+        "crystal": 50
+      },
+      "repairSeconds": 25,
+      "unlock": {
+        "factoryLevel": 16
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "tank_t6",
+      "classId": "tank",
+      "tier": 6,
+      "name": "虎王坦克",
+      "attack": 268,
+      "hp": 2144,
+      "load": 50,
+      "cost": {
+        "iron": 724,
+        "oil": 362,
+        "lead": 181,
+        "titanium": 121,
+        "crystal": 0
+      },
+      "productionSeconds": 50,
+      "repairCost": {
+        "crystal": 60
+      },
+      "repairSeconds": 30,
+      "unlock": {
+        "factoryLevel": 18
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "tank_destroyer_t6",
+      "classId": "tank_destroyer",
+      "tier": 6,
+      "name": "萤火虫歼击车",
+      "attack": 429,
+      "hp": 1206,
+      "load": 46,
+      "cost": {
+        "iron": 543,
+        "oil": 362,
+        "lead": 543,
+        "titanium": 121,
+        "crystal": 0
+      },
+      "productionSeconds": 54,
+      "repairCost": {
+        "crystal": 60
+      },
+      "repairSeconds": 30,
+      "unlock": {
+        "factoryLevel": 18
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "spg_t6",
+      "classId": "spg",
+      "tier": 6,
+      "name": "猛犸自行火炮",
+      "attack": 241,
+      "hp": 1072,
+      "load": 46,
+      "cost": {
+        "iron": 435,
+        "oil": 435,
+        "lead": 652,
+        "titanium": 121,
+        "crystal": 0
+      },
+      "productionSeconds": 58,
+      "repairCost": {
+        "crystal": 60
+      },
+      "repairSeconds": 30,
+      "unlock": {
+        "factoryLevel": 18
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "rocket_t6",
+      "classId": "rocket",
+      "tier": 6,
+      "name": "怒狮火箭车",
+      "attack": 241,
+      "hp": 938,
+      "load": 46,
+      "cost": {
+        "iron": 362,
+        "oil": 543,
+        "lead": 724,
+        "titanium": 121,
+        "crystal": 0
+      },
+      "productionSeconds": 66,
+      "repairCost": {
+        "crystal": 60
+      },
+      "repairSeconds": 30,
+      "unlock": {
+        "factoryLevel": 18
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "tank_t7",
+      "classId": "tank",
+      "tier": 7,
+      "name": "虎II坦克",
+      "attack": 384,
+      "hp": 3072,
+      "load": 60,
+      "cost": {
+        "iron": 1037,
+        "oil": 519,
+        "lead": 260,
+        "titanium": 167,
+        "crystal": 0
+      },
+      "productionSeconds": 60,
+      "repairCost": {
+        "crystal": 70
+      },
+      "repairSeconds": 35,
+      "unlock": {
+        "factoryLevel": 20
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "tank_destroyer_t7",
+      "classId": "tank_destroyer",
+      "tier": 7,
+      "name": "黑鹰歼击车",
+      "attack": 614,
+      "hp": 1728,
+      "load": 56,
+      "cost": {
+        "iron": 778,
+        "oil": 519,
+        "lead": 778,
+        "titanium": 167,
+        "crystal": 0
+      },
+      "productionSeconds": 64,
+      "repairCost": {
+        "crystal": 70
+      },
+      "repairSeconds": 35,
+      "unlock": {
+        "factoryLevel": 20
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "spg_t7",
+      "classId": "spg",
+      "tier": 7,
+      "name": "T90自行火炮",
+      "attack": 346,
+      "hp": 1536,
+      "load": 56,
+      "cost": {
+        "iron": 623,
+        "oil": 623,
+        "lead": 934,
+        "titanium": 167,
+        "crystal": 0
+      },
+      "productionSeconds": 68,
+      "repairCost": {
+        "crystal": 70
+      },
+      "repairSeconds": 35,
+      "unlock": {
+        "factoryLevel": 20
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    },
+    {
+      "unitId": "rocket_t7",
+      "classId": "rocket",
+      "tier": 7,
+      "name": "飓风火箭车",
+      "attack": 346,
+      "hp": 1344,
+      "load": 56,
+      "cost": {
+        "iron": 519,
+        "oil": 778,
+        "lead": 1037,
+        "titanium": 167,
+        "crystal": 0
+      },
+      "productionSeconds": 76,
+      "repairCost": {
+        "crystal": 70
+      },
+      "repairSeconds": 35,
+      "unlock": {
+        "factoryLevel": 20
+      },
+      "provenance": {
+        "status": "singleplayer_adaptation_official_names",
+        "sourceIds": [
+          "S22",
+          "S23",
+          "S24",
+          "S25"
+        ]
+      }
+    }
+  ],
+  "matchup": [
+    {
+      "attackerClass": "tank",
+      "defenderClass": "tank",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "tank",
+      "defenderClass": "tank_destroyer",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "tank",
+      "defenderClass": "spg",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "tank",
+      "defenderClass": "rocket",
+      "multiplierBps": 12500,
+      "provenance": {
+        "status": "verified_public",
+        "sourceIds": [
+          "S05",
+          "S20"
+        ],
+        "appliesToEra": "2014 public guide; client unverified",
+        "note": "两篇2014年公开攻略交叉核对，客户端未验证"
+      }
+    },
+    {
+      "attackerClass": "tank_destroyer",
+      "defenderClass": "tank",
+      "multiplierBps": 12500,
+      "provenance": {
+        "status": "verified_public",
+        "sourceIds": [
+          "S05",
+          "S20"
+        ],
+        "appliesToEra": "2014 public guide; client unverified",
+        "note": "两篇2014年公开攻略交叉核对，客户端未验证"
+      }
+    },
+    {
+      "attackerClass": "tank_destroyer",
+      "defenderClass": "tank_destroyer",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "tank_destroyer",
+      "defenderClass": "spg",
+      "multiplierBps": 8000,
+      "provenance": {
+        "status": "verified_public",
+        "sourceIds": [
+          "S05",
+          "S20"
+        ],
+        "appliesToEra": "2014 public guide; client unverified",
+        "note": "两篇2014年公开攻略交叉核对，客户端未验证"
+      }
+    },
+    {
+      "attackerClass": "tank_destroyer",
+      "defenderClass": "rocket",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "spg",
+      "defenderClass": "tank",
+      "multiplierBps": 8000,
+      "provenance": {
+        "status": "inferred_mapping",
+        "sourceIds": [
+          "S05",
+          "S20"
+        ],
+        "appliesToEra": "2014 public guide; client unverified",
+        "note": "来源写坦克炮，原型暂映射坦克；客户端未验证"
+      }
+    },
+    {
+      "attackerClass": "spg",
+      "defenderClass": "tank_destroyer",
+      "multiplierBps": 12500,
+      "provenance": {
+        "status": "verified_public",
+        "sourceIds": [
+          "S05",
+          "S20"
+        ],
+        "appliesToEra": "2014 public guide; client unverified",
+        "note": "两篇2014年公开攻略交叉核对，客户端未验证"
+      }
+    },
+    {
+      "attackerClass": "spg",
+      "defenderClass": "spg",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "spg",
+      "defenderClass": "rocket",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "rocket",
+      "defenderClass": "tank",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    },
+    {
+      "attackerClass": "rocket",
+      "defenderClass": "tank_destroyer",
+      "multiplierBps": 8000,
+      "provenance": {
+        "status": "verified_public",
+        "sourceIds": [
+          "S05",
+          "S20"
+        ],
+        "appliesToEra": "2014 public guide; client unverified",
+        "note": "两篇2014年公开攻略交叉核对，客户端未验证"
+      }
+    },
+    {
+      "attackerClass": "rocket",
+      "defenderClass": "spg",
+      "multiplierBps": 12500,
+      "provenance": {
+        "status": "verified_public",
+        "sourceIds": [
+          "S05",
+          "S20"
+        ],
+        "appliesToEra": "2014 public guide; client unverified",
+        "note": "两篇2014年公开攻略交叉核对，客户端未验证"
+      }
+    },
+    {
+      "attackerClass": "rocket",
+      "defenderClass": "rocket",
+      "multiplierBps": 10000,
+      "provenance": {
+        "status": "proposed",
+        "sourceIds": [],
+        "appliesToEra": "prototype",
+        "note": "原文未列此对，暂以1.0补全"
+      }
+    }
+  ]
+}
