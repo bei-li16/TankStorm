@@ -1,0 +1,37 @@
+{
+  "method": "built-in image_gen; new assets, copied unchanged with generated alpha; no raster post-edit",
+  "assets": [
+    {
+      "asset": "tank_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: TankStorm VI tier military upgrade component inventory icon. One isolated olive green reinforced steel armor module with compact single turret traverse ring and bolted armor plates, square shape. Realistic painted 3D game inventory asset, three-quarter overhead orthographic view, soft upper-left studio light, gunmetal metal and restrained identifying color accent, practical mechanical object, modest level VI equipment, less ornate than elite tier. Strong distinct silhouette readable at 48 pixels. Centered with 12% clear margin. Transparent background, no pedestal, no words, no letters, no gems, no gold jewelry, no badges, no humans."
+    },
+    {
+      "asset": "tank_destroyer_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: TankStorm VI tier military upgrade component inventory icon. One isolated steel blue long sabot penetrator and compact targeting optic in a triangular machined steel breech housing. Realistic painted 3D game inventory asset, three-quarter overhead orthographic view, soft upper-left studio light, gunmetal metal and restrained identifying color accent, practical mechanical object, modest level VI equipment, less ornate than elite tier. Strong distinct silhouette readable at 48 pixels. Centered with 12% clear margin. Transparent background, no pedestal, no words, no letters, no gems, no gold jewelry, no badges, no humans."
+    },
+    {
+      "asset": "spg_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: TankStorm VI tier military upgrade component inventory icon. One isolated muted amber artillery recoil hydraulic cylinder with open breech and short ribbed recoil cradle, broad rectangular form. Realistic painted 3D game inventory asset, three-quarter overhead orthographic view, soft upper-left studio light, gunmetal metal and restrained identifying color accent, practical mechanical object, modest level VI equipment, less ornate than elite tier. Strong distinct silhouette readable at 48 pixels. Centered with 12% clear margin. Transparent background, no pedestal, no words, no letters, no gems, no gold jewelry, no badges, no humans."
+    },
+    {
+      "asset": "rocket_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: TankStorm VI tier military upgrade component inventory icon. One isolated muted violet compact twin rocket launch tube pack with exposed ignition connectors and steel cradle. Realistic painted 3D game inventory asset, three-quarter overhead orthographic view, soft upper-left studio light, gunmetal metal and restrained identifying color accent, practical mechanical object, modest level VI equipment, less ornate than elite tier. Strong distinct silhouette readable at 48 pixels. Centered with 12% clear margin. Transparent background, no pedestal, no words, no letters, no gems, no gold jewelry, no badges, no humans."
+    },
+    {
+      "asset": "ground_industrial.png",
+      "prompt": "Use case: stylized-concept. Asset: seamless repeating ground texture for a realistic isometric military strategy game. weathered gunmetal gray military industrial concrete yard, broad subtle concrete slabs and faint parallel tank tread scuffs, tiny rust stains. Straight top-down orthographic surface, no horizon, no perspective vanishing point. Flat diffuse daylight, very low contrast, mid dark values, quiet texture so tanks and labels read clearly. Entire image ground material, designed to tile without visible seams. No tanks, no buildings, no people, no large cracks, no text, no UI, no borders. High-quality realistic 3D game environment texture, square."
+    },
+    {
+      "asset": "ground_oilfield.png",
+      "prompt": "Use case: stylized-concept. Asset: seamless repeating ground texture for a realistic isometric military strategy game. dusty ochre oilfield hardpan, subtle brown petroleum stains embedded in compact gravel, faint vehicle tracks, no puddle reflections. Straight top-down orthographic surface, no horizon, no perspective vanishing point. Flat diffuse daylight, very low contrast, mid dark values, quiet texture so tanks and labels read clearly. Entire image ground material, designed to tile without visible seams. No tanks, no buildings, no people, no large cracks, no text, no UI, no borders. High-quality realistic 3D game environment texture, square."
+    },
+    {
+      "asset": "ground_fortress.png",
+      "prompt": "Use case: stylized-concept. Asset: seamless repeating ground texture for a realistic isometric military strategy game. cold gray limestone fortification ground, chipped broad weathered concrete slabs mixed with fine pale gravel, restrained sand dust. Straight top-down orthographic surface, no horizon, no perspective vanishing point. Flat diffuse daylight, very low contrast, mid dark values, quiet texture so tanks and labels read clearly. Entire image ground material, designed to tile without visible seams. No tanks, no buildings, no people, no large cracks, no text, no UI, no borders. High-quality realistic 3D game environment texture, square."
+    },
+    {
+      "asset": "ground_proving.png",
+      "prompt": "Use case: stylized-concept. Asset: seamless repeating ground texture for a realistic isometric military strategy game. olive gray military proving ground test concrete with small sparse faded off-white calibration dashes, understated dark tire scuffs. Straight top-down orthographic surface, no horizon, no perspective vanishing point. Flat diffuse daylight, very low contrast, mid dark values, quiet texture so tanks and labels read clearly. Entire image ground material, designed to tile without visible seams. No tanks, no buildings, no people, no large cracks, no text, no UI, no borders. High-quality realistic 3D game environment texture, square."
+    }
+  ]
+}

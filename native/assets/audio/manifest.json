@@ -1,0 +1,77 @@
+{
+  "method": "Original offline procedural Foley; deterministic seed 702026; 44.1 kHz 16-bit PCM mono",
+  "assets": {
+    "tank_fire": {
+      "file": "tank_fire.wav",
+      "description": "Short cannon crack, weighty bass kick and breech clack",
+      "seconds": 0.7,
+      "peak": 0.86,
+      "rms": 0.1361,
+      "spectralCentroidHz": 3042,
+      "sha256": "9103674422f32ac6252fceb178524ed1963de2e61131dea51d6af69624373f55"
+    },
+    "tank_impact": {
+      "file": "tank_impact.wav",
+      "description": "Dense armor clang, compact explosive thud and debris",
+      "seconds": 0.9,
+      "peak": 0.86,
+      "rms": 0.1627,
+      "spectralCentroidHz": 3086,
+      "sha256": "f731f974a7d677dc4b109540e39fdc56748e999db02f24f8f457e049aff9abc9"
+    },
+    "tank_destroyer_fire": {
+      "file": "tank_destroyer_fire.wav",
+      "description": "Very sharp high velocity snap and brief supersonic whistle",
+      "seconds": 0.62,
+      "peak": 0.86,
+      "rms": 0.1201,
+      "spectralCentroidHz": 6331,
+      "sha256": "f3484e4950d6dc4209f889893b7c622aed6ba0940f4dd57e85bc573225a06ea0"
+    },
+    "tank_destroyer_impact": {
+      "file": "tank_destroyer_impact.wav",
+      "description": "Bright piercing metallic clang and scattering fragments",
+      "seconds": 0.82,
+      "peak": 0.86,
+      "rms": 0.1149,
+      "spectralCentroidHz": 6269,
+      "sha256": "662b60587367926f0f95e502c6e4ee9df1f0ae5bb853f336881ea7e299dce3ce"
+    },
+    "spg_fire": {
+      "file": "spg_fire.wav",
+      "description": "Deep resonant howitzer boom with rolling low thunder",
+      "seconds": 1.12,
+      "peak": 0.86,
+      "rms": 0.1918,
+      "spectralCentroidHz": 1274,
+      "sha256": "8d13dbc31a14da65aad2f1ae40ea93317e146a6d820c291c2b1283e700e35557"
+    },
+    "spg_impact": {
+      "file": "spg_impact.wav",
+      "description": "Large high explosive burst, prolonged rumble and falling debris",
+      "seconds": 1.32,
+      "peak": 0.86,
+      "rms": 0.1911,
+      "spectralCentroidHz": 1349,
+      "sha256": "b7fc526f5056dd01bd5eb3232004b0e2cf134603e39b0fb8f42250450dafd881"
+    },
+    "rocket_fire": {
+      "file": "rocket_fire.wav",
+      "description": "Six staggered rocket ignitions with sustained rising jet whoosh",
+      "seconds": 0.94,
+      "peak": 0.86,
+      "rms": 0.1694,
+      "spectralCentroidHz": 5540,
+      "sha256": "f7c56f5e8753ffe3a90dac256b281bee933d2b132457c8f4d7a5982b06f0a7e4"
+    },
+    "rocket_impact": {
+      "file": "rocket_impact.wav",
+      "description": "Staggered cluster explosions and short rattling debris",
+      "seconds": 1.14,
+      "peak": 0.86,
+      "rms": 0.1591,
+      "spectralCentroidHz": 4143,
+      "sha256": "e72d23198b78bf85234f804538a9dafa3b3ec2fa514b72eabacf43b701f80543"
+    }
+  }
+}

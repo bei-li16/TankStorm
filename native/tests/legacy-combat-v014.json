@@ -1,0 +1,2081 @@
+{
+  "volleys": [
+    {
+      "id": "",
+      "title": "交替行动与逐发射击",
+      "at": 0,
+      "seed": 1,
+      "ruleset": "classic-combat-v0.14",
+      "winner": 1,
+      "rounds": 1,
+      "mode": "training",
+      "tactics": {
+        "teams": [
+          {
+            "initiative": 100,
+            "extraFire": 100
+          },
+          {
+            "initiative": 100,
+            "extraFire": 100
+          }
+        ],
+        "firstSide": 0,
+        "chances": [
+          1000,
+          1000
+        ]
+      },
+      "actions": [
+        {
+          "id": 1,
+          "round": 1,
+          "exchange": 1,
+          "side": 0,
+          "from": 1,
+          "extra": false,
+          "extraRoll": 3165,
+          "extraTriggered": false
+        },
+        {
+          "id": 2,
+          "round": 1,
+          "exchange": 1,
+          "side": 1,
+          "from": 1,
+          "extra": false
+        }
+      ],
+      "initial": [
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 10,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 1600,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ],
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 2,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 3,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 4,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 5,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 6,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ]
+      ],
+      "final": [
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 10,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 0,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ],
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15685,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 2,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15685,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 3,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15790,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 4,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 5,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 6,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ]
+      ],
+      "events": [
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 3,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 1,
+          "damage": 315,
+          "critical": true,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15685
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 2,
+          "shots": 3,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 2,
+          "damage": 315,
+          "critical": true,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15685
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 3,
+          "shots": 3,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 3,
+          "damage": 210,
+          "critical": false,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15790
+        },
+        {
+          "action": 2,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 1,
+          "from": 1,
+          "to": 1,
+          "damage": 2079,
+          "critical": false,
+          "miss": false,
+          "remaining": 0,
+          "hp": 0
+        }
+      ],
+      "casualties": [
+        {
+          "unitId": "tank_t1",
+          "sent": 10,
+          "survived": 0,
+          "lost": 10,
+          "repairable": 0,
+          "destroyed": 0
+        }
+      ],
+      "rewards": {},
+      "summary": {
+        "teams": [
+          {
+            "rows": [
+              {
+                "slot": 1,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 10,
+                "survived": 0,
+                "lost": 10,
+                "damage": 840,
+                "received": 1600
+              }
+            ],
+            "sent": 10,
+            "survived": 0,
+            "lost": 10,
+            "damage": 840,
+            "nominal": 840,
+            "critical": 2,
+            "miss": 0
+          },
+          {
+            "rows": [
+              {
+                "slot": 1,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 1600,
+                "received": 315
+              },
+              {
+                "slot": 2,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 315
+              },
+              {
+                "slot": 3,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 210
+              },
+              {
+                "slot": 4,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 100,
+                "lost": 0,
+                "damage": 0,
+                "received": 0
+              },
+              {
+                "slot": 5,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 100,
+                "lost": 0,
+                "damage": 0,
+                "received": 0
+              },
+              {
+                "slot": 6,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 100,
+                "lost": 0,
+                "damage": 0,
+                "received": 0
+              }
+            ],
+            "sent": 600,
+            "survived": 597,
+            "lost": 3,
+            "damage": 1600,
+            "nominal": 2079,
+            "critical": 0,
+            "miss": 0
+          }
+        ],
+        "feedback": [
+          "有 5 个空阵位：补齐部队可增加行动轮转和承伤分担。",
+          "前排全部失守：补充承伤单位或提升装甲与生命科技。",
+          "敌军仍保留 99% 生命；检查出战数量、火力科技与攻击覆盖。"
+        ],
+        "repairable": 0,
+        "destroyed": 0
+      }
+    },
+    {
+      "id": "",
+      "title": "交替行动与逐发射击",
+      "at": 0,
+      "seed": 1,
+      "ruleset": "classic-combat-v0.14",
+      "winner": 1,
+      "rounds": 1,
+      "mode": "training",
+      "tactics": {
+        "teams": [
+          {
+            "initiative": 100,
+            "extraFire": 100
+          },
+          {
+            "initiative": 100,
+            "extraFire": 100
+          }
+        ],
+        "firstSide": 0,
+        "chances": [
+          1000,
+          1000
+        ]
+      },
+      "actions": [
+        {
+          "id": 1,
+          "round": 1,
+          "exchange": 1,
+          "side": 0,
+          "from": 1,
+          "extra": false,
+          "extraRoll": 3165,
+          "extraTriggered": false
+        },
+        {
+          "id": 2,
+          "round": 1,
+          "exchange": 1,
+          "side": 1,
+          "from": 1,
+          "extra": false
+        }
+      ],
+      "initial": [
+        [
+          {
+            "slot": 1,
+            "unitId": "spg_t1",
+            "classId": "spg",
+            "count": 10,
+            "attack": 18,
+            "hp": 80,
+            "totalHp": 800,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ],
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 2,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 3,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 4,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 5,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 6,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ]
+      ],
+      "final": [
+        [
+          {
+            "slot": 1,
+            "unitId": "spg_t1",
+            "classId": "spg",
+            "count": 10,
+            "attack": 18,
+            "hp": 80,
+            "totalHp": 0,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ],
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15784,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 2,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 3,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 4,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15784,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 5,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 6,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ]
+      ],
+      "events": [
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 2,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 1,
+          "damage": 216,
+          "critical": true,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15784
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 2,
+          "shots": 2,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 4,
+          "damage": 216,
+          "critical": true,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15784
+        },
+        {
+          "action": 2,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 1,
+          "from": 1,
+          "to": 1,
+          "damage": 2079,
+          "critical": false,
+          "miss": false,
+          "remaining": 0,
+          "hp": 0
+        }
+      ],
+      "casualties": [
+        {
+          "unitId": "spg_t1",
+          "sent": 10,
+          "survived": 0,
+          "lost": 10,
+          "repairable": 0,
+          "destroyed": 0
+        }
+      ],
+      "rewards": {},
+      "summary": {
+        "teams": [
+          {
+            "rows": [
+              {
+                "slot": 1,
+                "unitId": "spg_t1",
+                "name": "轻型自行火炮",
+                "sent": 10,
+                "survived": 0,
+                "lost": 10,
+                "damage": 432,
+                "received": 800
+              }
+            ],
+            "sent": 10,
+            "survived": 0,
+            "lost": 10,
+            "damage": 432,
+            "nominal": 432,
+            "critical": 2,
+            "miss": 0
+          },
+          {
+            "rows": [
+              {
+                "slot": 1,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 800,
+                "received": 216
+              },
+              {
+                "slot": 2,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 100,
+                "lost": 0,
+                "damage": 0,
+                "received": 0
+              },
+              {
+                "slot": 3,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 100,
+                "lost": 0,
+                "damage": 0,
+                "received": 0
+              },
+              {
+                "slot": 4,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 216
+              },
+              {
+                "slot": 5,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 100,
+                "lost": 0,
+                "damage": 0,
+                "received": 0
+              },
+              {
+                "slot": 6,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 100,
+                "lost": 0,
+                "damage": 0,
+                "received": 0
+              }
+            ],
+            "sent": 600,
+            "survived": 598,
+            "lost": 2,
+            "damage": 800,
+            "nominal": 2079,
+            "critical": 0,
+            "miss": 0
+          }
+        ],
+        "feedback": [
+          "有 5 个空阵位：补齐部队可增加行动轮转和承伤分担。",
+          "前排全部失守：补充承伤单位或提升装甲与生命科技。",
+          "敌军仍保留 100% 生命；检查出战数量、火力科技与攻击覆盖。",
+          "我方 2/2 次命中处于克制劣势；在编队攻击图解中调整对应车系。"
+        ],
+        "repairable": 0,
+        "destroyed": 0
+      }
+    },
+    {
+      "id": "",
+      "title": "交替行动与逐发射击",
+      "at": 0,
+      "seed": 1,
+      "ruleset": "classic-combat-v0.14",
+      "winner": 1,
+      "rounds": 1,
+      "mode": "training",
+      "tactics": {
+        "teams": [
+          {
+            "initiative": 100,
+            "extraFire": 100
+          },
+          {
+            "initiative": 100,
+            "extraFire": 100
+          }
+        ],
+        "firstSide": 0,
+        "chances": [
+          1000,
+          1000
+        ]
+      },
+      "actions": [
+        {
+          "id": 1,
+          "round": 1,
+          "exchange": 1,
+          "side": 0,
+          "from": 1,
+          "extra": false,
+          "extraRoll": 3165,
+          "extraTriggered": false
+        },
+        {
+          "id": 2,
+          "round": 1,
+          "exchange": 1,
+          "side": 1,
+          "from": 1,
+          "extra": false
+        }
+      ],
+      "initial": [
+        [
+          {
+            "slot": 1,
+            "unitId": "rocket_t1",
+            "classId": "rocket",
+            "count": 10,
+            "attack": 18,
+            "hp": 70,
+            "totalHp": 700,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ],
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 2,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 3,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 4,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 5,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 6,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 16000,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ]
+      ],
+      "final": [
+        [
+          {
+            "slot": 1,
+            "unitId": "rocket_t1",
+            "classId": "rocket",
+            "count": 10,
+            "attack": 18,
+            "hp": 70,
+            "totalHp": 0,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ],
+        [
+          {
+            "slot": 1,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15730,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 2,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15730,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 3,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15820,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 4,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15820,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 5,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15820,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          },
+          {
+            "slot": 6,
+            "unitId": "tank_t1",
+            "classId": "tank",
+            "count": 100,
+            "attack": 20,
+            "hp": 160,
+            "totalHp": 15820,
+            "accuracy": 0,
+            "evasion": 0,
+            "crit": 0,
+            "armor": 0,
+            "initiative": 100,
+            "extraFire": 100,
+            "attackBonus": 10000
+          }
+        ]
+      ],
+      "events": [
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 1,
+          "damage": 270,
+          "critical": true,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15730
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 2,
+          "damage": 270,
+          "critical": true,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15730
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 3,
+          "damage": 180,
+          "critical": false,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15820
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 4,
+          "damage": 180,
+          "critical": false,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15820
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 5,
+          "damage": 180,
+          "critical": false,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15820
+        },
+        {
+          "action": 1,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 0,
+          "from": 1,
+          "to": 6,
+          "damage": 180,
+          "critical": false,
+          "miss": false,
+          "remaining": 99,
+          "hp": 15820
+        },
+        {
+          "action": 2,
+          "exchange": 1,
+          "shot": 1,
+          "shots": 1,
+          "extra": false,
+          "round": 1,
+          "side": 1,
+          "from": 1,
+          "to": 1,
+          "damage": 3898,
+          "critical": true,
+          "miss": false,
+          "remaining": 0,
+          "hp": 0
+        }
+      ],
+      "casualties": [
+        {
+          "unitId": "rocket_t1",
+          "sent": 10,
+          "survived": 0,
+          "lost": 10,
+          "repairable": 0,
+          "destroyed": 0
+        }
+      ],
+      "rewards": {},
+      "summary": {
+        "teams": [
+          {
+            "rows": [
+              {
+                "slot": 1,
+                "unitId": "rocket_t1",
+                "name": "轻型火箭车",
+                "sent": 10,
+                "survived": 0,
+                "lost": 10,
+                "damage": 1260,
+                "received": 700
+              }
+            ],
+            "sent": 10,
+            "survived": 0,
+            "lost": 10,
+            "damage": 1260,
+            "nominal": 1260,
+            "critical": 2,
+            "miss": 0
+          },
+          {
+            "rows": [
+              {
+                "slot": 1,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 700,
+                "received": 270
+              },
+              {
+                "slot": 2,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 270
+              },
+              {
+                "slot": 3,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 180
+              },
+              {
+                "slot": 4,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 180
+              },
+              {
+                "slot": 5,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 180
+              },
+              {
+                "slot": 6,
+                "unitId": "tank_t1",
+                "name": "轻型坦克",
+                "sent": 100,
+                "survived": 99,
+                "lost": 1,
+                "damage": 0,
+                "received": 180
+              }
+            ],
+            "sent": 600,
+            "survived": 594,
+            "lost": 6,
+            "damage": 700,
+            "nominal": 3898,
+            "critical": 1,
+            "miss": 0
+          }
+        ],
+        "feedback": [
+          "有 5 个空阵位：补齐部队可增加行动轮转和承伤分担。",
+          "前排全部失守：补充承伤单位或提升装甲与生命科技。",
+          "敌军仍保留 99% 生命；检查出战数量、火力科技与攻击覆盖。"
+        ],
+        "repairable": 0,
+        "destroyed": 0
+      }
+    }
+  ],
+  "extra": {
+    "id": "",
+    "title": "",
+    "at": 0,
+    "seed": 4096,
+    "ruleset": "classic-combat-v0.14",
+    "winner": 1,
+    "rounds": 1,
+    "mode": "training",
+    "tactics": {
+      "teams": [
+        {
+          "initiative": 100,
+          "extraFire": 100
+        },
+        {
+          "initiative": 100,
+          "extraFire": 100
+        }
+      ],
+      "firstSide": 0,
+      "chances": [
+        1000,
+        1000
+      ]
+    },
+    "actions": [
+      {
+        "id": 1,
+        "round": 1,
+        "exchange": 1,
+        "side": 0,
+        "from": 1,
+        "extra": false,
+        "extraRoll": 744,
+        "extraTriggered": true
+      },
+      {
+        "id": 2,
+        "round": 1,
+        "exchange": 1,
+        "side": 0,
+        "from": 1,
+        "extra": true
+      },
+      {
+        "id": 3,
+        "round": 1,
+        "exchange": 1,
+        "side": 1,
+        "from": 1,
+        "extra": false
+      }
+    ],
+    "initial": [
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 10,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 1600,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ],
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ]
+    ],
+    "final": [
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 10,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 0,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ],
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 15580,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ]
+    ],
+    "events": [
+      {
+        "action": 1,
+        "exchange": 1,
+        "shot": 1,
+        "shots": 1,
+        "extra": false,
+        "round": 1,
+        "side": 0,
+        "from": 1,
+        "to": 1,
+        "damage": 210,
+        "critical": false,
+        "miss": false,
+        "remaining": 99,
+        "hp": 15790
+      },
+      {
+        "action": 2,
+        "exchange": 1,
+        "shot": 1,
+        "shots": 1,
+        "extra": true,
+        "round": 1,
+        "side": 0,
+        "from": 1,
+        "to": 1,
+        "damage": 210,
+        "critical": false,
+        "miss": false,
+        "remaining": 98,
+        "hp": 15580
+      },
+      {
+        "action": 3,
+        "exchange": 1,
+        "shot": 1,
+        "shots": 1,
+        "extra": false,
+        "round": 1,
+        "side": 1,
+        "from": 1,
+        "to": 1,
+        "damage": 2058,
+        "critical": false,
+        "miss": false,
+        "remaining": 0,
+        "hp": 0
+      }
+    ],
+    "casualties": [
+      {
+        "unitId": "tank_t1",
+        "sent": 10,
+        "survived": 0,
+        "lost": 10,
+        "repairable": 0,
+        "destroyed": 0
+      }
+    ],
+    "rewards": {},
+    "summary": {
+      "teams": [
+        {
+          "rows": [
+            {
+              "slot": 1,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 10,
+              "survived": 0,
+              "lost": 10,
+              "damage": 420,
+              "received": 1600
+            }
+          ],
+          "sent": 10,
+          "survived": 0,
+          "lost": 10,
+          "damage": 420,
+          "nominal": 420,
+          "critical": 0,
+          "miss": 0
+        },
+        {
+          "rows": [
+            {
+              "slot": 1,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 100,
+              "survived": 98,
+              "lost": 2,
+              "damage": 1600,
+              "received": 420
+            }
+          ],
+          "sent": 100,
+          "survived": 98,
+          "lost": 2,
+          "damage": 1600,
+          "nominal": 2058,
+          "critical": 0,
+          "miss": 0
+        }
+      ],
+      "feedback": [
+        "有 5 个空阵位：补齐部队可增加行动轮转和承伤分担。",
+        "前排全部失守：补充承伤单位或提升装甲与生命科技。",
+        "敌军仍保留 97% 生命；检查出战数量、火力科技与攻击覆盖。"
+      ],
+      "repairable": 0,
+      "destroyed": 0
+    }
+  },
+  "historical": {
+    "id": "",
+    "title": "交替行动与逐发射击",
+    "at": 0,
+    "seed": 1,
+    "ruleset": "classic-combat-v0.9",
+    "winner": 1,
+    "rounds": 1,
+    "mode": "training",
+    "initial": [
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 10,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 1600,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ],
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 2,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 3,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 4,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 5,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 6,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ]
+    ],
+    "final": [
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 10,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 0,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ],
+      [
+        {
+          "slot": 1,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 15685,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 2,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 15685,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 3,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 15790,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 4,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 5,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        },
+        {
+          "slot": 6,
+          "unitId": "tank_t1",
+          "classId": "tank",
+          "count": 100,
+          "attack": 20,
+          "hp": 160,
+          "totalHp": 16000,
+          "accuracy": 0,
+          "evasion": 0,
+          "crit": 0,
+          "armor": 0,
+          "initiative": 100,
+          "extraFire": 100,
+          "attackBonus": 10000
+        }
+      ]
+    ],
+    "events": [
+      {
+        "exchange": 1,
+        "round": 1,
+        "side": 0,
+        "from": 1,
+        "to": 1,
+        "damage": 315,
+        "critical": true,
+        "miss": false,
+        "remaining": 99,
+        "hp": 15685
+      },
+      {
+        "exchange": 1,
+        "round": 1,
+        "side": 0,
+        "from": 1,
+        "to": 2,
+        "damage": 315,
+        "critical": true,
+        "miss": false,
+        "remaining": 99,
+        "hp": 15685
+      },
+      {
+        "exchange": 1,
+        "round": 1,
+        "side": 0,
+        "from": 1,
+        "to": 3,
+        "damage": 210,
+        "critical": false,
+        "miss": false,
+        "remaining": 99,
+        "hp": 15790
+      },
+      {
+        "exchange": 1,
+        "round": 1,
+        "side": 1,
+        "from": 1,
+        "to": 1,
+        "damage": 2079,
+        "critical": false,
+        "miss": false,
+        "remaining": 0,
+        "hp": 0
+      }
+    ],
+    "casualties": [
+      {
+        "unitId": "tank_t1",
+        "sent": 10,
+        "survived": 0,
+        "lost": 10,
+        "repairable": 0,
+        "destroyed": 0
+      }
+    ],
+    "rewards": {},
+    "summary": {
+      "teams": [
+        {
+          "rows": [
+            {
+              "slot": 1,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 10,
+              "survived": 0,
+              "lost": 10,
+              "damage": 840,
+              "received": 1600
+            }
+          ],
+          "sent": 10,
+          "survived": 0,
+          "lost": 10,
+          "damage": 840,
+          "nominal": 840,
+          "critical": 2,
+          "miss": 0
+        },
+        {
+          "rows": [
+            {
+              "slot": 1,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 100,
+              "survived": 99,
+              "lost": 1,
+              "damage": 1600,
+              "received": 315
+            },
+            {
+              "slot": 2,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 100,
+              "survived": 99,
+              "lost": 1,
+              "damage": 0,
+              "received": 315
+            },
+            {
+              "slot": 3,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 100,
+              "survived": 99,
+              "lost": 1,
+              "damage": 0,
+              "received": 210
+            },
+            {
+              "slot": 4,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 100,
+              "survived": 100,
+              "lost": 0,
+              "damage": 0,
+              "received": 0
+            },
+            {
+              "slot": 5,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 100,
+              "survived": 100,
+              "lost": 0,
+              "damage": 0,
+              "received": 0
+            },
+            {
+              "slot": 6,
+              "unitId": "tank_t1",
+              "name": "轻型坦克",
+              "sent": 100,
+              "survived": 100,
+              "lost": 0,
+              "damage": 0,
+              "received": 0
+            }
+          ],
+          "sent": 600,
+          "survived": 597,
+          "lost": 3,
+          "damage": 1600,
+          "nominal": 2079,
+          "critical": 0,
+          "miss": 0
+        }
+      ],
+      "feedback": [
+        "有 5 个空阵位：补齐部队可增加行动轮转和承伤分担。",
+        "前排全部失守：补充承伤单位或提升装甲与生命科技。",
+        "敌军仍保留 99% 生命；检查出战数量、火力科技与攻击覆盖。"
+      ],
+      "repairable": 0,
+      "destroyed": 0
+    }
+  }
+}

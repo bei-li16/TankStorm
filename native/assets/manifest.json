@@ -1,0 +1,245 @@
+{
+  "schema": 1,
+  "date": "2026-10-02",
+  "tool": "Built-in image_gen.imagegen",
+  "artDirection": "写实微缩装甲、橄榄绿军械、暖色金属照明。全部原创生成素材，非原游戏提取。",
+  "rendering": "军械库使用原有七阶图集；战场新增双朝向等距图集，共 56 个视图，以 battle-sprites.json 标定透明轮廓和炮口。",
+  "limitations": [
+    "战车为二维透明贴图，非三维模型。",
+    "高阶分支和数值采用单机平衡，原版名称来源详见兵种扩展文档。"
+  ],
+  "assets": [
+    {
+      "path": "native/assets/tank.png",
+      "sourceFile": "exec-a67c0849-9a40-44fe-a170-6443d4f10990.png",
+      "prompt": "Create an original high quality videogame asset: a miniature olive green tank model for a nostalgic strategy game. Isometric three quarter view, looking down from front left, front points toward lower left. Highly detailed painted model with weathered olive metal, tread wheels, hatches, panels, rivets and warm studio lighting. Attractive realistic 3D rendered toy model style. One complete vehicle fully visible, centered, large in the frame. No people, no insignia, no words. Transparent background, landscape aspect ratio.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/tank_destroyer.png",
+      "sourceFile": "exec-2d287093-1b05-42e6-bb66-538ba34eb2e2.png",
+      "prompt": "Original videogame sprite of ONE miniature olive green tank destroyer model. A low turretless tracked armored vehicle with a fixed angular sloped casemate and an exceptionally long barrel; squat body, exposed tracks, spare track links, two small hatches. Detailed weathered painted model, worn edges, tiny rivets, rubber track wheels, warm studio lighting, realistic high-quality 3D game art. Isometric view from elevated front-left, nose points lower-left. Entire vehicle visible with a little margin, occupies 85 percent of the landscape image. Transparent background. No people, words, symbols, logo or ground.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/spg.png",
+      "sourceFile": "exec-68d58536-c5c2-455a-8b92-5ffdd1fcc781.png",
+      "prompt": "A premium strategy videogame inventory sprite: a fictional olive-green tracked support vehicle miniature, tall rectangular turret, long raised tube on the turret, chunky tracked chassis and engine grilles, distinct tall silhouette. Looks like a hand-painted collectible scale model, crisp complex mechanical detail, beautiful warm studio lighting, subtly worn paint, copper edge highlights. Isometric camera from elevated front-left, nose oriented bottom-left. One model only, fully visible, centered, large, landscape canvas, transparent background, no ground, no writing or symbols.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/rocket.png",
+      "sourceFile": "exec-49f6788b-49a8-4fbd-86ac-e81a42b2acb3.png",
+      "prompt": "Create an original nostalgic strategy videogame inventory sprite, ONE detailed miniature olive green six-wheel rocket truck model. Boxy vintage cab, large tires, an angled rack of many parallel launcher tubes above the rear deck. Painted model kit aesthetic, intricate mechanical panels and bolts, realistic worn olive paint and warm studio highlights. Isometric elevated front-left view, cab and front of vehicle oriented lower-left. Full vehicle visible, large centered model with small safety margin on landscape canvas. Transparent background. No ground plane, no people, no text, no insignia.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/resources.png",
+      "sourceFile": "exec-ccc99b80-6389-4c92-a344-9a439538495c.png",
+      "prompt": "A single game UI resource icon atlas, transparent background, exactly six icons arranged in a perfectly regular THREE columns by TWO rows grid, equal square cells. Wide 3:2 canvas. Each icon centered entirely inside its own cell, generous transparent gutter, nothing crossing cell boundaries. Top row from left to right: rugged silver iron ore chunks with a small ingot; two dark olive petroleum barrels with a copper cap; dark blue-grey lead ingots stacked in a pyramid. Bottom row from left to right: luminous brushed pale silver titanium ingots with blue rim light; cluster of faceted cyan-blue crystals; stacked gleaming gold coins. Premium realistic hand painted 3D inventory art for an industrial military strategy game, warm studio highlights, rich materials, clear silhouettes and tiny details, consistent perspective and lighting. No text, no labels, no frames, no ground, no extra objects, no logos.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/battlefield.png",
+      "sourceFile": "exec-094c2721-3f71-40aa-86c1-883436f0c8f3.png",
+      "prompt": "Background plate for a premium nostalgic military strategy videogame battle screen, wide panoramic 16:9 composition, camera elevated isometric looking down across a huge open dusty grey-brown plain. The CENTRAL EIGHTY PERCENT is empty flat ground with subtle tire tracks, fine gravel and patchy short dry grass, evenly lit and uncluttered so vehicle sprites can be placed there. A distant line of dark pine trees, small concrete bunkers, low hills and broken telegraph poles only along the FAR TOP edge. Small rocky berms only in extreme bottom corners. Warm evening light from top left, muted desaturated olive and sand palette, soft atmospheric haze, realistic detailed painted game environment with material texture. No vehicles, no people, no words, no UI, no markers, no grid. Crisp ground texture, cinematic but functional playable arena. Landscape.",
+      "transparent": false
+    },
+    {
+      "path": "native/assets/worldmap.png",
+      "sourceFile": "exec-5c8778dc-7ae4-4f22-b77e-e80baa6d77fc.png",
+      "prompt": "Top-down orthographic strategic world map background for a high quality military strategy PC game. A broad temperate valley viewed straight down, no horizon. Detailed miniature landscape, rolling forested green hills at the edges, a sinuous blue-grey river running north to south in the left third with two small stone bridges, branching tan dirt roads, scattered farms and tiny quarries, small rocky ridges, open grass plains mostly in center and right. Consistent tiny terrain scale across the entire map, soft shadows and subdued olive/sage/ochre colors. Sophisticated hand-painted realistic cartography style, natural irregular landscape, fine terrain texture. The terrain must be quiet enough for many location icons overlaid later. Entire canvas fully covered. No labels, text, markers, grid, UI, vehicles, flags or borders. Wide landscape 16:10 canvas.",
+      "transparent": false
+    },
+    {
+      "path": "native/assets/emblem.png",
+      "sourceFile": "exec-cda6febf-b781-47b8-8402-017b23179757.png",
+      "prompt": "An original premium PC strategy game insignia icon, one compact circular aged bronze and gunmetal officer badge. A small stylized tank silhouette embossed in brushed gold metal at its center, angular shield behind it, symmetrical oak-leaf laurel ring, three small riveted stars on the upper rim. Elegant strong readable silhouette, intricate engraved lines and beveled surfaces, warm dramatic studio highlights, dark military green enamel insets. High quality realistic 3D product render, straight-on front view, centered and fills 85 percent of square canvas. Transparent background, no text, no letters, no national symbols. Designed to work both as an app icon and an in-game commander emblem.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/tank-tiers.png",
+      "sourceFile": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-8a52a16d-9468-45ad-a7cf-54d11294f771.png",
+      "prompt": "Create ONE production-ready game sprite atlas PNG, transparent background, high resolution portrait 1024x1536 or larger same 2:3 aspect. Exactly 2 columns by 4 rows of equal rectangular cells; no dividers no text. Each cell centered with 10 percent transparent padding; NOTHING overlaps cell boundaries. Seven DISTINCT olive military tank miniature 3D models, row-major: 1 tiny light riveted tank, 2 medium round turret tank, 3 heavy broad armor tank, 4 Panther tank long gun sloped armor, 5 original Apocalypse double-barrel superheavy tank, 6 King Tiger angular heavy tank camouflaged olive ochre, 7 futuristic upgraded King Tiger II reactive armor double tracks and gold commander details. Eighth bottom-right cell contains a bronze and emerald mechanical reactor core icon, not a vehicle. All vehicles face RIGHT, all gun barrels point perfectly horizontally RIGHT in image plane (3 o'clock), wheels/tracks aligned left-right. Orthographic very high three-quarter overhead camera (70 degrees above ground), no perspective convergence. Highly detailed weathered metal armor, bolts, rubber tracks, realistic 3D game sprites, readable silhouettes, cinematic warm studio light from top left, subtle contact shadows only inside sprites. Consistent scale and camera, entire vehicle including long gun inside each cell. No base plates, ground, scenery, lettering, symbols, flags, UI or watermarks. Original art for offline strategy game. Crisp opaque painted metal; truly transparent surrounding pixels.",
+      "tool": "Built-in image_gen.imagegen",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/tank_destroyer-tiers.png",
+      "sourceFile": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-e9397bdb-d11b-4604-8622-c36902adac30.png",
+      "prompt": "Create ONE production-ready transparent game sprite atlas, portrait 2:3 aspect 1024x1536 or greater. Exactly TWO COLUMNS and FOUR ROWS of equal rectangular cells. No borders, dividers, text, UI, ground or markings. Row-major 7 distinct olive-drab vehicle miniatures and a mechanical core icon eighth cell. Each complete silhouette centered inside its cell with 10% clear transparent padding, no overlap between cells. All vehicle fronts face RIGHT, ALL gun barrels / launcher tubes point horizontally RIGHT in image plane (3 o'clock), never diagonally. Orthographic very high overhead three quarter view at 70 degrees above ground. Detailed photorealistic 3D miniature game art, weathered armor plates, bolts, track wheels, warm top left studio light, beautiful distinct silhouettes. True alpha around opaque metal sprites, no drop shadow beyond object. Consistent camera scale. The seven tank destroyers, row-major: 1 small light low casemate riveted destroyer; 2 medium low sloping assault gun; 3 heavy wide casemate long cannon; 4 Hetzer inspired compact wedge vehicle hunter; 5 Tiger hunter extremely long heavy antitank gun; 6 heavy advanced Firefly destroyer with angular turret and layered armor; 7 original Black Eagle elite destroyer with modern low turret and infrared electronics. Eighth cell: purple glowing bronze mechanical armored targeting core icon.",
+      "tool": "Built-in image_gen.imagegen",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/spg-tiers.png",
+      "sourceFile": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-7189cfcb-2d1f-4421-8f93-50530bb69f1a.png",
+      "prompt": "Create ONE production-ready transparent game sprite atlas, portrait 2:3 aspect 1024x1536 or greater. Exactly TWO COLUMNS and FOUR ROWS of equal rectangular cells. No borders, dividers, text, UI, ground or markings. Row-major 7 distinct olive-drab vehicle miniatures and a mechanical core icon eighth cell. Each complete silhouette centered inside its cell with 10% clear transparent padding, no overlap between cells. All vehicle fronts face RIGHT, ALL gun barrels / launcher tubes point horizontally RIGHT in image plane (3 o'clock), never diagonally. Orthographic very high overhead three quarter view at 70 degrees above ground. Detailed photorealistic 3D miniature game art, weathered armor plates, bolts, track wheels, warm top left studio light, beautiful distinct silhouettes. True alpha around opaque metal sprites, no drop shadow beyond object. Consistent camera scale. The seven self-propelled artillery, row-major: 1 small light tracked open cabin field gun; 2 medium tracked tall artillery cabin; 3 heavy howitzer armored cabin; 4 Hummel inspired open backed tracked artillery; 5 Black Panther artillery large enclosed gun mantlet; 6 Mammoth enormous heavy tracked artillery with massive cannon and heavy rectangular turret; 7 T90 artillery original advanced self propelled gun with composite armor and long thick cannon. Every cannon extends horizontally right. Eighth cell: glowing amber mechanical artillery reactor core icon.",
+      "tool": "Built-in image_gen.imagegen",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/rocket-tiers.png",
+      "sourceFile": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-ff9a755c-d806-4943-9de0-b82045e30618.png",
+      "prompt": "Create ONE production-ready transparent game sprite atlas, portrait 2:3 aspect 1024x1536 or greater. Exactly TWO COLUMNS and FOUR ROWS of equal rectangular cells. No borders, dividers, text, UI, ground or markings. Row-major 7 distinct olive-drab vehicle miniatures and a mechanical core icon eighth cell. Each complete silhouette centered inside its cell with 10% clear transparent padding, no overlap between cells. All vehicle fronts face RIGHT, ALL gun barrels / launcher tubes point horizontally RIGHT in image plane (3 o'clock), never diagonally. Orthographic very high overhead three quarter view at 70 degrees above ground. Detailed photorealistic 3D miniature game art, weathered armor plates, bolts, track wheels, warm top left studio light, beautiful distinct silhouettes. True alpha around opaque metal sprites, no drop shadow beyond object. Consistent camera scale. The seven rocket artillery vehicles, row-major: 1 light four wheeled launcher truck 6 tubes; 2 medium six wheeled launcher truck 12 tubes; 3 heavy eight wheeled truck 24 tubes; 4 Hail BM21 inspired olive truck with dense round-tube rack; 5 Screamer massive armored tracked rocket launcher multiple box pods; 6 Angry Lion superheavy tracked launcher with two enormous rectangular missile packs; 7 Hurricane advanced eight-wheel armored missile carrier large six cylindrical missile canisters. Launchers all oriented horizontally right, same as chassis direction. Eighth cell: orange red glowing military missile guidance core icon.",
+      "tool": "Built-in image_gen.imagegen",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/march_ground.png",
+      "sourceFile": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-3a8ea17a-78f9-4c04-a4c9-67c7ab8f593c.png",
+      "prompt": "Create a single seamless tileable overhead battlefield ground texture for a realistic miniature armored strategy game. Square 1024x1024. Dry worn olive-brown dirt, tiny pebbles, sparse dry grasses, subtle horizontal tread marks. Orthographic overhead camera, uniformly sized small details, neutral diffuse lighting. Seamlessly repeat in both axes, edge matching, no vignette, no shadows cast by off-image objects, no sky, tanks, objects, roads, text, UI, frame, border, bright spots, large rocks or horizon. Low contrast to keep tank units legible above it. Warm desaturated military landscape, photorealistic PBR diffuse ground texture.",
+      "tool": "Built-in image_gen.imagegen",
+      "transparent": false
+    },
+    {
+      "path": "native/assets/combat_fx.png",
+      "sourceFile": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-7cda65b0-19f4-48fe-ad55-3b3a19ddda2f.png",
+      "prompt": "Create ONE transparent videogame combat VFX atlas, square 1024x1024. Exactly 2 columns and 2 rows equal cells, no dividers or text. Center each distinct effect inside its cell leaving generous transparent margins. Top left: bright elongated golden orange cannon muzzle flash pointing horizontally RIGHT with sparks, left narrow attachment. Top right: realistic round orange fiery ground explosion with dark charcoal smoke and bright hot core. Bottom left: soft brown dust cloud trailing horizontally LEFT, transparent wisps. Bottom right: small glowing elongated yellow-white tracer shell flying RIGHT with tapered orange tail LEFT. Detailed cinematic VFX sprites for realistic 2D miniature tank battle. True transparent background, no opaque rectangle, no ground scenery, no objects outside the cells, no labels.",
+      "tool": "Built-in image_gen.imagegen",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/battle_tank.png",
+      "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-bd2ce487-9d5c-4039-ba5b-1b8cde0c3dfe.png",
+      "prompt": "Use case: stylized-concept. Asset type: native Windows isometric battle sprite atlas, real transparent alpha background. EXACTLY TWO COLUMNS and SEVEN ROWS, 14 complete isolated vehicles in a perfectly regular grid on portrait 1024x1536 canvas. Each row depicts the SAME vehicle from TWO opposing viewing directions. LEFT column: vehicle front and gun point toward upper right (northeast, screen vector +1,-0.55), camera sees rear left and roof. RIGHT column: front and gun point toward lower left (southwest, screen vector -1,+0.55), camera sees front right and roof. BOTH viewed from same high overhead isometric camera, roof very visible, vehicles upright. Subject rows top to bottom: tracked tanks: row1 small light round turret tank pale olive; row2 medium round turret tank light grey; row3 heavy broad turret tank silver-grey; row4 Panther angular sloped turret grey camouflage; row5 Apocalypse massive twin barrel tank dark red brown; row6 King Tiger angular heavy turret dark olive; row7 Tiger II upgraded heavy tank dark grey with layered armor. Style: crisp realistic old-school pre-rendered military strategy game miniature sprites, fine rivets, weathered metal, soft neutral daylight from upper left, subtle contact shadow, restrained muted olive/silver/burgundy. Each vehicle centered in its 512x219 cell, takes at most 80 percent width and 75 percent height so generous transparent gutters, all long barrels entirely inside cell. Consistent camera, scale and lighting. No ground, no scenery, no text, no labels, no grid lines, no UI, no insignia. Do not rotate an existing raster sprite upside down: render both proper isometric views. Sharp small silhouettes, not low angle side views.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/battle_tank_destroyer.png",
+      "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-8c3898b4-c2e5-4649-a92e-0c197bfdb833.png",
+      "prompt": "Use case: stylized-concept. Asset type: native Windows isometric battle sprite atlas, real transparent alpha background. EXACTLY TWO COLUMNS and SEVEN ROWS, 14 complete isolated vehicles in a perfectly regular grid on portrait 1024x1536 canvas. Each row depicts the SAME vehicle from TWO opposing viewing directions. LEFT column: vehicle front and gun point toward upper right (northeast, screen vector +1,-0.55), camera sees rear left and roof. RIGHT column: front and gun point toward lower left (southwest, screen vector -1,+0.55), camera sees front right and roof. BOTH viewed from same high overhead isometric camera, roof very visible, vehicles upright. Subject rows top to bottom: turretless tracked tank destroyers with very long fixed casemate guns: row1 light compact pale grey; row2 medium olive sloped casemate; row3 heavy broad grey; row4 angular Jagdpanther sandy camouflage; row5 massive twin cannon assault destroyer burgundy; row6 low futuristic hunter dark olive; row7 heavy reinforced hunter silver black. Style: crisp realistic old-school pre-rendered military strategy game miniature sprites, fine rivets, weathered metal, soft neutral daylight from upper left, subtle contact shadow, restrained muted olive/silver/burgundy. Each vehicle centered in its 512x219 cell, takes at most 80 percent width and 75 percent height so generous transparent gutters, all long barrels entirely inside cell. Consistent camera, scale and lighting. No ground, no scenery, no text, no labels, no grid lines, no UI, no insignia. Do not rotate an existing raster sprite upside down: render both proper isometric views. Sharp small silhouettes, not low angle side views.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/battle_spg.png",
+      "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-78a6cf36-46ba-4fbc-8413-aa20475234c2.png",
+      "prompt": "Use case: stylized-concept. Asset type: native Windows isometric battle sprite atlas, real transparent alpha background. EXACTLY TWO COLUMNS and SEVEN ROWS, 14 complete isolated vehicles in a perfectly regular grid on portrait 1024x1536 canvas. Each row depicts the SAME vehicle from TWO opposing viewing directions. LEFT column: vehicle front and gun point toward upper right (northeast, screen vector +1,-0.55), camera sees rear left and roof. RIGHT column: front and gun point toward lower left (southwest, screen vector -1,+0.55), camera sees front right and roof. BOTH viewed from same high overhead isometric camera, roof very visible, vehicles upright. Subject rows top to bottom: tracked self propelled artillery howitzers, raised long guns and tall boxy superstructures: row1 small open olive howitzer; row2 medium enclosed pale grey howitzer; row3 broad heavy olive artillery; row4 angular pale sand advanced howitzer; row5 heavy red brown dual tube artillery; row6 heavy dark green long range howitzer; row7 silver grey reinforced advanced howitzer. Style: crisp realistic old-school pre-rendered military strategy game miniature sprites, fine rivets, weathered metal, soft neutral daylight from upper left, subtle contact shadow, restrained muted olive/silver/burgundy. Each vehicle centered in its 512x219 cell, takes at most 80 percent width and 75 percent height so generous transparent gutters, all long barrels entirely inside cell. Consistent camera, scale and lighting. No ground, no scenery, no text, no labels, no grid lines, no UI, no insignia. Do not rotate an existing raster sprite upside down: render both proper isometric views. Sharp small silhouettes, not low angle side views.",
+      "transparent": true
+    },
+    {
+      "path": "native/assets/battle_rocket.png",
+      "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-543e4eca-c724-4991-a164-6066e7b12292.png",
+      "prompt": "Use case: precise-object-edit. Fix this 2 columns x7 rows transparent rocket vehicle sprite sheet. Keep every chassis, row layout, colors, camera, dimensions, and ALL seven right-column vehicles unchanged. In LEFT COLUMN rows 2, 3, 4, and 6, the rocket launcher tube racks currently point down-left, opposite to the truck front. Rotate ONLY each of these four launcher racks on its mount so its OPEN FIRING ENDS point UP-RIGHT / NORTHEAST (+x,-y), aligned with the chassis front like left-column rows 1,5,7. The open circular tube mouths must now be at UPPER RIGHT of each rack, closed rear ends at LOWER LEFT. All left-column rocket units fire northeast. Right-column units fire southwest as before. Preserve clean transparent alpha and exact cell positions. No new vehicles, text, ground, labels or decoration.",
+      "transparent": true,
+      "input": "native/assets/battle_rocket.png (initial generated atlas)",
+      "supersedes": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-6c827341-f0fc-4839-8ec7-7bd18edd86b8.png"
+    },
+    {
+      "path": "native/assets/battle_terrain.png",
+      "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-4ce7502d-82c2-4258-b187-85fff8151d92.png",
+      "prompt": "Use case: stylized-concept. Asset type: seamless tileable ground texture for an isometric military strategy battle. Wide 1536x1024. A perfectly flat grassland dirt field viewed from high overhead orthographic camera, fills entire frame, no horizon. Muted sage green dry grass mixed with tan grey compacted dusty earth, subtle faint narrow diagonal tire tracks, tiny gravel, natural patchy textures. Classic 2010s realistic prerendered strategy game art, neutral soft daylight, quiet ground so small grey tank sprites stand out. Texture of fine gravel/grass, no giant stones. Similar color to a dry European summer meadow. Even brightness, uniformly detailed and unobstructed, absolutely no objects, no bushes, no trees, no rocks bigger than a pebble, no craters, no vehicles, no terrain elevation, no writing, no UI, no border or vignette. All four edges tile seamlessly.",
+      "transparent": false
+    },
+    {
+      "path": "native/assets/battle_edges.png",
+      "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-5ba9b76d-0380-4e7a-91d2-09afc0d47ed1.png",
+      "prompt": "Use case: stylized-concept. Asset type: transparent scenery overlay for a 16:9 isometric military game battlefield. Wide landscape 1536x1024 canvas, real transparent background and transparent center. Create natural clumps of small olive-green bushes, tufts of dry grass and weathered grey limestone rocks ONLY at the extreme four corners and narrow outside left/right edges of the image. Center 85 percent MUST be fully empty transparent so vehicles and terrain can be drawn behind it. High overhead isometric camera, no horizon. Detailed realistic pre-rendered classic strategy game art, muted sage olive tan palette, midday soft shadows toward bottom-right. Foliage occupies less than 15 percent of whole image. No tanks, people, text, UI, floor, frame, vignette or solid background.",
+      "transparent": true
+    }
+  ],
+  "existingBase": {
+    "path": "native/assets/base.png",
+    "copiedFrom": "public/art/base.png",
+    "provenance": "public/art/manifest.json"
+  },
+  "v06": {
+    "method": "built-in imagegen; numeric alpha-hull metadata only",
+    "prompts": {
+      "mode": "built-in imagegen",
+      "styleReference": "User-supplied original Tank Storm battle screenshot; official unit taxonomy https://tk.rayjoy.com/tank/news/231.html",
+      "prompts": [
+        {
+          "name": "battle_tank",
+          "prompt": "Create a production-ready transparent game sprite atlas, exactly TWO COLUMNS and SEVEN ROWS (14 isolated sprites). Each row is a visibly DIFFERENT vehicle tier from 1 at top to 7 at bottom. Left and right in each row are the SAME design, opposite headings. LEFT: upright isometric three-quarter REAR view, driving and firing toward upper-right (NE). RIGHT: upright isometric three-quarter FRONT view, driving and firing toward lower-left (SW). 35-degree elevated camera, see top and side, classic 2010s pre-rendered military strategy miniature game, highly detailed crisp metal, strong readable silhouettes. Preserve same camera and lighting across all rows. Each sprite fully contained in its cell, wide transparent spacing, no overlap with neighbors. No labels, letters, numbers, frames, background, floor or ground shadows. Keep each vehicle ~80% cell width for detail; actual in-game sizes will be scaled. Main barrel points in exact same direction as hull. Increasing tiers must differ radically in geometry, barrel arrangement, hull length, armor thickness and color, NOT the same vehicle with small decorations. No statues, no people. True alpha transparency. TANKS: row1 light tan tiny riveted single round turret, skinny short cannon, 4 road wheels. Row2 olive medium WWII tank, sloped armor angular turret medium cannon 5 road wheels. Row3 silver-gray heavy tank with large domed turret, huge cannon thick treads 6 wheels. Row4 Leopard-inspired dark forest camo angular modern battle tank, long gun, wedge turret and side skirts. Row5 Apocalypse-inspired crimson-black superheavy DUAL PARALLEL CANNON turret, two clearly separate long barrels, wide twin tread chassis. Row6 King Tiger inspired slate-blue siege tank, very wide turret, huge single long stepped gun, reactive armor blocks, sensor mast, long 8-wheel chassis. Row7 Tiger II fictional advanced elite charcoal-and-brass superheavy, huge reinforced angular layered turret, TWO enormous parallel cannons, thick armored side skirts, long enormous chassis, small cyan optics and brass edging. All tiers instantly recognizable without labels."
+        },
+        {
+          "name": "battle_tank_destroyer",
+          "prompt": "Create a production-ready transparent game sprite atlas, exactly TWO COLUMNS and SEVEN ROWS (14 isolated sprites). Each row is a visibly DIFFERENT vehicle tier from 1 at top to 7 at bottom. Left and right in each row are the SAME design, opposite headings. LEFT: upright isometric three-quarter REAR view, driving and firing toward upper-right (NE). RIGHT: upright isometric three-quarter FRONT view, driving and firing toward lower-left (SW). 35-degree elevated camera, see top and side, classic 2010s pre-rendered military strategy miniature game, highly detailed crisp metal, strong readable silhouettes. Preserve same camera and lighting across all rows. Each sprite fully contained in its cell, wide transparent spacing, no overlap with neighbors. No labels, letters, numbers, frames, background, floor or ground shadows. Keep each vehicle ~80% cell width for detail; actual in-game sizes will be scaled. Main barrel points in exact same direction as hull. Increasing tiers must differ radically in geometry, barrel arrangement, hull length, armor thickness and color, NOT the same vehicle with small decorations. No statues, no people. True alpha transparency. TANK DESTROYERS with FIXED casemate guns, no rotating round turrets: row1 sand narrow low little four-wheel tracked casemate with short gun. Row2 olive wedge-front WWII assault gun with medium barrel 5 road wheels. Row3 silver heavy boxy high casemate and thick long gun wide treads. Row4 Hunter angular woodland camo low very long barrel tank-hunter with sloped wedge superstructure. Row5 Tiger TD crimson dark massive high steep front casemate, enormous single cannon, broad side armor. Row6 Firefly slate-blue futuristic flat casemate twin long parallel guns, radar sensors, reinforced side skirts and long tracks. Row7 Black Eagle black-and-brass huge stepped stealth casemate with massive dual rail-like cannons, long broad heavy chassis, layered angular armor, small cyan optics. Strong silhouette change each row."
+        },
+        {
+          "name": "battle_spg",
+          "prompt": "Create a production-ready transparent game sprite atlas, exactly TWO COLUMNS and SEVEN ROWS (14 isolated sprites). Each row is a visibly DIFFERENT vehicle tier from 1 at top to 7 at bottom. Left and right in each row are the SAME design, opposite headings. LEFT: upright isometric three-quarter REAR view, driving and firing toward upper-right (NE). RIGHT: upright isometric three-quarter FRONT view, driving and firing toward lower-left (SW). 35-degree elevated camera, see top and side, classic 2010s pre-rendered military strategy miniature game, highly detailed crisp metal, strong readable silhouettes. Preserve same camera and lighting across all rows. Each sprite fully contained in its cell, wide transparent spacing, no overlap with neighbors. No labels, letters, numbers, frames, background, floor or ground shadows. Keep each vehicle ~80% cell width for detail; actual in-game sizes will be scaled. Main barrel points in exact same direction as hull. Increasing tiers must differ radically in geometry, barrel arrangement, hull length, armor thickness and color, NOT the same vehicle with small decorations. No statues, no people. True alpha transparency. SELF PROPELLED ARTILLERY, ALL MUZZLES aim in hull heading. Row1 tiny tan open-top tracked short howitzer with thin forward cannon. Row2 olive open crew compartment medium long howitzer on 5-wheel chassis. Row3 silver bulky armored tall box turret with long elevated heavy cannon, 6-wheel chassis. Row4 Hummel-inspired dark forest camouflage long tall open rear cabin and enormous elevated artillery barrel. Row5 Panther artillery crimson-black tall closed angular superstructure with oversized thick long cannon, heavy armored track guards. Row6 Mammoth slate-blue massive tracked artillery TWO clearly separated parallel heavy long barrels pointing forward upper-right on LEFT, lower-left on RIGHT. Row7 T90 fantasy elite artillery black and brass extra-long eight-wheel tracked base, huge enclosed stepped turret, TWO gigantic long siege cannons, armored braces, small cyan targeting optics. Visibly evolving chassis shape and large complex silhouette."
+        },
+        {
+          "name": "battle_rocket",
+          "prompt": "Create a production-ready transparent game sprite atlas, exactly TWO COLUMNS and SEVEN ROWS (14 isolated sprites). Each row is a visibly DIFFERENT vehicle tier from 1 at top to 7 at bottom. Left and right in each row are the SAME design, opposite headings. LEFT: upright isometric three-quarter REAR view, driving and firing toward upper-right (NE). RIGHT: upright isometric three-quarter FRONT view, driving and firing toward lower-left (SW). 35-degree elevated camera, see top and side, classic 2010s pre-rendered military strategy miniature game, highly detailed crisp metal, strong readable silhouettes. Preserve same camera and lighting across all rows. Each sprite fully contained in its cell, wide transparent spacing, no overlap with neighbors. No labels, letters, numbers, frames, background, floor or ground shadows. Keep each vehicle ~80% cell width for detail; actual in-game sizes will be scaled. Main barrel points in exact same direction as hull. Increasing tiers must differ radically in geometry, barrel arrangement, hull length, armor thickness and color, NOT the same vehicle with small decorations. No statues, no people. True alpha transparency. ROCKET ARTILLERY. Each launcher fires FORWARD in same direction as vehicle. LEFT column: rocket tube OPEN MUZZLES on northeast upper-right end, tubes extend backward toward southwest; engine cab at northeast front. RIGHT column: open muzzles at southwest lower-left end. Do NOT point left column launchers backward. Row1 little tan 4-wheel truck with six narrow short tubes. Row2 olive 6-wheel military truck with 12-tube rectangular rack. Row3 silver gray 8-wheel armored truck with large 24-tube rack. Row4 Hail woodland camo long tracked launcher with two separate square 16-tube pods side by side. Row5 Screamer crimson-black broad tracked missile tank carrying four huge cylindrical rocket launch tubes, four visible open muzzles. Row6 Lion slate-blue huge eight-wheel armored missile carrier with two stacked banks of 8 large tubes and radar dish. Row7 Hurricane black-and-brass enormous tracked mobile fortress with THREE rectangular missile pods of many large tubes, heavy sloped cab, sensors and plated side skirts. Launcher and cabin silhouettes highly different for all seven tiers."
+        },
+        {
+          "name": "destruction_fx",
+          "prompt": "Transparent VFX sprite sheet, exactly 4 columns by 4 rows, 16 sequential animation frames read left-to-right top-to-bottom of ONE military vehicle ammunition explosion. Every cell equal square, effect centered at same lower center baseline, all fully contained with generous transparent gutters. Frame1 sharp brilliant white yellow flash with sparks, frames2-5 rapidly expanding orange fireball, frames6-9 huge roiling orange fire and dark brown billowing smoke, frames10-13 thinning rising black smoke with glowing embers, frames14-16 fading smoke and few sparks. High-quality realistic painted prerendered 2.5D strategy game effects, strong warm lighting and detailed turbulent flames. No vehicle, no ground, no text, no borders, no checkerboard. Actual transparent alpha background. Each frame is a separate image in strict 4x4 grid."
+        },
+        {
+          "name": "battle_wrecks",
+          "prompt": "Transparent atlas exactly TWO COLUMNS FOUR ROWS eight isolated destroyed military vehicle wreck sprites, classic prerendered realistic military strategy game, 35-degree isometric camera. LEFT column upright rear view facing northeast upper-right, RIGHT column same vehicle upright front view facing southwest lower-left. Row1 destroyed battle tank with turret blasted sideways, torn tracks, charred armor and orange burning engine. Row2 destroyed low casemate tank destroyer with snapped barrel and split front plates, glowing exposed interior. Row3 destroyed self propelled howitzer with collapsed tall turret and broken long cannon, exposed charred tracks. Row4 destroyed rocket truck with bent shattered launcher and mangled rear wheels, scorched frame and glowing embers. Each has distinct strong silhouette, detailed metal damage, permanent small flames in interior but NO tall smoke plume. Dark charcoal steel, rusty burned edges. ALL sprites fully contained in cells, generous transparent gutters, no contact with neighbors. No ground, no text, no shadow, no borders, true alpha."
+        }
+      ]
+    },
+    "finals": [
+      {
+        "name": "battle_tank",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-65a36b50-bc48-4973-a564-c2ec27ff9f07.png",
+        "editPrompt": "Edit this exact atlas, preserve every vehicle design, proportions, details and grid arrangement. Remove ALL backdrop/haze/gradient/matte and all floor shadows: only vehicle pixels on truly fully transparent empty canvas, crisp alpha cutouts. All vehicles MUST be STATIONARY and NOT FIRING: remove EVERY muzzle flash, flame, smoke trail, launched missile, orange glow and spark. Close all cannons cleanly at their metal muzzle tips. No special effects baked into these sprites. Do not add text or scenery. Preserve transparent alpha."
+      },
+      {
+        "name": "battle_tank_destroyer",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-299509ff-e3f9-4935-80da-76620123c68a.png",
+        "editPrompt": "Edit this exact atlas, preserve every vehicle design, proportions, details and grid arrangement. Remove ALL backdrop/haze/gradient/matte and all floor shadows: only vehicle pixels on truly fully transparent empty canvas, crisp alpha cutouts. All vehicles MUST be STATIONARY and NOT FIRING: remove EVERY muzzle flash, flame, smoke trail, launched missile, orange glow and spark. Close all cannons cleanly at their metal muzzle tips. No special effects baked into these sprites. Do not add text or scenery. Preserve transparent alpha."
+      },
+      {
+        "name": "battle_spg",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-375f1349-afaa-408b-9a1a-50cd49c4f37d.png",
+        "editPrompt": "Edit this exact atlas, preserve every vehicle design, proportions, details and grid arrangement. Remove ALL backdrop/haze/gradient/matte and all floor shadows: only vehicle pixels on truly fully transparent empty canvas, crisp alpha cutouts. All vehicles MUST be STATIONARY and NOT FIRING: remove EVERY muzzle flash, flame, smoke trail, launched missile, orange glow and spark. Close all cannons cleanly at their metal muzzle tips. No special effects baked into these sprites. Do not add text or scenery. Preserve transparent alpha."
+      },
+      {
+        "name": "battle_rocket",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-323f75e1-f1a4-4653-aa8f-7efb78381f41.png",
+        "editPrompt": "Edit this exact atlas, preserve every vehicle design, proportions, details and grid arrangement. Remove ALL backdrop/haze/gradient/matte and all floor shadows: only vehicle pixels on truly fully transparent empty canvas, crisp alpha cutouts. All vehicles MUST be STATIONARY and NOT FIRING: remove EVERY muzzle flash, flame, smoke trail, launched missile, orange glow and spark. Close all cannons cleanly at their metal muzzle tips. No special effects baked into these sprites. Critical geometry fix: in the LEFT COLUMN ONLY rotate each launcher assembly 180 degrees atop its chassis so the OPEN firing tube mouths are on the upper-right/northeast end, all seven rows, aligned with direction of cabin/front hull. Do not rotate vehicle body. The visible southwest/lower-left end of launch tubes must be CLOSED flat rear caps, NOT OPEN muzzles. The right column already faces lower-left; keep that direction and its open lower-left mouths. Do not add text or scenery. Preserve transparent alpha."
+      },
+      {
+        "name": "destruction_fx",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-381f31b6-8fa8-4f0a-88e8-0e72f18b4611.png"
+      },
+      {
+        "name": "battle_wrecks",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-d69a5611-cfa9-43a6-a43a-69aa5e7e54f2.png",
+        "editPrompt": "Edit this exact atlas, preserve every vehicle design, proportions, details and grid arrangement. Remove ALL backdrop/haze/gradient/matte and all floor shadows: only vehicle pixels on truly fully transparent empty canvas, crisp alpha cutouts. Keep small flames INSIDE wrecks. Do not add text or scenery. Preserve transparent alpha."
+      }
+    ],
+    "generationDate": "2026-10-02",
+    "inventoryUses": "same 28 SW vehicle identities as battle; tier size factors 0.53 through 1.0"
+  },
+  "v07": {
+    "generationDate": "2026-10-02",
+    "method": "built-in imagegen",
+    "specs": [
+      {
+        "cls": "tank_destroyer",
+        "prompt": "Use case: precise-object-edit. Asset type: transparent game sprite atlas, exactly TWO columns and SEVEN rows (14 isolated vehicles).\nInput image is the EDIT TARGET. Redesign all seven generations of TANK DESTROYERS so they can never be mistaken for a tank or a self propelled howitzer. Every generation must have a VERY LOW flat wedge hull, fully enclosed sloping fixed casemate integrated into the hull, NO turret, NO tall cabin, NO open crew compartment. Long low tracks, broad flat roof, an extremely long slim horizontal high-velocity anti-tank gun emerging directly from the low front plate. The hull height is less than half its width. Later tiers retain this low wedge silhouette, gaining longer chassis, side skirts and increasingly sophisticated armor. Tier 6 twin long slender guns, tier 7 twin futuristic rail-like barrels built into low casemate. No turret at any tier.\nPreserve target atlas two columns × seven rows, pairing the identical unit model per row in two genuine opposite camera views: left column rear three-quarter heading NE (gun extends upper right), right column front three-quarter heading SW (gun extends lower left). Upright isometric camera looking down 35 degrees, never rotate the whole bitmap or mirror a view. Make the guns easy to locate and separate from hull.\nPreserve seven distinct tier palettes in order: light tan, olive green, weathered steel silver, forest camouflage, crimson black, slate blue, dark graphite with restrained brass trim. Each row more formidable and elaborate than above, maintaining class silhouette. Increase vehicle mass by tier. Gritty realistic pre-rendered classic strategy game art, crisp metal wear, readable form at small size, consistent top-left lighting.\nNo weapons firing, no muzzle flashes, no shells, no smoke, no FX, no people, no statues, no text, no badges, no gridlines. Genuine transparent background including all gaps. Each vehicle fully inside its cell with padding; no touching or overlap across 14 cells. Portrait canvas 1024x1536."
+      },
+      {
+        "cls": "spg",
+        "prompt": "Use case: precise-object-edit. Asset type: transparent game sprite atlas, exactly TWO columns and SEVEN rows (14 isolated vehicles).\nInput image is the EDIT TARGET. Completely redesign all seven SELF-PROPELLED ARTILLERY generations to be unmistakable artillery and distinct from tanks and tank destroyers. At EVERY tier: a long tracked artillery carrier with small low FRONT engine cab and a tall OPEN REAR gun platform, fully exposed large howitzer breech, visible cradle and recoil cylinders, tall side gun shields, NO enclosed tank turret and NO closed armored casemate. Howitzer barrel ELEVATED very steeply (55-65 degrees above the ground plane), rising high above the chassis in the silhouette; long narrow barrel with large muzzle brake. The height from track to elevated muzzle must be as large as the hull length, radically unlike a horizontal tank gun. Rear recoil spades folded upright for travel, exposed ammunition rack and mechanical loading tray. Tiers 6-7 use two steeply elevated siege howitzers with powerful exposed hydraulic loading mechanisms on a long open tracked platform, retaining that distinctive tall artillery shape.\nPreserve target atlas TWO columns × SEVEN rows, each row the same model in opposite camera views: LEFT rear three-quarter chassis heading NE, elevated barrel projects toward upper-right; RIGHT front three-quarter chassis heading SW, elevated barrel rises upper-left from the breech (although chassis faces SW). Upright isometric camera looking down 35 degrees. Never flip entire sprite vertically.\nSeven tier palettes in order: light tan, olive green, weathered steel silver, forest camouflage, crimson black, slate blue, dark graphite with restrained brass trim. Progress from light field gun carrier to imposing advanced siege artillery, each higher tier heavier and more elaborate, open mechanical platform throughout. Gritty realistic classic strategy pre-rendered metal art, consistent top-left lighting and clear silhouette at small game size.\nAll 14 full vehicles isolated in their own cells with sufficient space even for tall barrels, no touching. Genuine transparent background and gutters. No ground, no cast background, no text, no gridlines, no emblems, no crew or people, NO firing, NO muzzle flash, NO smoke or fire or shells. Portrait canvas 1024x1536."
+      }
+    ],
+    "finals": [
+      {
+        "cls": "tank_destroyer",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-5b9a1969-e3b7-4adc-a293-fa0e859457de.png",
+        "destination": "native/assets/battle_tank_destroyer.png"
+      },
+      {
+        "cls": "spg",
+        "source": "C:\\Users\\18283\\.codex\\generated_images\\01a0f7e5-424d-7a31-a66b-2a15aaf4ae78\\exec-aa0a5199-d18e-423a-8661-67a79ee97515.png",
+        "destination": "native/assets/battle_spg.png"
+      }
+    ],
+    "classSilhouettes": {
+      "tank": "rotating armored turret",
+      "tank_destroyer": "low enclosed wedge, fixed long anti-tank gun",
+      "spg": "open gun platform and elevated howitzer",
+      "rocket": "multi-tube launcher"
+    },
+    "soundAssets": "audio/manifest.json"
+  }
+}

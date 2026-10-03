@@ -1,0 +1,16 @@
+# Normalize source files across Windows development environments.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Source artwork and audio are required for a fresh checkout to build.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.wav binary
+*.ogg binary
+
+# Preserve third-party license text verbatim, including its original indentation.
+native/licenses/* -whitespace

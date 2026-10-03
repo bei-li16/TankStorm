@@ -1,0 +1,8 @@
+{
+  "asset": "public/art/base.png",
+  "createdAt": "2026-10-02",
+  "tool": "built-in image_gen.imagegen",
+  "type": "original_generated_art",
+  "prompt": "Use case: stylized-concept. Asset type: original strategy videogame interactive base background, landscape 1536x1024. An early-2010s military base-building game's detailed isometric/three-quarter overhead army compound, sophisticated painterly 3D game render with tactile olive green steel, concrete, dark asphalt, muted tan dirt, tiny amber work lights, distant pine forest and foothills. Wide 3:2 composition. Camera above entire compound, no horizon, all buildings visible with space between them. Center upper at 51% x 34% y a large headquarters with antenna tower and radar; right middle at 76% x 51% y an industrial tank factory with open hangar and two tiny tanks outside; left middle at 24% x 44% a research building with satellite dishes; bottom center at 48% x 71% warehouse with crates; left bottom at 18% x 73% an oil refinery; right bottom at 79% x 79% steel ironworks. A concrete parade ground between headquarters and warehouse. Winding service roads connect these. Small guard towers, fences, tasteful pipes, mechanical details. Atmospheric warm late-afternoon side lighting, soft shadows, muted earthy military palette, high clarity building silhouettes, game art not photoreal photo, no people visible, no text, no letters, no logos, no interface, no HUD, no watermarks. Military industrial nostalgia, inviting playable world, strong focus on terrain and architecture.",
+  "notes": "原创基地背景，用作可交互建筑场景。未复制原游戏客户端素材。战车与界面图形由项目内 SVG/CSS 绘制。"
+}
