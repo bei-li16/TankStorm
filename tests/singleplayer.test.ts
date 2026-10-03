@@ -307,7 +307,9 @@ describe('fresh-save single-player acceptance', () => {
     for (const cls of ['tank', 'tank_destroyer', 'spg', 'rocket'])
       produce(`${cls}_t5`, finalCap * 2);
     run({ type: 'formation', slots: maxFormation(s) });
-    for (const d of dungeons.filter((v) => v.band < 2)) {
+    // Earn the new first chapter normally with the existing V-tier progression army.
+    // Later chapters deliberately require new technology and core-funded vehicles.
+    for (const d of dungeons.filter((v) => v.band === 0)) {
       const beforeCores = { ...s.arsenal!.cores };
       run({ type: 'dungeon', dungeonId: d.id });
       expect(s.reports[0].winner, d.name).toBe(0);
@@ -325,7 +327,7 @@ describe('fresh-save single-player acceptance', () => {
       expect(s.available[u.unitId]).toBeGreaterThanOrEqual(1);
     }
     milestones.push({
-      milestone: 'all-28-units-and-8-core-dungeons',
+      milestone: 'all-28-units-and-16-core-chapter-one-stages',
       days: (s.now - T) / 86400000,
     });
     const roundTrip = await parseSave(await exportSave(s));

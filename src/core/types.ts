@@ -113,6 +113,9 @@ export interface BattleReport {
   ruleset: string;
   winner: 0 | 1;
   rounds: number;
+  // Optional only for historical reports; new battles persist their own limit and outcome.
+  roundLimit?: number;
+  endReason?: 'elimination' | 'round-limit';
   mode: 'stage' | 'world' | 'training' | 'dungeon';
   coreRewards?: Record<string, number>;
   initial: [ArmyStack[], ArmyStack[]];

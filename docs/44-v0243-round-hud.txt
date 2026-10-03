@@ -1,0 +1,60 @@
+TankStorm v0.24.3 — 简化战斗提示与50大回合规则
+日期：2026-10-04
+
+界面
+左上仅显示当前攻击方和四系兵种，如“我方攻击 · 火箭车”。
+读取正在回放的攻击事件，不再读取下一事件；齐射弹丸还在途中时不会提前跳到下一方。
+取消该区域的阵位、大回合、小回合等附加内容；友军绿色、敌军红色。
+VS下方仅显示“当前大回合 / 上限”，例如12 / 50，不以整场实际回合数作为分母。
+单位悬停详情下移到提示框下方，避免盖住当前攻击提示。
+底部原有行动阵位与射击次数、暂停、倍速、逐步、跳过功能保留。
+
+规则
+此前为40回合、超时防守方胜。本版新战斗为最多50个大回合、超时先手方负。
+每个大回合仍让双方存活阵位各完成一次常规行动；二次开火属于该组的小回合。
+第50回合内歼灭敌军照常获胜，包含最后一次连击；第50回合全部行动完成后才判定超时。
+若双方仍有部队存活，判先手方负；不进入第51回合。
+双方先手值在出战时固定。较高方先攻，同值进攻方先攻，与兵力、伤亡和后续成长无关。
+战役、核心行动、世界交战和无损演习共用此规则。
+超时结算页、战术建议及详细战报明确显示判负原因；图书馆与战术规则说明同步。
+
+存档与历史
+新战报规则版本classic-combat-v0.24.3，新增roundLimit、endReason快照字段。
+旧战报字段可缺省，保持原40回合上限、原事件和原胜负；回放不再模拟或重复结算。
+扩大存档校验上限到50回合、1200次行动和7200条射击事件，覆盖六组火箭与连击的理论极限。
+新报告校验上限、结束原因、超时胜方，防止不一致数据进入存档。
+含新报告的存档请用本版或更新版本读取。主存档未用于测试。
+
+验证
+npm test：27个文件、508项通过；新增超时边界、双方先手、同值、四战斗模式、最后连击及旧档兼容测试。
+最后补充真实v0.22冻结报告后，相关4个文件35项复核通过。
+npm run check与Godot脚本解析通过。
+实际Windows导出EXE执行V243_ROUND_QA: true：
+四车系当前行动者提示；火箭整轮排入队列后仍显示正在发射的一方。
+双方12 / 50、50 / 50和超时结算；旧v0.22报告40 / 40及原胜负保留。
+同一隔离存档中混合导入新旧报告；所有回放结束后报告记录不变。
+窗口1180×680、1280×720、1920×1080、2560×1440，字号100%/120%。
+截图检查左侧标签、中心数字和结算原因，未发现遮挡。
+33组四车系回放、96次首轮射击，暂停、1/2/4倍速、逐行动、跳过、旧快照与移动弹坑回归通过。
+实际帧推进的火箭一次发射/命中、暂停恢复与静音不重播检查通过。
+
+主要改动文件
+native/scripts/game.gd：标签、回合显示、超时说明及原生验收。
+src/core/battle.ts、types.ts、validate.ts、engine.ts：50回合及历史快照校验。
+design/classic-prototype-rules.json、src/core/library.ts、overview.ts：规则与解释。
+tests/battle-round-limit.test.ts：新增边界测试；其余相关测试同步当前规则。
+native/tests/round243.mjs、legacy-rounds-v022.json：实机验收与冻结旧战报。
+src/ui/Battle.tsx：历史网页预览的回合分母同步读取快照。
+README.md、native/PLAYER_GUIDE.txt、package.json、package-lock.json：说明与版本。
+
+复现（PowerShell）
+node native/tests/round243.mjs
+npm run build:native
+& ./release/TankStorm-v0.24.3/TankStorm.exe --log-file "$((Resolve-Path artifacts/native-v243).Path)/godot.log" -- --smoke --round-hud-only --qa-output="$((Resolve-Path artifacts/native-v243).Path)"
+
+报告：artifacts/native-v243/round-ui.json、combat-ui.json、rocket-live.json、godot.log
+截图：docs/images/battle-hud-v0243.png、battle-round-12-v0243.png、battle-timeout-v0243.png
+完整包：release/TankStorm-v0.24.3-portable.zip
+完整解压后运行TankStorm.exe，保留runtime/rules/licenses。
+可执行文件与压缩包不提交Git。2026-10-04发布版本：
+https://github.com/bei-li16/TankStorm/releases/tag/v0.24.3

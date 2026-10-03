@@ -35,8 +35,8 @@ describe('v0.14 major rounds and alternating exchanges', () => {
       [0, 1],
       [1, 2],
     ]);
-    expect(r.rounds).toBe(40);
-    expect(regular(r)).toHaveLength(200);
+    expect(r.rounds).toBe(50);
+    expect(regular(r)).toHaveLength(250);
     expect(r.winner).toBe(1);
   });
   it('hands over after a kill to the opponent’s next living slot', () => {

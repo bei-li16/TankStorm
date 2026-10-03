@@ -99,7 +99,7 @@ export function BattleModal({ report, onClose }: { report: BattleReport; onClose
       <div className="battle-toolbar">
         <span className="tag">{report.mode === 'training' ? '无损演习' : '正式战斗'}</span>
         <span>
-          回合 {event?.round ?? 1} / {report.rounds}
+          {event?.round ?? 1} / {report.roundLimit ?? 40}
         </span>
         <div className="battle-playback">
           <button aria-label={paused ? '继续回放' : '暂停回放'} onClick={() => setPaused(!paused)}>

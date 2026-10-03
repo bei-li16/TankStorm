@@ -101,9 +101,11 @@ export function progression(s: GameState) {
   const filled = usableFormation(s).filter(
     (st) => st && units[st.unitId].tier >= 6 && st.count >= cap,
   ).length;
-  const normal = (s.arsenal?.cleared ?? []).filter((id) =>
-    dungeons.some((d) => d.id === id && d.coreId.endsWith('6')),
-  ).length;
+  const normal = new Set(
+    dungeons
+      .filter((d) => d.coreId.endsWith('6') && s.arsenal?.cleared.includes(d.id))
+      .map((d) => d.classId),
+  ).size;
   const elite = (s.arsenal?.cleared ?? []).length;
   const cards = [
     {
@@ -160,8 +162,8 @@ export function progression(s: GameState) {
     title: id === 'low-loss' ? '精英低战损胜利' : `${classNames[id as UnitClass]}限定挑战`,
     condition:
       id === 'low-loss'
-        ? '正式精英副本获胜，损失不超过出战数 5%'
-        : '正式精英副本获胜，所有出战阵位使用同一指定车系',
+        ? '正式核心第二章及以后获胜，损失不超过出战数 5%'
+        : '正式核心第二章及以后获胜，所有出战阵位使用同一指定车系',
     done: (s.honors ?? []).some((h) => h.id === id),
     dungeonId: `core-${Math.min(i, 3) * 2 + 1}`,
   }));

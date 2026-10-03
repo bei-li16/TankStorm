@@ -128,6 +128,10 @@ function battleFeedback(
   teams: { rows: { slot: number; lost: number; sent: number; received: number }[]; lost: number }[],
 ) {
   const hints: string[] = [];
+  if (r.endReason === 'round-limit')
+    hints.push(
+      `第 ${r.roundLimit} 个大回合打完，双方仍有部队存活：${r.tactics?.firstSide === 0 ? '我方' : '敌方'}为先手方，按规则判负。`,
+    );
   if (r.winner === 0) hints.push(`本场损失 ${teams[0].lost} 辆，补齐前排后再安排下一次挑战。`);
   else {
     const empty = 6 - r.initial[0].length;
@@ -161,6 +165,7 @@ function battleFeedback(
       'classic-combat-v0.14',
       'classic-combat-v0.20',
       'classic-combat-v0.22',
+      'classic-combat-v0.24.3',
     ].includes(r.ruleset)
   ) {
     const shots = r.events.filter((e) => e.side === 0 && !e.miss && !e.ground);

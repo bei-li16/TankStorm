@@ -11,6 +11,8 @@ const PANEL = Color("131c1d")
 const LINE = Color("394544")
 const RES = ["iron", "oil", "lead", "titanium", "crystal", "gold"]
 const CLASSES = ["tank", "tank_destroyer", "spg", "rocket"]
+# Match the six ignitions already recorded in rocket_fire.wav; one clip per action.
+const ROCKET_LAUNCH_OFFSETS = [0.0, 0.075, 0.16, 0.245, 0.33, 0.42]
 const NAV = [["base", "基地", "COMMAND"], ["factory", "工厂", "ARSENAL"], ["army", "编队", "FORMATION"], ["research", "科研", "RESEARCH"], ["campaign", "战役", "CAMPAIGN"], ["world", "世界", "OPERATIONS"], ["commander", "指挥官", "COMMANDER"], ["reports", "战报", "ARCHIVE"]]
 var s: Dictionary = {}
 var info: Dictionary = {}
@@ -62,6 +64,9 @@ var battle_clock = 0.0
 var battle_aims: Dictionary = {}
 var battle_volley: Array = []
 var battle_shots: Array = []
+var battle_pending_impacts: Array = []
+var battle_impact_played = false
+var battle_visual_end = 0.0
 var battle_craters: Array = []
 var battle_interval = 1.05
 var battle_sprite_meta: Dictionary = {}
@@ -1024,6 +1029,7 @@ func _begin_deployment(battle_command: Dictionary):
 	var target = catalog.stages[int(battle_command.stage)] if battle_command.type == "battle" else catalog.dungeons[selected_dungeon]
 	deployment_backup = {"draft": draft.duplicate(true), "dirty": dirty}
 	deployment = {"command": battle_command.duplicate(true), "title": target.name, "enemy": target.formation.duplicate(true)}
+	deployment.guardTech = int(target.get("guardTech", 0))
 	draft = draft.duplicate(true) if dirty else info.usable.duplicate(true)
 	dirty = true
 	deployment_retry = {}
@@ -2109,7 +2115,7 @@ func _draw_army():
 				if st!=null: own_hp += info.unitStats[st.unitId].hp * st.count
 			for st in deployment.enemy:
 				if st!=null: enemy_hp += int(floor(catalog.units[st.unitId].hp*(1+deployment.get("guardTech",0)*0.08))) * st.count
-			_text("我方 / 已知敌方生命 %d / %d · %s" % [own_hp,enemy_hp,"承伤储备偏低" if own_hp<enemy_hp else "需结合克制判断"],Vector2(929,646),17,RED if own_hp<enemy_hp else GOLD)
+			_text("我方 / 已知敌方生命 %s / %s · %s" % [_amount(own_hp),_amount(enemy_hp),"承伤储备偏低" if own_hp<enemy_hp else "需结合克制判断"],Vector2(929,646),17,RED if own_hp<enemy_hp else GOLD)
 		_text("确认后出发行军，到达才交战；物资返城后入库。" if deployment.command.type=="march" else "确认后立即进入战斗，返回不产生战损。", Vector2(929, 751), 16, MUTED)
 		return
 	var entries = _reserve_entries()
@@ -2281,7 +2287,8 @@ func _draw_settlement():
 	_panel(Rect2(25, 22, 1550, 95), Color("16231e"), GOLD.darkened(0.35))
 	_text(("演习胜利" if report.mode == "training" else "作战胜利") if report.winner == 0 else ("演习失利" if report.mode == "training" else "行动受挫"), Vector2(49, 78), 37, GOLD if report.winner == 0 else RED, true)
 	_text(report.title, Vector2(328, 66), 28, TEXT, true)
-	_text("战后结算  /  %d 回合 · %s" % [report.rounds, "演习记录 · 未扣兵" if report.mode == "training" else "已自动结算 · 无需再次领取"], Vector2(330, 95), 15, MUTED)
+	var outcome = "第 %d 回合结束 · %s先手，超时判负" % [report.rounds,"我方" if report.tactics.firstSide==0 else "敌方"] if report.get("endReason","")=="round-limit" else "战后结算  /  %d 回合" % report.rounds
+	_text(outcome + " · " + ("演习记录 · 未扣兵" if report.mode == "training" else "已自动结算"), Vector2(330, 95), 15, MUTED)
 	_button("nav:inventory", "资源一览", Rect2(1370, 43, 179, 47), "inventory")
 	_text("本次所得" if report.mode != "training" else "演习不发放资源或成长奖励", Vector2(42, 150), 19, GOLD, true)
 	if report.mode == "world":
@@ -2465,41 +2472,65 @@ func _draw_campaign():
 	_text("七章架空行动 · 演习无掉落；正式胜利推进关卡。",Vector2(300,814),15,MUTED)
 
 func _draw_dungeons():
-	_title("核心行动 · 连续战线", "CORE OPERATIONS / FOUR FRONTIERS")
+	_title("核心行动", "CORE OPERATIONS")
 	_button("campaignMode:stage", "← 经典战役", Rect2(1331,119,231,44), "stage")
-	var band=int(selected_dungeon/4)
-	for group in range(4):
-		_button("dungeon:"+str(group*4),"%d  %s"%[group+1,catalog.coreChapters[group]],Rect2(40+group*214,200,202,36),group*4,group==band)
-	for i in range(16):
+	selected_dungeon = clampi(selected_dungeon, 0, catalog.dungeons.size()-1)
+	var chapter=int(selected_dungeon/16)
+	_text("五章 · 每章16关   |   已突破 %d / %d   |   首通固定，重复随机"%[s.arsenal.cleared.size(),catalog.dungeons.size()],Vector2(43,179),17,GOLD)
+	for c in range(catalog.coreChapters.size()):
+		var cleared = 0
+		for i in range(c*16,c*16+16):
+			if info.dungeonStatus[i].cleared: cleared+=1
+		_button("coreChapter:"+str(c),"%d  %s  %d/16"%[c+1,catalog.coreChapters[c],cleared],Rect2(40+c*306,198,294,39),c,c==chapter)
+	for local in range(16):
+		var i = chapter*16+local
 		var d=catalog.dungeons[i]
 		var status=info.dungeonStatus[i]
-		var p=Vector2(40+(i%4)*214,253+int(i/4.0)*130)
+		var p=Vector2(40+(local%4)*214,253+int(local/4.0)*130)
 		_panel(Rect2(p,Vector2(202,117)),Color("343a2b") if i==selected_dungeon else Color("172222"),GOLD if i==selected_dungeon else LINE)
-		_small("%02d"%(i+1),p+Vector2(12,27),21,GOLD)
+		_small("%d-%02d"%[chapter+1,local+1],p+Vector2(12,27),20,GOLD)
 		_core_icon(d.classId+"_core7",Rect2(p+Vector2(145,6),Vector2(45,45)))
 		_text(catalog.classNames[d.classId],p+Vector2(12,59),20,TEXT,true)
-		_text("VI %d—%d / VII %d—%d"%[d.drops[0].min,d.drops[0].max,d.drops[1].min,d.drops[1].max],p+Vector2(12,86),12,GOLD)
-		_text("已突破" if status.cleared else "可挑战" if status.block=="" else "未开放",p+Vector2(12,107),12,GREEN if status.cleared else MUTED)
+		_text("VI %d—%d / VII %d—%d"%[d.drops[0].min,d.drops[0].max,d.drops[1].min,d.drops[1].max],p+Vector2(12,84),13,GOLD)
+		_text(("已突破" if status.cleared else "可挑战" if status.block=="" else "未开放")+" · 工厂%d级"%d.factoryLevel,p+Vector2(12,106),13,GREEN if status.cleared else MUTED)
 		_hit("dungeon:"+str(i),Rect2(p,Vector2(202,117)),i)
 	var d=catalog.dungeons[selected_dungeon]
 	var status=info.dungeonStatus[selected_dungeon]
-	_panel(Rect2(907,200,653,603),Color("111b1c"),LINE)
-	_text("%02d  %s"%[selected_dungeon+1,d.name],Vector2(930,241),27,TEXT,true)
+	_panel(Rect2(907,253,653,550),Color("111b1c"),LINE)
+	_text(d.name,Vector2(930,286),24,TEXT,true)
 	var legacy_clear=d.id in s.arsenal.cleared and maxf(s.buildings.factory,s.industry.factory2)<d.factoryLevel
-	_text(catalog.classNames[d.classId]+"核心 · "+("旧通关可重打（新关需工厂 %d 级）" if legacy_clear else "制造工厂 %d 级")%d.factoryLevel,Vector2(931,276),17,GOLD)
-	_mini_formation(d.formation,Vector2(928,300),Vector2(190,88))
-	_text("首通固定；重复通关的两种数量分别随机",Vector2(931,520),17,GOLD)
+	_text(catalog.classNames[d.classId]+"补给 · "+("旧通关可重打（新关需工厂 %d 级）" if legacy_clear else "制造工厂 %d 级")%d.factoryLevel,Vector2(931,313),17,GOLD)
+	_text("守军战力 %s · 攻防 / 弹道 / 装甲 / 机动科技 %d级"%[_amount(d.power),d.guardTech],Vector2(931,338),16,TEXT)
+	_mini_formation(d.formation,Vector2(928,350),Vector2(190,68))
+	_text("本关只产出"+catalog.classNames[d.classId]+"的两种核心",Vector2(931,521),17,GOLD)
 	for i in range(2):
 		var drop=d.drops[i]
-		var y=535+i*69
-		_core_icon(drop.id,Rect2(934,y,58,58))
-		_text(catalog.coreNames[drop.id],Vector2(1004,y+23),18,TEXT,true)
-		_text("首通 %d · 重复 %d—%d · 持有 %d"%[drop.first,drop.min,drop.max,s.arsenal.cores[drop.id]],Vector2(1004,y+49),16,GOLD)
-	_text("本次：重复随机掉落" if status.cleared else "本次：首通固定奖励",Vector2(932,689),16,GREEN)
-	_text(status.block.substr(0,34) if status.block!="" else "两个区间内整数等概率；0 表示可能不掉该类。",Vector2(932,721),15,RED if status.block!="" else MUTED)
+		var y=533+i*58
+		_core_icon(drop.id,Rect2(934,y,49,49))
+		_text(catalog.coreNames[drop.id],Vector2(998,y+21),18,TEXT,true)
+		_text("首通 %d · 重复 %d—%d · 持有 %s"%[drop.first,drop.min,drop.max,_amount(s.arsenal.cores[drop.id])],Vector2(998,y+45),16,GOLD)
+	_text(("本次重复" if status.cleared else "本次首通")+" · 经验 %s / 声望 %s / 统率书 %d"%[_amount(d.growth.xp),_amount(d.growth.prestige),d.growth.books],Vector2(932,677),16,GREEN)
+	_text("两种数量独立、区间内等概率；失败 / 演习无掉落。",Vector2(932,703),15,MUTED)
+	_text(status.block if status.block!="" else "建议先演习评估战损；重复收益需扣除补兵成本。",Vector2(932,730),15,RED if status.block!="" else GOLD)
 	_button("dungeonTraining","战术演习 · 无掉落",Rect2(929,749,270,43),null,false,not _command_pending())
 	_button("dungeonAttack","发起核心行动",Rect2(1215,749,319,43),null,true,status.block=="" and not _command_pending())
-	_text("按编号依次突破 · 已通过的旧关卡保持开放 · 失败 / 演习无掉落",Vector2(42,813),15,MUTED)
+	_button("coreRoute","章节曲线 / 补给预算",Rect2(40,788,247,36))
+	_text("依次突破 · 跨章承接上一章末关 · 旧通关保持开放",Vector2(306,814),15,MUTED)
+
+func _core_route_details():
+	var lines: Array[String] = ["五章各16关。每四关按坦克、歼击、火炮、火箭循环；产出只属于本关车系。", "首通固定，重复数量独立随机。以下100辆预算只计算VII核心的均值产出，不含首通、失败、前置关、材料与战损补兵，不是次数保证。", ""]
+	for c in range(catalog.coreChapters.size()):
+		var first=catalog.dungeons[c*16]
+		var last=catalog.dungeons[c*16+15]
+		lines.append("第%d章 %s：工厂%d—%d级；守军科技%d—%d级。"%[c+1,catalog.coreChapters[c],first.factoryLevel,last.factoryLevel,first.guardTech,last.guardTech])
+		for b in range(4):
+			var d=catalog.dungeons[c*16+b*4]
+			var vi=d.drops[0]
+			var vii=d.drops[1]
+			lines.append("  %02d—%02d关：VI %d—%d；VII %d—%d。100辆VII核心约%d胜。"%[b*4+1,b*4+4,vi.min,vi.max,vii.min,vii.max,ceili(200.0/(vii.min+vii.max))])
+		lines.append("")
+	lines.append("旧16关分别映射到前四章前四关；既有节点可重打，新增关卡不赠送通关或补发首通。车辆仍为七阶，每辆VI / VII各消耗对应核心1个；矿产、维修、制造费用沿用当前规则。")
+	_details("核心战线 · 难度与产出", "\n".join(lines))
 
 func _mini_formation(formation, pos: Vector2, cell: Vector2):
 	for i in range(6):
@@ -2782,6 +2813,9 @@ func open_report(value, summary = {}):
 	battle_aims = {}
 	battle_volley = []
 	battle_shots = []
+	battle_pending_impacts = []
+	battle_impact_played = false
+	battle_visual_end = 0.0
 	battle_craters = []
 	battle_interval = 1.05
 	pending_hit = false
@@ -2801,7 +2835,7 @@ func _battle_step(delta):
 		remaining -= step
 		battle_clock += step
 		battle_time += step
-		if pending_hit and battle_clock - hit_time >= 0.32:
+		if pending_hit:
 			_apply_hit()
 		if battle_time >= battle_interval and battle_index < report.events.size():
 			battle_time -= battle_interval
@@ -2815,20 +2849,29 @@ func _play_hit():
 	hit_time = battle_clock - battle_time
 	pending_hit = true
 	battle_volley = []
-	# Each recorded shot gets its own muzzle, audio and impact. Legacy rocket
-	# events sharing shot=1 keep their original simultaneous launch.
+	# Rocket clips contain an entire salvo, so schedule all six recorded events
+	# together with short offsets. Other guns keep their independent 0.52s shots.
 	while battle_index < report.events.size():
 		var e = report.events[battle_index]
 		if not _same_battle_action(e, last_hit):
 			break
-		if not battle_volley.is_empty() and (_volley_class() != "rocket" or e.get("shot", 1) != last_hit.get("shot", 1)):
+		if not battle_volley.is_empty() and _volley_class() != "rocket":
 			break
 		battle_volley.append(e)
 		battle_index += 1
 	battle_aims["%d:%d" % [last_hit.side, last_hit.from]] = _battle_position(1 - int(last_hit.side), int(last_hit.to)) - Vector2(0, 20)
 	_battle_sound(_volley_class(), "fire")
 	battle_shots = battle_shots.filter(func(shot): return battle_clock - shot.at < 1.03)
-	battle_shots.append({"events": battle_volley.duplicate(true), "at": hit_time})
+	battle_pending_impacts = []
+	battle_impact_played = false
+	# Old snapshots with a single simultaneous shot retain their original grouping.
+	var staggered = _volley_class()=="rocket" and battle_volley.any(func(e): return e.get("shot",1)>1)
+	for i in range(battle_volley.size()):
+		var at = hit_time + (ROCKET_LAUNCH_OFFSETS[mini(i,5)] if staggered else 0.0)
+		battle_pending_impacts.append({"event":battle_volley[i],"at":at+0.32})
+		if staggered: battle_shots.append({"events":[battle_volley[i].duplicate(true)],"at":at})
+		battle_visual_end = at + 0.96
+	if not staggered: battle_shots.append({"events": battle_volley.duplicate(true), "at": hit_time})
 
 func _same_battle_action(a, b):
 	if a.has("action") and b.has("action"):
@@ -2839,21 +2882,25 @@ func _next_same_action():
 	return battle_index < report.events.size() and _same_battle_action(report.events[battle_index], last_hit)
 
 func _apply_hit():
-	for e in battle_volley:
+	while not battle_pending_impacts.is_empty() and battle_pending_impacts[0].at<=battle_clock+0.000001:
+		var impact=battle_pending_impacts.pop_front()
+		var e=impact.event
+		# rocket_impact.wav is the original cluster-explosion clip, not a single hit.
+		if not e.miss and not battle_impact_played:
+			_battle_sound(_volley_class(), "impact")
+			battle_impact_played=true
 		if e.get("ground", false):
-			battle_craters.append({"at": hit_time + 0.32, "side": 1-int(e.side), "slot": int(e.to), "position": _battle_position(1-int(e.side), int(e.to)), "seed": int(e.get("action",0))*7+int(e.to)})
+			battle_craters.append({"at": impact.at, "side": 1-int(e.side), "slot": int(e.to), "position": _battle_position(1-int(e.side), int(e.to)), "seed": int(e.get("action",0))*7+int(e.to)})
 			continue
 		for st in battle_armies[1 - int(e.side)]:
 			if st.slot == e.to:
 				if st.totalHp > 0 and e.hp <= 0:
 					var side = 1 - int(e.side)
-					var at = hit_time + 0.32
+					var at = impact.at
 					battle_deaths["%d:%d" % [side, int(e.to)]] = {"at": at, "side": side, "slot": int(e.to), "unitId": st.unitId, "position": _alive_position(side, int(e.to), at)}
 				st.totalHp = e.hp
 				st.count = e.remaining
-	pending_hit = false
-	if battle_volley.any(func(e): return not e.miss):
-		_battle_sound(_volley_class(), "impact")
+	pending_hit = not battle_pending_impacts.is_empty()
 
 
 # The ground UVs and stationary world objects share one displacement function.
@@ -2894,7 +2941,7 @@ func _unit_position(side: int, slot: int) -> Vector2:
 	return _alive_position(side, slot, battle_clock)
 
 func _battle_end_time() -> float:
-	var end = hit_time + 0.96 if not last_hit.is_empty() else 0.0
+	var end = battle_visual_end if not last_hit.is_empty() else 0.0
 	for death in battle_deaths.values():
 		end = maxf(end, death.at + 1.65)
 	return end
@@ -2969,24 +3016,49 @@ func _battle_pose(unit_id, side, slot):
 	var launch = (muzzle - pivot).rotated(angle).normalized()
 	return {"texture": key, "position": p + offset, "angle": angle, "scale": Vector2.ONE * scale_factor, "pivot": pivot, "launch": launch, "muzzle": p + offset + ((muzzle - pivot) * scale_factor).rotated(angle)}
 
-func _shot_point(from: Vector2, target: Vector2, launch: Vector2, t: float, rocket: bool):
+func _shot_point(from: Vector2, target: Vector2, launch: Vector2, t: float, indirect: bool, descent_degrees: float = 60.0):
+	if indirect:
+		# The folded battlefield omits the distant airborne portion. Visible pieces
+		# are two straight rays: out of the barrel and steeply down onto the target.
+		var outbound = launch.normalized()
+		var incoming = Vector2(signf(outbound.x) * cos(deg_to_rad(descent_degrees)), sin(deg_to_rad(descent_degrees)))
+		var departure = 190.0
+		var approach = 200.0
+		var exit_point = from + outbound * departure
+		var entry = target - incoming * approach
+		if t <= 0.4:
+			return from.lerp(exit_point, t / 0.4)
+		if t >= 0.6:
+			return entry.lerp(target, (t - 0.6) / 0.4)
+		# C1-continuous transit, hidden with its entire trail (no visible elbow).
+		return exit_point.bezier_interpolate(exit_point + outbound * departure / 6.0, entry - incoming * approach / 6.0, entry, (t - 0.4) / 0.2)
+	# Direct-fire geometry is unchanged, including its original camera fold.
 	var slope = 115.0 / 305.0
-	var crossing = Vector2(1, -0.55).normalized() * (1 if from.y > _fold_y(from.x) else -1) if rocket else launch
+	var crossing = launch
 	var rate = crossing.y - crossing.x * slope
 	var entry = from + crossing * (-(from.y - _fold_y(from.x)) / rate)
 	var exit_point = target - crossing * ((target.y - _fold_y(target.x)) / rate)
 	if t < 0.44:
 		var part = t / 0.44
-		if rocket:
-			# A visible straight launch segment follows even a steep howitzer barrel exactly.
-			var lift = from + launch * maxf(30, from.distance_to(entry) * 0.15)
-			if part < 0.10:
-				return from.lerp(lift, part / 0.10)
-			return lift.bezier_interpolate(lift + launch * maxf(45, from.distance_to(entry) * 0.3), from.lerp(entry, 0.67) - Vector2(0, 28), entry, (part - 0.10) / 0.90)
 		return from.lerp(entry, part)
 	if t < 0.56:
 		return entry.lerp(exit_point, (t - 0.44) / 0.12)
 	return exit_point.lerp(target, (t - 0.56) / 0.44)
+
+func _shot_trail(origin: Vector2, target: Vector2, launch: Vector2, age: float, indirect: bool, descent_degrees: float):
+	var t = age / 0.32
+	var exit_t = 0.4 if indirect else 0.44
+	var entry_t = 0.6 if indirect else 0.56
+	if t < 0 or t >= 1 or (t >= exit_t and t <= entry_t):
+		return {}
+	var tail_t = maxf(0, (age - 0.045) / 0.32)
+	if t > entry_t:
+		tail_t = maxf(tail_t, entry_t)
+	var opacity = 1.0
+	if indirect:
+		# Fade at the omitted distant segment instead of snapping across the seam.
+		opacity = clampf((exit_t - t) / 0.09 if t < exit_t else (t - entry_t) / 0.09, 0, 1)
+	return {"head":_shot_point(origin,target,launch,t,indirect,descent_degrees), "tail":_shot_point(origin,target,launch,tail_t,indirect,descent_degrees), "opacity":opacity}
 
 func _fold_y(x):
 	return 184.0 + x * (115.0 / 305.0)
@@ -3037,7 +3109,7 @@ func _battle_done():
 	for death in battle_deaths.values():
 		if battle_clock - death.at < 1.65 - 0.000001:
 			return false
-	return battle_index >= report.get("events", []).size() and not pending_hit and (last_hit.is_empty() or battle_clock - hit_time >= 0.96 - 0.000001)
+	return battle_index >= report.get("events", []).size() and not pending_hit and (last_hit.is_empty() or battle_clock >= battle_visual_end - 0.000001)
 
 func _draw_battle_vehicle(st, side):
 	var p = _unit_position(side, int(st.slot))
@@ -3145,7 +3217,7 @@ func _draw_shot(shot):
 	if last_hit.is_empty() or _battle_done():
 		return
 	var age = battle_clock - shot.at
-	if age >= 1.03:
+	if age < 0 or age >= 1.03:
 		return
 	var source_unit = "tank_t1"
 	for st in report.initial[int(last_hit.side)]:
@@ -3153,7 +3225,8 @@ func _draw_shot(shot):
 			source_unit = st.unitId
 	var pose = _battle_pose(source_unit, int(last_hit.side), int(last_hit.from))
 	var origin = pose.muzzle
-	var rocket = source_unit.begins_with("rocket") or source_unit.begins_with("spg")
+	var indirect = source_unit.begins_with("rocket") or source_unit.begins_with("spg")
+	var descent_degrees = 60.0 if source_unit.begins_with("spg") else 45.0
 	if age < 0.22:
 		draw_set_transform(origin, pose.launch.angle())
 		_effect(0, Rect2(-2, -24, 68, 48), Color(1, 1, 1, 1 - age / 0.22))
@@ -3163,17 +3236,15 @@ func _draw_shot(shot):
 		if e.get("ground", false):
 			target = _battle_position(1-int(e.side),int(e.to)) + _ground_displacement(1-int(e.side),maxf(0,age-0.32))
 		if age < 0.32:
-			# Piercing rounds follow a continuous beam; guided rockets fan out from their tubes.
-			if age / 0.32 >= 0.44 and age / 0.32 <= 0.56:
-				continue # Distance hidden inside the compressed camera seam.
-			var head = _shot_point(origin, target, pose.launch, age / 0.32, rocket)
-			var tail_t = maxf(0, (age - 0.045) / 0.32)
-			if age / 0.32 > 0.56:
-				tail_t = maxf(tail_t, 0.56)
-			var tail = _shot_point(origin, target, pose.launch, tail_t, rocket)
-			draw_line(tail, head, Color(0.99, 0.48, 0.10, 0.22), 12, true)
-			draw_line(tail, head, Color("ffb331"), 3, true)
-			draw_circle(head, 3.5, Color("fff4b1"))
+			var trail = _shot_trail(origin,target,pose.launch,age,indirect,descent_degrees)
+			if trail.is_empty(): continue
+			var streak = Color("ffb331")
+			var tip = Color("fff4b1")
+			streak.a = trail.opacity
+			tip.a = trail.opacity
+			draw_line(trail.tail, trail.head, Color(0.99, 0.48, 0.10, 0.22 * trail.opacity), 12, true)
+			draw_line(trail.tail, trail.head, streak, 3, true)
+			draw_circle(trail.head, 3.5, tip)
 		else:
 			var burst = (age - 0.32) / 0.71
 			if not e.miss:
@@ -3198,7 +3269,7 @@ func _draw_shot(shot):
 			_text(label, text_pos, label_size, Color(1, 0.80, 0.22, alpha) if not e.miss else Color(0.85, 0.92, 0.83, alpha), true)
 			var feedback="暴击" if e.critical else ""
 			if e.remaining==0 and not e.miss: feedback+=" 击毁"
-			elif not e.miss and report.ruleset in ["classic-combat-v0.10","classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22"]:
+			elif not e.miss and report.ruleset in ["classic-combat-v0.10","classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3"]:
 				var attacker=""
 				var defender=""
 				for st in report.initial[int(e.side)]:
@@ -3208,6 +3279,19 @@ func _draw_shot(shot):
 				for rule in catalog.rules.matchup:
 					if rule.attackerClass==attacker and rule.defenderClass==defender and rule.multiplierBps>10000: feedback+=" 克制"
 			if feedback!="": _text(feedback.strip_edges(),text_pos+Vector2(0,18),14,GOLD,true)
+
+func _battle_actor_label():
+	var event = last_hit if not last_hit.is_empty() else report.events[0] if not report.events.is_empty() else {}
+	if event.is_empty(): return "战斗结束"
+	for st in report.initial[int(event.side)]:
+		if st.slot==event.from:
+			return ("我方攻击 · " if event.side==0 else "敌方攻击 · ") + str(catalog.classNames[st.classId])
+	return "战斗结束"
+
+func _battle_round_label():
+	# Historical snapshots keep their original limit; never use the final duration as the denominator.
+	var limit = int(report.get("roundLimit",40))
+	return "%d / %d" % [int(last_hit.get("round",1)),limit]
 
 func _battle_header():
 	# Metal plates reference the compact original VS bar, adapted for a wide PC screen.
@@ -3229,7 +3313,9 @@ func _battle_header():
 			_small("历史战报 · 按原记录回放", Vector2(x_stats, 47), 13, Color("bdc1ad"))
 	draw_string_outline(latin, Vector2(753, 53), "VS", HORIZONTAL_ALIGNMENT_LEFT, -1, 48, 4, Color("060b0a"))
 	_small("VS", Vector2(753, 53), 48, GOLD)
-	_small(("大回合 %d/%d · 小回合 %d"%[last_hit.get("round",1),report.rounds,last_hit.get("exchange",1)]) if report.ruleset in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22"] else "回合 %02d / %02d" % [last_hit.get("round", 1), report.get("rounds", 1)], Vector2(674, 78), 14, TEXT)
+	var round_label = _battle_round_label()
+	var round_width = latin.get_string_size(round_label,HORIZONTAL_ALIGNMENT_LEFT,-1,19).x
+	_small(round_label,Vector2(800-round_width*0.5,78),19,TEXT)
 	draw_line(Vector2(0, 88), Vector2(1600, 88), GOLD.darkened(0.45), 2)
 
 func _draw_battle():
@@ -3254,18 +3340,14 @@ func _draw_battle():
 	for item in units: _draw_battle_label(item.stack,item.side)
 	_battle_header()
 	_panel(Rect2(22,96,520,47),Color("17241e"),LINE)
-	var next_label="下一行动：战斗结束"
-	if battle_index<report.events.size():
-		var next=report.events[battle_index]
-		next_label="接下来：%s %d号 · %s"%["我方" if next.side==0 else "敌方",next.from,"大回合 %d / 小回合 %d"%[next.round,next.exchange] if next.has("exchange") else "回合 %d"%next.round]
-	_text(next_label,Vector2(39,126),18,GOLD)
+	_text(_battle_actor_label(),Vector2(39,126),18,GREEN if last_hit.get("side",report.events[0].side if not report.events.is_empty() else 0)==0 else RED)
 	if hover.begins_with("battleUnit:"):
 		for item in units:
 			var st = item.stack
 			if hover == "battleUnit:%d:%d" % [item.side, st.slot]:
-				_panel(Rect2(25, 108, 315, 64), Color(0.05, 0.10, 0.08, 0.92), GOLD.darkened(0.3))
-				_text(catalog.units[st.unitId].name + "  ×%d" % st.count, Vector2(40, 134), 19, TEXT, true)
-				_small("%s · 阵位 %d · 生命 %d" % ["我方" if item.side == 0 else "敌方", st.slot, st.totalHp], Vector2(40, 157), 14, MUTED)
+				_panel(Rect2(25, 152, 315, 64), Color(0.05, 0.10, 0.08, 0.92), GOLD.darkened(0.3))
+				_text(catalog.units[st.unitId].name + "  ×%d" % st.count, Vector2(40, 178), 19, TEXT, true)
+				_small("%s · 阵位 %d · 生命 %d" % ["我方" if item.side == 0 else "敌方", st.slot, st.totalHp], Vector2(40, 201), 14, MUTED)
 	var done = _battle_done()
 	_panel(Rect2(0, 839, 1600, 61), Color(0.035, 0.065, 0.058, 0.98), Color("64705a"))
 	if done:
@@ -3286,7 +3368,7 @@ func _draw_battle():
 		_text("已暂停" if battle_paused else "交战中", Vector2(26, 876), 20, GOLD, true)
 		var action_label = "装甲部队接敌 · 悬停战车查看详情"
 		if not last_hit.is_empty():
-			var verb = "齐射" if _volley_class() == "rocket" and report.ruleset not in ["classic-combat-v0.20","classic-combat-v0.22"] else "开火 %d/%d" % [last_hit.get("shot", 1), last_hit.get("shots", 1)]
+			var verb = "六发齐射" if _volley_class() == "rocket" else "开火 %d/%d" % [last_hit.get("shot", 1), last_hit.get("shots", 1)]
 			action_label = "%s %d 号 · %s%s" % ["我方" if last_hit.side == 0 else "敌方", last_hit.from, "二次开火 · " if last_hit.get("extra", false) else "", verb]
 		_text(action_label, Vector2(131, 876), 16, TEXT)
 		_bar(Rect2(521, 866, 362, 4), float(battle_index) / maxi(1, report.events.size()), GOLD)
@@ -3322,6 +3404,8 @@ func _unit_guide():
 func _report_details():
 	var lines: Array[String] = [report.title,
 		"结算结果：" + ("胜利" if report.winner == 0 else "失利") + "；回放不会再次结算奖励。", ""]
+	if report.get("endReason","")=="round-limit":
+		lines.append("第 %d 个大回合结束后双方仍有部队，%s为先手方，超时判负。" % [report.roundLimit,"我方" if report.tactics.firstSide==0 else "敌方"])
 	lines.append("奖励：" + _cost_text(report.rewards))
 	for core_id in report.get("coreRewards", {}): lines.append(catalog.coreNames[core_id] + " ×%d" % report.coreRewards[core_id])
 	if report.has("summary"):
@@ -3333,7 +3417,7 @@ func _report_details():
 		for side in range(2):
 			var stats = report.tactics.teams[side]
 			lines.append("%s：先手 %d，二次开火 %d，本场追加概率 %.1f%%" % ["我方" if side == 0 else "敌方", stats.initiative, stats.extraFire, report.tactics.chances[side] / 100.0])
-		lines.append("每个大回合存活阵位各行动一次，双方交替；少阵位一方等待。连击归属当前小回合。" if report.ruleset in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22"] else "历史规则：每回合双方各行动一次，各自按存活阵位循环；先手同值时进攻方先行。")
+		lines.append("每个大回合存活阵位各行动一次，双方交替；少阵位一方等待。连击归属当前小回合。" if report.ruleset in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3"] else "历史规则：每回合双方各行动一次，各自按存活阵位循环；先手同值时进攻方先行。")
 		lines.append("二次开火最多追加一次完整攻击，不连锁；击毁目标不奖励额外行动。")
 		for action in report.get("actions", []):
 			if action.get("extraTriggered", false):
@@ -3379,6 +3463,31 @@ func _smoke_test():
 		if arg.begins_with("--qa-output="):
 			out = arg.trim_prefix("--qa-output=")
 	DirAccess.make_dir_recursive_absolute(out)
+	if "--round-hud-only" in OS.get_cmdline_user_args():
+		var passed = await _round_hud_qa(out)
+		if passed: passed = await _combat_qa(out,"v22")
+		if passed: passed = await _rocket_live_qa(out)
+		print("V243_ROUND_QA: ",passed)
+		get_tree().quit(0 if passed else 66)
+		return
+	if "--indirect-fire-only" in OS.get_cmdline_user_args():
+		var passed = await _combat_qa(out,"v22")
+		if passed: passed = await _rocket_live_qa(out)
+		if passed: passed = await _indirect_fire_qa(out)
+		print("V242_INDIRECT_QA: ",passed)
+		get_tree().quit(0 if passed else 65)
+		return
+	if "--rocket-salvo-only" in OS.get_cmdline_user_args():
+		var passed = await _combat_qa(out,"v22")
+		if passed: passed = await _rocket_live_qa(out)
+		print("V241_ROCKET_QA: ",passed)
+		get_tree().quit(0 if passed else 64)
+		return
+	if "--core-chapters-only" in OS.get_cmdline_user_args():
+		var passed = await _core_chapters_qa(out)
+		print("V24_NATIVE_QA: ", passed)
+		get_tree().quit(0 if passed else 63)
+		return
 	if "--dispatch-only" in OS.get_cmdline_user_args():
 		var passed = await _dispatch_qa(out)
 		print("V23_NATIVE_QA: ", passed)
@@ -4015,6 +4124,102 @@ func _dispatch_qa_click(id):
 			return true
 	print("V23 missing button: ", id)
 	return false
+
+func _core_chapters_qa(out):
+	if "smoke" not in save_root: return false
+	request({"op":"import", "text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	if catalog.dungeons.size()!=80 or catalog.coreChapters.size()!=5 or s.arsenal.cleared.size()!=63: return false
+	campaign_mode="dungeon"
+	_navigate("campaign")
+	get_window().size=Vector2i(1280,720)
+	for c in range(5):
+		if not await _dispatch_qa_click("coreChapter:"+str(c)): return false
+		if int(selected_dungeon/16)!=c: return false
+		await _qa_capture(out,"chapter-"+str(c+1))
+	if not await _dispatch_qa_click("coreRoute"): return false
+	if not details_dialog.visible or "第5章" not in details_text.text: return false
+	await _qa_capture(out,"chapter-supply-budget")
+	details_dialog.hide()
+	await _dispatch_qa_click("coreChapter:3")
+	if selected_dungeon!=63 or info.dungeonStatus[64].block=="": return false
+	var target=catalog.dungeons[selected_dungeon]
+	var before=s.arsenal.cores.duplicate(true)
+	if not await _dispatch_qa_click("dungeonAttack"): return false
+	if screen!="deployment" or deployment.guardTech!=target.guardTech: return false
+	var preview=_formation_tactics(deployment.enemy,false)
+	await _dispatch_qa_click("deploymentEnemy")
+	await _qa_capture(out,"chapter-4-prebattle")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	if screen!="battle" or report.winner!=0: return false
+	if report.initial[1][0].initiative!=preview.initiative: return false
+	if not target.id in s.arsenal.cleared or info.dungeonStatus[64].block!="": return false
+	for drop in target.drops:
+		if s.arsenal.cores[drop.id]!=before[drop.id]+drop.first: return false
+	_action("battleSkip")
+	if not settlement_visible: return false
+	await _qa_capture(out,"chapter-4-first-clear")
+	before=s.arsenal.cores.duplicate(true)
+	if not await _dispatch_qa_click("rematch"): return false
+	await _settled()
+	if screen!="battle" or report.target.dungeonId!=target.id: return false
+	for drop in target.drops:
+		var n=s.arsenal.cores[drop.id]-before[drop.id]
+		if n<drop.min or n>drop.max: return false
+	_action("battleSkip")
+	await _qa_capture(out,"chapter-4-repeat-rewards")
+	before=s.arsenal.cores.duplicate(true)
+	var history=report.initial.duplicate(true)
+	_action("battleReplay")
+	_action("battlePause")
+	_action("battleStep")
+	await get_tree().create_timer(0.2).timeout
+	_action("battleSkip")
+	if s.arsenal.cores!=before or report.initial!=history: return false
+	var captures=[]
+	for size_value in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=size_value
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			_navigate("campaign")
+			selected_dungeon=79
+			await _qa_capture(out,"core-%dx%d-%d"%[size_value.x,size_value.y,int(scale_value*100)])
+			captures.append({"window":[size_value.x,size_value.y],"scale":scale_value})
+	get_window().mode=Window.MODE_FULLSCREEN
+	await _qa_capture(out,"core-fullscreen-120")
+	get_window().mode=Window.MODE_WINDOWED
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	# An unearned, locked final stage can be rehearsed but never grants a clear or rewards.
+	before=s.arsenal.cores.duplicate(true)
+	var cleared=s.arsenal.cleared.duplicate()
+	for c in range(5):
+		_navigate("campaign")
+		selected_dungeon=c*16+15
+		await _dispatch_qa_click("dungeonTraining")
+		await _dispatch_qa_click("deploymentConfirm")
+		await _settled()
+		if _battle_environment()!="ground_"+catalog.dungeons[selected_dungeon].theme: return false
+		settlement_visible=false
+		battle_paused=true
+		await _qa_capture(out,"chapter-%d-battle"%(c+1))
+		_action("battleSkip")
+	if s.arsenal.cleared!=cleared or s.arsenal.cores!=before: return false
+	request({"op":"save"})
+	await _settled()
+	request({"op":"load","id":s.id})
+	await _settled()
+	if s.arsenal.cleared!=cleared or s.arsenal.cores!=before: return false
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("legacy-save.json"))})
+	await _settled()
+	campaign_mode="dungeon"
+	_navigate("campaign")
+	selected_dungeon=48
+	if s.arsenal.cleared.size()!=16 or info.dungeonStatus[48].block!="" or info.dungeonStatus[52].block=="": return false
+	await _qa_capture(out,"legacy-clears-preserved")
+	FileAccess.open(out.path_join("v24-acceptance.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"save_root":save_root,"chapters":5,"stages":80,"mouse_chapter_selection":true,"prebattle_stats_match_snapshot":true,"chapter_boundary_unlock":true,"first_and_repeat_rewards":true,"rematch_skips_deployment":true,"replay_no_credit":true,"locked_rehearsal_no_reward":true,"save_reload":true,"legacy_16_clears_preserved":true,"chapter_themes":5,"captures":captures,"fullscreen":true},"  "))
+	return true
 
 func _dispatch_qa(out):
 	request({"op":"import", "text":FileAccess.get_file_as_string(out.path_join("busy-save.json"))})
@@ -4773,6 +4978,13 @@ func _experience_action(id, data):
 	elif id.begins_with("attributeTier:"): tier=int(data)
 	elif id=="attributeRules": _details("属性战力口径",info.attributes.explanation+"\n\n当前编队按已保存且可用的部队计算；未保存的草稿不计入此表。战斗历史属性仍以原战报为准。\n\n装甲为抗暴属性；装甲加固科技实际提供生命，计入生命一行。克制和团队光环依赖敌我阵容，不重复加静态分。\n载重、生产速度、采速、资源产出等属性直接战力为 0，但支持持续补给。")
 	elif id == "selectReserve": compare_unit=str(data)
+	elif id == "coreRoute": _core_route_details()
+	elif id.begins_with("coreChapter:"):
+		selected_dungeon=int(data)*16
+		for i in range(selected_dungeon,selected_dungeon+16):
+			if not info.dungeonStatus[i].cleared:
+				selected_dungeon=i
+				break
 	elif id.begins_with("chapter:"):
 		selected_stage=int(data)*16
 		for i in range(selected_stage,selected_stage+16):
@@ -4795,7 +5007,7 @@ func _experience_action(id, data):
 		var payment="books" if id=="trainBooks" else "gold"
 		_confirm({"type":"leadership","payment":payment,"attempts":leadership_attempts},"目标统率 Lv.%d；每次成功率 %.2f%%\n最多尝试 %d 次，成功即停，未使用部分不扣费。\n每次消耗 %s；失败不降级、无保底。\n最多花费 %s。"%[info.leadershipQuote.target,info.leadershipQuote.chance/100.0,leadership_attempts,"1 本统率书" if payment=="books" else "19 金币","%d 本书"%leadership_attempts if payment=="books" else "%d 金币"%(leadership_attempts*19)])
 	elif id=="leadRules":
-		_details("统率、声望与独立概率","统率上限 120，且不能超过声望等级。声望等级 = 1 + floor(sqrt(声望 / 40))，最高 120；旧档保留已有统率所需的最低声望等级，不增加声望点。\n\n升至 2—10 级为 100%；11 级 90%，之后按指数曲线降低，120 级为 0.1%。每次独立判定，失败不降级、不累积保底；相同失败次数不会改变下一次概率。\n\n每次尝试一本统率书，或直接 19 金币。最多 10 / 100 次是独立尝试的批次，成功立即停止，不保证成功。1/p 是平均次数，不是保证次数，连续 200 次失败也可能发生。\n\n战役每胜 1 本；普通核心副本每胜 1 本、精英每胜 2 本。每日补给、既有任务和 19 金币购书仍可使用。战役和核心胜利都获得声望。")
+		_details("统率、声望与独立概率","统率上限 120，且不能超过声望等级。声望等级 = 1 + floor(sqrt(声望 / 40))，最高 120；旧档保留已有统率所需的最低声望等级，不增加声望点。\n\n升至 2—10 级为 100%；11 级 90%，之后按指数曲线降低，120 级为 0.1%。每次独立判定，失败不降级、不累积保底；相同失败次数不会改变下一次概率。\n\n每次尝试一本统率书，或直接 19 金币。最多 10 / 100 次是独立尝试的批次，成功立即停止，不保证成功。1/p 是平均次数，不是保证次数，连续 200 次失败也可能发生。\n\n战役每胜 1 本；核心第一至第五章每胜分别 1 / 2 / 3 / 4 / 5 本。每日补给、既有任务和 19 金币购书仍可使用。战役和核心胜利都获得声望。")
 	elif id == "reportType":
 		var options=["all","stage","dungeon","world","training"]
 		report_type=options[(options.find(report_type)+1)%options.size()]
@@ -4822,7 +5034,7 @@ func _experience_action(id, data):
 	elif id == "presetReplace" or id == "presetDelete":
 		if id=="presetReplace" and dirty: toast_message("请先保存编队；覆盖使用当前已保存编队")
 		else: _confirm({"type":id,"index":int(data)},("覆盖" if id=="presetReplace" else "删除")+"预设「"+s.presets[int(data)].name+"」？\n仅修改此预设，不影响战车库存或其他预设。")
-	elif id == "tacticRules": _details("大回合、先手与连击", "每个大回合双方存活阵位各行动一次，按阵位顺序交替开火。一个小回合各取双方下一组；少阵位一方用尽后等待，另一方打完再开始下个大回合。已被击毁的待行动阵位跳过，不会额外获得行动。\n\n先手较高者先攻，同值我方先攻。连击紧接当前组，归属同一个小回合，不消耗或增加后续阵位的轮次。\n\n连击概率 = 10% +（我方二次开火值 − 敌方值）×0.1%，范围 0%—35%，最多追加一次。坦克固定横排三发，火炮按列内存活目标打一至两发，火箭固定六发；这些均是一次攻击内的连续射击。\n\n团队数值取出战阵位平均，不随阵亡改变。旧战报继续使用原快照与旧轮转。")
+	elif id == "tacticRules": _details("大回合、先手与连击", "每个大回合双方存活阵位各行动一次，按阵位顺序交替开火。一个小回合各取双方下一组；少阵位一方用尽后等待，另一方打完再开始下个大回合。已被击毁的待行动阵位跳过，不会额外获得行动。\n\n先手较高者先攻，同值我方先攻。连击紧接当前组，归属同一个小回合，不消耗或增加后续阵位的轮次。\n\n连击概率 = 10% +（我方二次开火值 − 敌方值）×0.1%，范围 0%—35%，最多追加一次。坦克逐列优先前排，整列为空则跳过；火炮按列内存活目标打一至两发，火箭固定六发；这些均是一次攻击内的连续射击。\n\n第50个大回合双方全部行动（含连击）结束后，若双方仍有部队，判先手方失败，不进入第51回合。\n\n团队数值取出战阵位平均，不随阵亡改变。旧战报继续使用原快照与旧轮转。")
 	elif id == "scoutDetails": _scout_details()
 	elif id == "departurePlan":
 		var site=_site()
@@ -4899,7 +5111,7 @@ func _experience_action(id, data):
 					command({"type":"battle","stage":i,"training":report.mode == "training"})
 					return true
 			for i in range(catalog.dungeons.size()):
-				if report.title.trim_prefix("演习 · ").begins_with(catalog.dungeons[i].name):
+				if report.title.trim_prefix("演习 · ").begins_with(catalog.dungeons[i].name) or (catalog.dungeons[i].get("legacyName","")!="" and report.title.trim_prefix("演习 · ").begins_with(catalog.dungeons[i].legacyName)):
 					selected_dungeon = i
 					command({"type":"dungeon","dungeonId":catalog.dungeons[i].id,"training":report.mode == "training"})
 					return true
@@ -5086,7 +5298,7 @@ func _step_action():
 	battle_speed = speed
 
 func _same_turn(a,b):
-	if report.get("ruleset","") in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22"] and a.has("exchange") and b.has("exchange"):
+	if report.get("ruleset","") in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3"] and a.has("exchange") and b.has("exchange"):
 		return a.round==b.round and a.exchange==b.exchange and a.side==b.side and a.from==b.from
 	return _same_battle_action(a,b)
 
@@ -5195,6 +5407,9 @@ func _map_matches(site):
 
 func _battle_environment():
 	var title = report.get("title", "")
+	if report.get("target",{}).get("type","")=="dungeon":
+		for d in catalog.dungeons:
+			if d.id==report.target.dungeonId: return "ground_"+d.theme
 	if report.get("mode") == "dungeon" or "试验" in title or "试炼" in title or "核心" in title: return "ground_proving"
 	if "油" in title: return "ground_oilfield"
 	if "堡" in title or "防线" in title or "阵地" in title or "封锁" in title: return "ground_fortress"
@@ -5653,6 +5868,183 @@ func _v21_qa(out):
 	print("V21_UNLOCK_PASS")
 	return true
 
+func _round_hud_qa(out):
+	var fixtures=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("round-fixtures.json")))
+	var shots=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("combat-fixtures.json")))
+	var original_mute=muted
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("round-save.json"))})
+	await _settled()
+	if s.reports.size()!=3 or s.reports[0].rounds!=50 or s.reports[2].rounds!=40: return false
+	var saved_reports=JSON.stringify(s.reports)
+	# A volley must identify the current shooter, even after all its events have
+	# been scheduled and battle_index already points to the opposing army.
+	for id in ["tank-full-0","spg-two-0","destroyer-rear-1","rocket-full-1"]:
+		var f=shots.filter(func(v):return v.id==id)[0]
+		open_report(f)
+		settlement_visible=false
+		battle_paused=true
+		battle_speed=1
+		_battle_step(1.20)
+		var first=f.events[0]
+		var source=f.initial[int(first.side)].filter(func(st):return st.slot==first.from)[0]
+		var expected=("我方攻击 · " if first.side==0 else "敌方攻击 · ")+str(catalog.classNames[source.classId])
+		if _battle_actor_label()!=expected or _battle_round_label()!="1 / 50": return false
+		if id=="rocket-full-1":
+			if int(f.events[battle_index].side)==int(first.side): return false
+			await _qa_capture(out,"active-rocket")
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			var f=fixtures[0 if scale_value==1.0 else 1]
+			open_report(f)
+			settlement_visible=false
+			battle_paused=true
+			battle_speed=1
+			for i in range(4000):
+				if int(last_hit.get("round",0))>=12: break
+				_battle_step(0.05)
+			if _battle_round_label()!="12 / 50": return false
+			await _qa_capture(out,"round-12-%dx%d-%d"%[window_size.x,window_size.y,roundi(scale_value*100)])
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	for first in [0,1]:
+		open_report(fixtures[first])
+		battle_paused=true
+		_action("battleSkip")
+		if not _battle_done() or not settlement_visible or _battle_round_label()!="50 / 50": return false
+		if report.winner!=1-first or report.endReason!="round-limit": return false
+		await _qa_capture(out,"timeout-result-"+str(first))
+		settlement_visible=false
+		await _qa_capture(out,"round-50-"+str(first))
+	open_report(fixtures[2])
+	battle_paused=true
+	_seek_battle_end()
+	settlement_visible=false
+	if _battle_round_label()!="40 / 40" or report.winner!=fixtures[2].winner: return false
+	await _qa_capture(out,"legacy-40")
+	if JSON.stringify(s.reports)!=saved_reports: return false
+	muted=original_mute
+	_stop_battle_audio()
+	FileAccess.open(out.path_join("round-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"current_actor_not_next":true,"round_12_of_50":true,"both_timeout_sides":true,"legacy_40_unchanged":true,"replay_does_not_mutate_reports":true,"resolutions":4,"scales":[100,120],"isolated_save_root":save_root},"  "))
+	return true
+
+func _indirect_fire_qa(out):
+	var fixtures=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("combat-fixtures.json")))
+	var original_mute=muted
+	muted=true
+	var cases=[]
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	for id in ["spg-two-0","spg-two-1","rocket-full-0","rocket-full-1"]:
+		var fixture=fixtures.filter(func(f):return f.id==id)[0]
+		for phase in [{"name":"launch","at":0.095},{"name":"descent","at":0.27},{"name":"impact","at":0.36}]:
+			open_report(fixture)
+			settlement_visible=false
+			battle_paused=true
+			battle_speed=1
+			_battle_step(1.05+phase.at)
+			if phase.name!="impact":
+				var e=fixture.events[0]
+				var unit=fixture.initial[int(e.side)].filter(func(st):return st.slot==e.from)[0]
+				var pose=_battle_pose(unit.unitId,int(e.side),int(e.from))
+				var target=_unit_position(1-int(e.side),int(e.to))-Vector2(0,20)
+				var degrees=60.0 if unit.classId=="spg" else 45.0
+				var trail=_shot_trail(pose.muzzle,target,pose.launch,battle_clock-battle_shots[0].at,true,degrees)
+				if trail.is_empty(): return false
+				var direction=(trail.head-trail.tail).normalized()
+				if phase.name=="launch" and direction.dot(pose.launch)<0.99998: return false
+				if phase.name=="descent" and absf(rad_to_deg(atan2(direction.y,absf(direction.x)))-degrees)>0.05: return false
+			await _qa_capture(out,id+"-"+phase.name)
+		cases.append(id)
+	muted=original_mute
+	_stop_battle_audio()
+	FileAccess.open(out.path_join("indirect-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"fixtures":cases,"captures":12,"spg_descent_degrees":60,"rocket_descent_degrees":45,"isolated_save_root":save_root},"  "))
+	return true
+
+func _rocket_live_failure(stage):
+	print("ROCKET_LIVE_FAILED: ",stage," clock=",battle_clock," screen=",screen," events=",battle_audio_events," pending=",battle_pending_impacts.size()," craters=",battle_craters.size()," voices=",battle_voices.map(func(v):return {"playing":v.playing,"paused":v.stream_paused}))
+	_stop_battle_audio()
+	return false
+
+func _rocket_live_qa(out):
+	var fixtures=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("combat-fixtures.json")))
+	var fixture=fixtures.filter(func(f):return f.id=="rocket-one-0")[0]
+	var original_mute=muted
+	muted=false
+	open_report(fixture)
+	settlement_visible=false
+	battle_speed=1
+	# Let actual frame updates and AudioStreamPlayers run, rather than manually seeking.
+	for i in range(160):
+		if battle_clock>=1.20: break
+		await get_tree().create_timer(0.02).timeout
+	if battle_clock<1.20 or battle_audio_events.size()!=1: return _rocket_live_failure("launch")
+	battle_paused=true
+	_sync_battle_audio()
+	var frozen=battle_clock
+	# Godot's playing is false while paused; the playback object remains active.
+	var paused_voices=battle_voices.filter(func(v):return v.has_stream_playback() and v.stream_paused)
+	if paused_voices.is_empty(): return _rocket_live_failure("paused voice")
+	var voice=paused_voices[0]
+	var audio_at=voice.get_playback_position()
+	await get_tree().create_timer(0.18).timeout
+	if battle_clock!=frozen or battle_audio_events.size()!=1: return _rocket_live_failure("frozen clock")
+	if absf(voice.get_playback_position()-audio_at)>0.04: return _rocket_live_failure("frozen audio")
+	battle_paused=false
+	_sync_battle_audio()
+	if not voice.playing or voice.get_playback_position()<audio_at-0.04: return _rocket_live_failure("resume voice")
+	for i in range(160):
+		if battle_clock>=1.80: break
+		await get_tree().create_timer(0.02).timeout
+	battle_paused=true
+	_sync_battle_audio()
+	if pending_hit or battle_audio_events.size()!=2 or battle_craters.size()!=5: return _rocket_live_failure("impacts")
+	await _qa_capture(out,"rocket-live-salvo-complete")
+	muted=true
+	_sync_battle_audio()
+	if battle_voices.any(func(v):return v.has_stream_playback()): return _rocket_live_failure("mute")
+	muted=false
+	_sync_battle_audio()
+	if battle_audio_events.size()!=2 or battle_voices.any(func(v):return v.has_stream_playback()): return _rocket_live_failure("unmute")
+	muted=true
+	open_report(fixture)
+	battle_paused=true
+	_battle_step(10000)
+	if not battle_audio_events.is_empty(): return _rocket_live_failure("silent replay")
+	muted=original_mute
+	_stop_battle_audio()
+	FileAccess.open(out.path_join("rocket-live.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"real_frames":true,"once_fire_once_impact":true,"pause_resume_no_restart":true,"mute_stops_no_retrigger":true,"ground_craters":5},"  "))
+	return true
+
+func _rocket_salvo_check(fixture,out):
+	var events=fixture.events.filter(func(e):return e.action==1)
+	_battle_step(1.08)
+	if battle_volley.size()!=6 or battle_pending_impacts.size()!=6 or battle_shots.size()!=6: return false
+	if battle_audio_events.size()!=1 or battle_audio_events[0].key!="rocket_fire": return false
+	for i in range(6):
+		var at=hit_time+ROCKET_LAUNCH_OFFSETS[i]+0.32
+		_battle_step(maxf(0,at-battle_clock-0.002))
+		if battle_pending_impacts.size()!=6-i: return false
+		var e=events[i]
+		if not e.get("ground",false) and not e.miss:
+			var before=battle_armies[1-int(e.side)].filter(func(st):return st.slot==e.to)[0]
+			if before.totalHp==e.hp: return false
+		_battle_step(0.004)
+		if battle_pending_impacts.size()!=5-i: return false
+		if e.get("ground",false):
+			if absf(battle_craters[-1].at-at)>0.00001 or battle_craters[-1].slot!=int(e.to): return false
+		else:
+			var after=battle_armies[1-int(e.side)].filter(func(st):return st.slot==e.to)[0]
+			if after.totalHp!=e.hp or after.count!=e.remaining: return false
+		if i==2 and fixture.id in ["rocket-one-0","rocket-full-0"]:
+			await _qa_capture(out,"rocket-cluster-"+fixture.id)
+	if pending_hit or battle_audio_events.filter(func(e):return e.key=="rocket_fire").size()!=1: return false
+	var impact_count=1 if events.any(func(e):return not e.miss) else 0
+	if battle_audio_events.filter(func(e):return e.key=="rocket_impact").size()!=impact_count: return false
+	return true
+
 func _combat_qa(out, revision="v20"):
 	var fixtures = JSON.parse_string(FileAccess.get_file_as_string(out.path_join("combat-fixtures.json")))
 	if not fixtures is Array: return false
@@ -5666,22 +6058,29 @@ func _combat_qa(out, revision="v20"):
 		var first_events=fixture.events.filter(func(e): return e.action==1)
 		if fixture.has("qaTargets") and first_events.map(func(e): return e.to)!=fixture.qaTargets: return false
 		if revision=="v22" and fixture.initial[int(first_events[0].side)][0].classId=="tank" and first_events.any(func(e):return e.get("ground",false)): return false
-		for index in range(first_events.size()):
-			_battle_step(1.17 if index==0 else 0.22)
-			if not pending_hit or last_hit.shot!=index+1 or battle_volley.size()!=1:
-				print(revision+"_FAILED launch ",fixture.id," ",index)
+		var rocket=fixture.initial[int(first_events[0].side)][0].classId=="rocket"
+		if rocket:
+			if not await _rocket_salvo_check(fixture,out):
+				print("ROCKET_FAILED: ",fixture.id," clock=",battle_clock," pending=",battle_pending_impacts.size())
 				return false
-			if battle_audio_events.filter(func(e):return e.key.ends_with("_fire")).size()!=index+1: return false
-			if not last_hit.get("ground",false):
-				var st=battle_armies[1-int(last_hit.side)].filter(func(v):return v.slot==last_hit.to)[0]
-				if not last_hit.miss and st.totalHp==last_hit.hp: return false
-			if revision=="v22" and fixture.id=="tank-mixed-0" and index==1:
-				_battle_step(0.16)
-				await _qa_capture(out,"v22-tank-exposed-rear")
-				_battle_step(0.14)
-			else: _battle_step(0.30)
-			if pending_hit: return false
-			launches_checked+=1
+			launches_checked+=6
+		else:
+			for index in range(first_events.size()):
+				_battle_step(1.17 if index==0 else 0.22)
+				if not pending_hit or last_hit.shot!=index+1 or battle_volley.size()!=1:
+					print(revision+"_FAILED launch ",fixture.id," ",index)
+					return false
+				if battle_audio_events.filter(func(e):return e.key.ends_with("_fire")).size()!=index+1: return false
+				if not last_hit.get("ground",false):
+					var st=battle_armies[1-int(last_hit.side)].filter(func(v):return v.slot==last_hit.to)[0]
+					if not last_hit.miss and st.totalHp==last_hit.hp: return false
+				if revision=="v22" and fixture.id=="tank-mixed-0" and index==1:
+					_battle_step(0.16)
+					await _qa_capture(out,"v22-tank-exposed-rear")
+					_battle_step(0.14)
+				else: _battle_step(0.30)
+				if pending_hit: return false
+				launches_checked+=1
 		var ground_count=first_events.filter(func(e):return e.get("ground",false)).size()
 		if battle_craters.size()!=ground_count: return false
 		if ground_count>0:
@@ -5710,6 +6109,16 @@ func _combat_qa(out, revision="v20"):
 			for side in range(2):
 				for j in range(battle_armies[side].size()):
 					if battle_armies[side][j].totalHp!=fixture.final[side][j].totalHp: return false
+			if rocket:
+				var fire_actions={}
+				var impact_actions={}
+				for e in fixture.events:
+					var source=fixture.initial[int(e.side)].filter(func(st):return st.slot==e.from)[0]
+					if source.classId!="rocket": continue
+					fire_actions[e.action]=true
+					if not e.miss: impact_actions[e.action]=true
+				if battle_audio_events.filter(func(e):return e.key=="rocket_fire").size()!=fire_actions.size(): return false
+				if battle_audio_events.filter(func(e):return e.key=="rocket_impact").size()!=impact_actions.size(): return false
 			if expected_craters<0:
 				expected_craters=battle_craters.size()
 				expected_clock=battle_clock

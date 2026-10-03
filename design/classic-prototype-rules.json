@@ -38,10 +38,10 @@
         6
       ]
     ],
-    "maxRounds": 40,
+    "maxRounds": 50,
     "initiativeTie": "attacker_first",
     "turnOrder": "major_round_once_per_survivor_alternating_exchanges",
-    "timeoutOutcome": "defender_wins",
+    "timeoutOutcome": "first_side_loses",
     "hpModel": "aggregate_hp_ceil_survivors",
     "partialHpAfterBattle": "restore_surviving_units_to_full",
     "multiplierScale": 10000,
