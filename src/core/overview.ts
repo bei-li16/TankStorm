@@ -132,8 +132,17 @@ function battleFeedback(
     hints.push(
       `第 ${r.roundLimit} 个大回合打完，双方仍有部队存活：${r.tactics?.firstSide === 0 ? '我方' : '敌方'}为先手方，按规则判负。`,
     );
-  if (r.winner === 0) hints.push(`本场损失 ${teams[0].lost} 辆，补齐前排后再安排下一次挑战。`);
-  else {
+  if (r.winner === 0) {
+    if (teams[0].lost === 0)
+      hints.push(
+        r.mode === 'training'
+          ? '演习无损获胜；可返回关卡评估正式出击。'
+          : '本场无战损，可继续推进战线或再次挑战获取补给。',
+      );
+    else if (r.mode === 'training')
+      hints.push(`演习预计损失 ${teams[0].lost} 辆，实际未扣兵；调整编队后再评估正式出击。`);
+    else hints.push(`本场损失 ${teams[0].lost} 辆，先维修和补兵，再安排下一次挑战。`);
+  } else {
     const empty = 6 - r.initial[0].length;
     if (empty > 0) hints.push(`有 ${empty} 个空阵位：补齐部队可增加行动轮转和承伤分担。`);
     const average = (side: number) =>
@@ -231,9 +240,23 @@ export function progressSummary(before: GameState, after: GameState) {
     produced: delta('produce') - refit,
     refitted: refit,
     repaired: delta('repair'),
-    returns: (after.expeditionLog ?? []).filter(
-      (v) => !(before.expeditionLog ?? []).some((b) => b.marchId === v.marchId),
-    ),
+    returns: (after.expeditionLog ?? [])
+      .filter((v) => !(before.expeditionLog ?? []).some((b) => b.marchId === v.marchId))
+      .map((receipt) => {
+        const site = after.world.find((v) => v.id === receipt.targetId);
+        // A fight may precede this rest interval; match its immutable march record.
+        const battle = after.reports.find((r) => r.marchId === receipt.marchId);
+        return {
+          ...receipt,
+          title: site ? `${site.name} [${site.x},${site.y}]` : receipt.targetId,
+          losses: battle
+            ? {
+                repairable: battle.casualties.reduce((n, v) => n + v.repairable, 0),
+                destroyed: battle.casualties.reduce((n, v) => n + v.destroyed, 0),
+              }
+            : null,
+        };
+      }),
     battles: after.reports
       .filter((r) => !before.reports.some((b) => b.id === r.id))
       .map((r) => ({
