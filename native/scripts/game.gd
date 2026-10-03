@@ -1357,9 +1357,10 @@ func _draw():
 			var ratio = float(s.wallet[resource])/maxf(1,info.capacity)
 			_text("自产容量 "+QuantityFormat.exact(info.capacity)+" · 已用 %.1f%% · "%[ratio*100]+("满仓暂停自产，已获得的奖励和归队物资保留" if ratio>=1 else "点击查看产量、订单占用与运输中物资"),Vector2(375,146),17,GOLD if ratio>=1 else TEXT)
 	if toast_until > clock and toast != "":
-		var w = minf(1100, maxf(400, font.get_string_size(toast, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x + 54))
-		_panel(Rect2((1600 - w) / 2, 92, w, 43), Color("25322b"), GOLD)
-		_fit_text(toast, Vector2((1600 - w) / 2 + 26, 120), w-52, 17, TEXT)
+		# The gap below the resource bar stays clear of page actions and base dispatch tabs.
+		var w = minf(800, maxf(360, font.get_string_size(toast, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14*ui_scale)).x + 40))
+		_panel(Rect2((1600 - w) / 2, 83, w, 19), Color("25322b"), GOLD)
+		_fit_text(toast, Vector2((1600 - w) / 2 + 20, 98), w-40, 14, TEXT)
 	if _modal_open(): draw_rect(Rect2(0,0,1600,900),Color(0.01,0.025,0.02,0.65))
 
 func _modal_open():
@@ -2050,7 +2051,7 @@ func _draw_repair():
 	_text("VIP 免 %d 分钟 · 按整批剩余时间判断" % info.vip.freeMinutes, Vector2(1025, 544), 15, MUTED)
 	if s.damaged[repair_unit]>0: _cost(quote.unitCost, Vector2(1025, 578), quantity)
 	_button("repairStart", "维修线正在工作" if quote.busy else "暂无待修车辆" if s.damaged[repair_unit] == 0 else "开始修复 %d 辆" % quantity, Rect2(1025, 605, 511, 43), null, true, not quote.busy and quantity > 0 and quantity <= quote.max and not _command_pending())
-	if quote.busy or quantity<=0 or quantity>quote.max: _text(_disabled_reason("repairStart",null),Vector2(1025,666),15,RED)
+	if s.damaged[repair_unit]>0 and (quote.busy or quantity<=0 or quantity>quote.max): _text(_disabled_reason("repairStart",null),Vector2(1025,666),15,RED)
 	_job("repair", Vector2(1025, 671), 511)
 	_text("正式战损：同型号合计 ×80% 向上取整可维修；其余永久损失。演习不消耗战车。", Vector2(43, 818), 16, MUTED)
 
@@ -2801,10 +2802,10 @@ func _draw_reports():
 		for key in RES:
 			if shown_rewards.get(key, 0) > 0: reward_items.append({"id":key,"count":shown_rewards[key]})
 		for key in ["xp","books","prestige","skillPoints"]:
-			if r.get("growth",{}).get(key,0)>0: reward_items.append({"id":"emblem","count":r.growth[key]})
+			if r.get("growth",{}).get(key,0)>0: reward_items.append({"id":"growth:"+key,"count":r.growth[key]})
 		for j in range(mini(8, reward_items.size())):
 			var at=p+Vector2(650+(j%4)*116,5+int(j/4.0)*40)
-			_item_icon(reward_items[j].id, Rect2(at, Vector2(32,32)))
+			_reward_icon(reward_items[j].id, Rect2(at, Vector2(32,32)))
 			_text(_amount(reward_items[j].count), at+Vector2(35,24), 16, GOLD)
 		if reward_items.is_empty(): _text("无物资奖励",p+Vector2(660,46),16,MUTED)
 		if r.mode == "world": _text(r.get("transport", {}).get("label", "历史记录").substr(0,16), p + Vector2(435,68), 14, MUTED)
@@ -4427,8 +4428,8 @@ func _dispatch_qa(out):
 	FileAccess.open(out.path_join("v23-acceptance.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"seven_stations":true,"independent_factory_fifo":true,"mouse_expand_paging_cancel_accelerate":true,"project_and_map_navigation":true,"keyboard_q_enter_escape":true,"live_completion_without_navigation":true,"rest_and_return_refresh":true,"old_save_and_player_isolation":true,"captures":captures}, "  "))
 	return true
 
-func _qa_capture(out, name):
-	toast_until = 0
+func _qa_capture(out, name, keep_toast=false):
+	if not keep_toast: toast_until = 0
 	await get_tree().create_timer(0.09).timeout
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(out.path_join(name + ".png"))
@@ -6058,6 +6059,10 @@ func _experience25_qa(out):
 			_navigate("army")
 			_action("slot:0",0)
 			await _qa_capture(out,"army"+suffix)
+			_navigate("reports")
+			toast_message("存档已保存 · 生产、维修与归队库存已同步")
+			await _qa_capture(out,"reports-toast"+suffix,true)
+			toast_until=0
 			request({"op":"report","id":meta.report,"summaryOnly":true})
 			await _settled()
 			_action("battleSkip")

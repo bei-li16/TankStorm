@@ -1,10 +1,12 @@
 # TankStorm · 坦克风云经典归来
 
-一个面向 **Windows x64** 的原生单机策略游戏项目，重现早期基地建设、四兵种生产和六格编队的游玩体验。当前源码版本为 **0.25.1**，使用 Godot 4.6.2 绘制界面与战斗，通过本地 TypeScript 规则进程完成确定性结算和存档。
+一个面向 **Windows x64** 的原生单机策略游戏项目，重现早期基地建设、四兵种生产和六格编队的游玩体验。当前源码版本为 **0.25.2**，使用 Godot 4.6.2 绘制界面与战斗，通过本地 TypeScript 规则进程完成确定性结算和存档。
 
 本项目是个人怀旧重制，非官方客户端。图片、图标和音效使用项目自制素材；部分经典玩法参考公开资料，未核实的原版数值和细节明确标记为单机适配。
 
-**直接游玩：** 最新 Windows 免安装版：[v0.25.1 Release](https://github.com/bei-li16/TankStorm/releases/tag/v0.25.1)。本地构建目录为 `release/TankStorm-v0.25.1/`，完整包为 `release/TankStorm-v0.25.1-portable.zip`。完整解压后运行 `TankStorm.exe`，无需安装 Godot 或 Node.js；请保留包内所有文件。GitHub 自动生成的 Source code 包用于开发，不是可直接运行的游戏。
+**直接游玩：** 最新 Windows 免安装版：[v0.25.2 Release](https://github.com/bei-li16/TankStorm/releases/tag/v0.25.2)。本地构建目录为 `release/TankStorm-v0.25.2/`，完整包为 `release/TankStorm-v0.25.2-portable.zip`。完整解压后运行 `TankStorm.exe`，无需安装 Godot 或 Node.js；请保留包内所有文件。GitHub 自动生成的 Source code 包用于开发，不是可直接运行的游戏。
+
+**v0.25.2 实玩复核：** 收窄通知条并放入资源栏下方间隙，战报列表沿用结算页的独立成长奖励标识，清除维修完成后的重复红色提示。详见 [v0.24.3 实玩与迭代报告](docs/49-v0252-playtest.txt)，涵盖问题分类、改进依据、实玩数据及验证边界。
 
 **v0.25.1 重新编译发布：** 从当前源码重新构建 Windows 原生程序，统一应用与 EXE 版本号。沿用 v0.25.0 的功能、规则和存档格式；独立输出目录保留旧版程序。[发布说明](docs/48-v0251-release.txt)。
 
