@@ -5,6 +5,23 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const { version } = JSON.parse(readFileSync(root + '/package.json', 'utf8'));
 if (!/^\d+\.\d+\.\d+$/.test(version)) throw Error('Expected a numeric release version');
+// Windows file properties and Godot metadata must match the package we distribute.
+const syncVersion = (file, replacements) => {
+  const before = readFileSync(file, 'utf8');
+  let after = before;
+  for (const [pattern, value] of replacements) {
+    if (!pattern.test(after)) throw Error('Missing version setting in ' + file);
+    after = after.replace(pattern, value);
+  }
+  if (after !== before) writeFileSync(file, after);
+};
+syncVersion(root + '/native/export_presets.cfg', [
+  [/^application\/file_version="[^"]*"/m, `application/file_version="${version}.0"`],
+  [/^application\/product_version="[^"]*"/m, `application/product_version="${version}.0"`],
+]);
+syncVersion(root + '/native/project.godot', [
+  [/^config\/version="[^"]*"/m, `config/version="${version}"`],
+]);
 const folder = 'TankStorm-v' + version;
 const out = resolve(root, 'release', folder);
 mkdirSync(out + '/runtime', { recursive: true });

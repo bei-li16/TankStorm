@@ -1,10 +1,12 @@
 # TankStorm · 坦克风云经典归来
 
-一个面向 **Windows x64** 的原生单机策略游戏项目，重现早期基地建设、四兵种生产和六格编队的游玩体验。当前源码版本为 **0.24.3**，使用 Godot 4.6.2 绘制界面与战斗，通过本地 TypeScript 规则进程完成确定性结算和存档。
+一个面向 **Windows x64** 的原生单机策略游戏项目，重现早期基地建设、四兵种生产和六格编队的游玩体验。当前源码版本为 **0.24.4**，使用 Godot 4.6.2 绘制界面与战斗，通过本地 TypeScript 规则进程完成确定性结算和存档。
 
 本项目是个人怀旧重制，非官方客户端。图片、图标和音效使用项目自制素材；部分经典玩法参考公开资料，未核实的原版数值和细节明确标记为单机适配。
 
-**直接游玩：** 最新 Windows 免安装版：[v0.24.3 Release](https://github.com/bei-li16/TankStorm/releases/tag/v0.24.3)。本地构建目录为 `release/TankStorm-v0.24.3/`，完整包为 `release/TankStorm-v0.24.3-portable.zip`。完整解压后运行 `TankStorm.exe`，无需安装 Godot 或 Node.js；请保留包内所有文件。GitHub 自动生成的 Source code 包用于开发，不是可直接运行的游戏。
+**直接游玩：** 最新 Windows 免安装版：[v0.24.4 Release](https://github.com/bei-li16/TankStorm/releases/tag/v0.24.4)。本地构建目录为 `release/TankStorm-v0.24.4/`，完整包为 `release/TankStorm-v0.24.4-portable.zip`。完整解压后运行 `TankStorm.exe`，无需安装 Godot 或 Node.js；请保留包内所有文件。GitHub 自动生成的 Source code 包用于开发，不是可直接运行的游戏。
+
+**v0.24.4 重新构建与版本同步：** 修正 Windows 文件属性仍显示旧版本的问题。构建脚本统一从 `package.json` 同步 Godot 应用版本及 EXE 文件/产品版本。沿用 v0.24.3 的玩法、战斗规则与存档格式。[发布说明](docs/46-v0244-release.txt)。
 
 **v0.24.3 战斗提示与回合上限：** 左侧只显示当前攻击方与兵种，VS下方只显示当前大回合/上限。新战斗最多50个大回合，第50回合双方行动和连击完成后仍未分胜负，判先手方失败；回合内歼灭仍正常获胜。旧战报保留40回合上限和原结果。通过508项测试与原生窗口验收。[修改与验证](docs/44-v0243-round-hud.txt)。
 
