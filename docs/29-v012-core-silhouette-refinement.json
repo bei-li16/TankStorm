@@ -1,0 +1,13 @@
+{
+  "method": "built-in image_gen; generated from new silhouette prompts without VI references; alpha and pixels copied unchanged. Replaces two close silhouettes from 28-v012-elite-art-provenance.json after native screenshot review.",
+  "assets": [
+    {
+      "asset": "tank_core7_field.png",
+      "prompt": "Use case: stylized-concept. One isolated military equipment inventory icon for a Windows realistic tank strategy game. Primary subject: advanced green active-protection armored turret control assembly, distinctive TALL OCTAGONAL multi-layer armor tower with four clearly visible outward-facing rectangular sensor panels and a compact servo mechanism underneath. Broad hexagonal/octagonal silhouette, upright bulky mechanical equipment, NOT a flat plate and NOT a circular turret ring. Restrained dark olive-green painted steel with edge wear and precise bolts. Three-quarter overhead orthographic game-art camera, light from upper left. Readable bold silhouette at 64 pixels, not excessive small details. Subject fills 80 percent of a square transparent canvas, centered. Realistic 3D rendered military material, no text, no pedestal, no jewellery, no gold filigree, no gemstones, no sci-fi glowing crystals, no background. True alpha transparency."
+    },
+    {
+      "asset": "rocket_core7_field.png",
+      "prompt": "Use case: stylized-concept. One isolated military equipment inventory icon for a Windows realistic tank strategy game. Primary subject: advanced rocket artillery guidance module consisting of a RECTANGULAR THREE BY TWO bank of SIX sealed square missile canisters with prominent square caps, a rugged hydraulic mounting bracket below, and an electronic control housing on the side. Distinctive angular wide rectangular six-cell geometry, NOT two round tubes. Restrained violet-purple painted panels over dark gunmetal steel with worn edges and bolts. Three-quarter overhead orthographic game-art camera, light from upper left. Readable bold silhouette at 64 pixels, not excessive tiny details. Subject fills 80 percent of a square transparent canvas, centered. Realistic 3D rendered military material, no text, no pedestal, no jewellery, no gold filigree, no gemstones, no glowing crystals, no background. True alpha transparency."
+    }
+  ]
+}

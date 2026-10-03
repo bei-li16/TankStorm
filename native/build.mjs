@@ -21,6 +21,15 @@ await build({
 copyFileSync(process.execPath, out + '/runtime/node.exe');
 const godot = root + '/.tools/godot/Godot_v4.6.2-stable_win64_console.exe';
 if (!existsSync(godot)) throw Error('Godot 4.6.2 editor is required in .tools/godot');
+// Export can succeed despite a script parse error; fail before creating a broken release.
+execFileSync(
+  godot,
+  ['--headless', '--path', root + '/native', '--script', 'res://scripts/game.gd', '--check-only'],
+  {
+    stdio: 'inherit',
+    timeout: 30000,
+  },
+);
 execFileSync(godot, ['--headless', '--path', root + '/native', '--editor', '--import'], {
   stdio: 'inherit',
   timeout: 120000,

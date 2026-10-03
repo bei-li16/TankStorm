@@ -12,12 +12,6 @@ describe('classic class combat restored from official attack-pattern guide', () 
   it.each(classes)(
     '%s selects the classic shape for all seven generations and all firing slots',
     (cls) => {
-      const expected = {
-        tank: [1, 2, 3],
-        tank_destroyer: [1],
-        spg: [1, 4],
-        rocket: [1, 2, 3, 4, 5, 6],
-      };
       for (let tier = 1; tier <= 7; tier++)
         for (let slot = 1; slot <= 6; slot++) {
           const f: Formation = Array.from({ length: 6 }, (_, i) =>
@@ -25,8 +19,15 @@ describe('classic class combat restored from official attack-pattern guide', () 
           );
           const defenders = full().map((s) => ({ ...s, attack: 0 }));
           const report = simulate(army(f), defenders, 42);
+          const column = ((slot - 1) % 3) + 1;
+          const expected = {
+            tank: [1, 2, 3],
+            tank_destroyer: [column],
+            spg: [column, column + 3],
+            rocket: [1, 2, 3, 4, 5, 6],
+          };
           expect(
-            report.events.filter((e) => e.round === 1 && e.side === 0).map((e) => e.to),
+            report.events.filter((e) => e.round === 1 && e.side === 0 && !e.extra).map((e) => e.to),
           ).toEqual(expected[cls]);
         }
     },
@@ -35,8 +36,8 @@ describe('classic class combat restored from official attack-pattern guide', () 
     const defenders = full();
     defenders[0].totalHp = 0;
     defenders[2].totalHp = 0;
-    expect(attackTargets('tank', defenders).map((s) => s.slot)).toEqual([2]);
-    expect(attackTargets('spg', defenders).map((s) => s.slot)).toEqual([2, 5]);
+    expect(attackTargets('tank', defenders).map((s) => s.slot)).toEqual([4, 2, 6]);
+    expect(attackTargets('spg', defenders).map((s) => s.slot)).toEqual([4]);
     defenders[1].totalHp = 0;
     expect(attackTargets('tank', defenders).map((s) => s.slot)).toEqual([4, 5, 6]);
     expect(attackTargets('tank_destroyer', defenders).map((s) => s.slot)).toEqual([4]);
@@ -46,9 +47,9 @@ describe('classic class combat restored from official attack-pattern guide', () 
   it('commits a volley target set before casualties so a kill does not spill into the rear', () => {
     const attackers = army([{ unitId: 'tank_t7', count: 1000 }]);
     const report = simulate(attackers, full(), 1);
-    expect(report.events.filter((e) => e.round === 1 && e.side === 0).map((e) => e.to)).toEqual([
-      1, 2, 3,
-    ]);
+    expect(
+      report.events.filter((e) => e.round === 1 && e.side === 0 && !e.extra).map((e) => e.to),
+    ).toEqual([1, 2, 3]);
     expect(report.events.find((e) => e.side === 0 && e.round === 2)?.to).toBe(4);
   });
   it('applies all sixteen documented/neutral class multipliers without a hidden rocket area discount', () => {

@@ -22,6 +22,37 @@ afterEach(() => {
   for (const p of roots.splice(0)) rmSync(p, { recursive: true, force: true });
 });
 describe('native filesystem runtime', () => {
+  it('commits a battle with its deployment atomically and replays its receipt without a second battle', async () => {
+    const store = make();
+    store.boot();
+    const before = readFileSync(store.path(store.state.id), 'utf8');
+    await expect(
+      store.handle({
+        op: 'command',
+        id: 'invalid-deployment',
+        command: { type: 'battle', stage: 0, formation: Array(6).fill(null) },
+      }),
+    ).rejects.toThrow('部署战车');
+    expect(readFileSync(store.path(store.state.id), 'utf8')).toBe(before);
+    const request = {
+      op: 'command',
+      id: 'confirmed-deployment',
+      command: {
+        type: 'battle',
+        stage: 0,
+        formation: [{ unitId: 'tank_t1', count: 10 }, null, null, null, null, null],
+      },
+    };
+    const first = await store.handle(request),
+      state = structuredClone(store.state);
+    expect(first.report.initial[0][0].count).toBe(10);
+    expect(store.read(store.state.id).formation).toEqual(request.command.formation);
+    const second = await store.handle(request);
+    expect(second.report).toEqual(first.report);
+    expect(store.state).toEqual(state);
+    expect(store.state.reports).toHaveLength(1);
+    assertState(store.state);
+  });
   it('reads a legacy twelve-unit file and preserves modern core and refit data across copy, switch and import', async () => {
     const store = make();
     const old = newGame('legacy', '旧指挥部', Date.now());
@@ -32,7 +63,8 @@ describe('native filesystem runtime', () => {
     store.load(old.id);
     expect(Object.keys(store.state.available)).toHaveLength(28);
     expect(store.state.arsenal!.cores.tank_core6).toBe(0);
-    store.state.buildings.hq = store.state.buildings.factory = 20;
+    store.state.buildings.hq = store.state.buildings.factory = 60;
+    store.state.industry = { version: 1, factory2: 0, refit: 60 };
     for (const r of Object.keys(store.state.wallet))
       store.state.wallet[r as keyof typeof store.state.wallet] = 1000000;
     store.state.arsenal!.cores.tank_core6 = 4;
@@ -41,16 +73,16 @@ describe('native filesystem runtime', () => {
     const originalId = store.state.id;
     await store.handle({ op: 'copy', nickname: '核心副本档' });
     const copiedId = store.state.id;
-    expect(store.state.jobs.production!.sourceUnitId).toBe('tank_t5');
+    expect(store.state.jobs['production:refit']!.sourceUnitId).toBe('tank_t5');
     const exported = await exportSave(store.state);
     await store.handle({ op: 'command', command: { type: 'cancel', kind: 'production' } });
     expect(store.state.arsenal!.cores.tank_core6).toBe(4);
     await store.handle({ op: 'load', id: originalId });
     expect(store.state.arsenal!.cores.tank_core6).toBe(0);
-    expect(store.state.jobs.production!.total).toBe(4);
+    expect(store.state.jobs['production:refit']!.total).toBe(4);
     await store.handle({ op: 'import', text: exported });
     expect(store.state.id).not.toBe(copiedId);
-    expect(store.state.jobs.production!.sourceUnitId).toBe('tank_t5');
+    expect(store.state.jobs['production:refit']!.sourceUnitId).toBe('tank_t5');
     await store.handle({ op: 'command', command: { type: 'cancel', kind: 'production' } });
     expect(store.state.available.tank_t5).toBe(4);
     expect(store.state.arsenal!.cores.tank_core6).toBe(4);
@@ -109,15 +141,16 @@ describe('native filesystem runtime', () => {
     s.boot();
     const first = s.state.id;
     await s.handle({ op: 'command', command: { type: 'produce', unitId: 'tank_t1', count: 5 } });
+    const duration = s.state.jobs.production!.duration;
     await s.handle({ op: 'new', nickname: '第二基地' });
     const second = s.state.id;
-    now += 16000;
+    now += duration * 3;
     await s.handle({ op: 'load', id: first });
     expect(s.state.available.tank_t1).toBe(23);
     expect(s.state.jobs.production?.completed).toBe(3);
     await s.handle({ op: 'load', id: second });
     expect(s.state.available.tank_t1).toBe(20);
-    now += 10000;
+    now += duration * 2;
     await s.handle({ op: 'load', id: first });
     expect(s.state.available.tank_t1).toBe(25);
     expect(s.state.jobs.production).toBeUndefined();
@@ -298,10 +331,11 @@ describe('native filesystem runtime', () => {
     a.boot();
     await a.handle({ op: 'command', command: { type: 'produce', unitId: 'tank_t1', count: 5 } });
     const s = structuredClone(a.state);
-    s.now -= 60000;
-    s.jobs.production!.startedAt -= 60000;
-    s.jobs.production!.dueAt -= 60000;
-    for (const site of s.world) site.lastGrowth -= 60000;
+    const elapsed = s.jobs.production!.duration * s.jobs.production!.total + 1000;
+    s.now -= elapsed;
+    s.jobs.production!.startedAt -= elapsed;
+    s.jobs.production!.dueAt -= elapsed;
+    for (const site of s.world) site.lastGrowth -= elapsed;
     a.commit(s);
     a.close();
     const b = new NativeStore(a.root);
@@ -319,10 +353,11 @@ describe('native filesystem runtime', () => {
     expect(offset).toBe(28800000);
     await a.handle({ op: 'command', command: { type: 'produce', unitId: 'tank_t1', count: 5 } });
     const then = structuredClone(a.state);
-    then.now -= 60000;
-    then.jobs.production!.startedAt -= 60000;
-    then.jobs.production!.dueAt -= 60000;
-    for (const site of then.world) site.lastGrowth -= 60000;
+    const elapsed = then.jobs.production!.duration * then.jobs.production!.total + 1000;
+    then.now -= elapsed;
+    then.jobs.production!.startedAt -= elapsed;
+    then.jobs.production!.dueAt -= elapsed;
+    for (const site of then.world) site.lastGrowth -= elapsed;
     a.commit(then);
     a.close();
     const b = new NativeStore(a.root);

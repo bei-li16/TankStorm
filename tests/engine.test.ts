@@ -14,6 +14,8 @@ import {
 } from '../src/core/engine';
 import { army, casualtySummary, rng32, simulate, survivors } from '../src/core/battle';
 import { stageFormation, unitList, units, upgradeCost } from '../src/core/content';
+import { npcProtected } from '../src/core/world';
+import { accelerationCost } from '../src/core/vip';
 import type { Command, Formation, GameState } from '../src/core/types';
 let id = 0;
 const T = 1700000000000;
@@ -41,7 +43,7 @@ describe('atomic economy and production', () => {
     const s = game();
     s.wallet.iron = 0;
     const before = structuredClone(s);
-    expect(() => command(s, { type: 'produce', unitId: 'tank_t1', count: 1 }, T + 10000)).toThrow(
+    expect(() => command(s, { type: 'produce', unitId: 'tank_t1', count: 2 }, T + 10000)).toThrow(
       '资源不足',
     );
     expect(s).toEqual(before);
@@ -50,36 +52,43 @@ describe('atomic economy and production', () => {
     let s = game();
     s.buildings.hq = 2;
     s = command(s, { type: 'upgrade', building: 'iron' });
-    const before = s.wallet.iron;
+    const before = s.wallet.iron,
+      elapsed = s.jobs.building!.dueAt - T,
+      oldRate = rate(s, 'iron');
     s = advance(s, T + 3600000);
-    expect(s.wallet.iron - before).toBe(Math.floor((120 * 30000 + 144 * 3570000) / 3600000));
+    expect(s.wallet.iron - before).toBe(
+      Math.floor((oldRate * elapsed + rate(s, 'iron') * (3600000 - elapsed)) / 3600000),
+    );
     expect(s.buildings.iron).toBe(2);
     assertState(s);
   });
   it('A05 20 ordered, 7 done, cancelling refunds exactly 13', () => {
     let s = command(game(), { type: 'produce', unitId: 'tank_t1', count: 20 });
-    s = advance(s, T + 35000);
+    const cost = s.jobs.production!.unitCost.iron!;
+    s = advance(s, T + s.jobs.production!.duration * 7);
     expect(s.available.tank_t1).toBe(27);
     const iron = s.wallet.iron;
     s = command(s, { type: 'cancel', kind: 'production' });
-    expect(s.wallet.iron).toBe(iron + 13 * 20);
+    expect(s.wallet.iron).toBe(iron + 13 * cost);
     expect(s.jobs.production).toBeUndefined();
     expect(() => command(s, { type: 'cancel', kind: 'production' })).toThrow();
     assertState(s);
   });
   it('refund uses the original unit cost after technology changes', () => {
     let s = command(game(), { type: 'produce', unitId: 'tank_t1', count: 10 });
+    const paid = s.jobs.production!.unitCost.iron! * 10;
     s.tech.production = 5;
     const before = s.wallet.iron;
     s = command(s, { type: 'cancel', kind: 'production' });
-    expect(s.wallet.iron - before).toBe(200);
+    expect(s.wallet.iron - before).toBe(paid);
   });
   it('orders complete per unit rather than all at the end', () => {
     let s = command(game(), { type: 'produce', unitId: 'rocket_t1', count: 3 });
-    s = advance(s, T + 9000);
+    const duration = s.jobs.production!.duration;
+    s = advance(s, T + duration);
     expect(s.available.rocket_t1).toBe(7);
     expect(s.jobs.production?.completed).toBe(1);
-    s = advance(s, T + 27000);
+    s = advance(s, T + duration * 3);
     expect(s.available.rocket_t1).toBe(9);
     expect(s.jobs.production).toBeUndefined();
     assertState(s);
@@ -91,16 +100,16 @@ describe('atomic economy and production', () => {
     expect(s).toEqual(before);
   });
   it('locked advanced units cannot be produced', () => {
-    expect(() => command(game(), { type: 'produce', unitId: 'tank_t3', count: 1 })).toThrow('12');
+    expect(() => command(game(), { type: 'produce', unitId: 'tank_t3', count: 1 })).toThrow('14');
   });
   it.each([0, -1, 1.1, NaN, Infinity, 10001])('rejects invalid quantity %s', (n) => {
     expect(() => command(game(), { type: 'produce', unitId: 'tank_t1', count: n })).toThrow();
   });
-  it('titanium starts only at HQ 8', () => {
+  it('titanium starts only at HQ 6', () => {
     const s = game();
     expect(rate(s, 'titanium')).toBe(0);
-    s.buildings.hq = 8;
-    expect(rate(s, 'titanium')).toBe(20);
+    s.buildings.hq = 6;
+    expect(rate(s, 'titanium')).toBe(150);
   });
   it('passive production caps but external quest reward does not', () => {
     let s = game();
@@ -122,19 +131,21 @@ describe('atomic economy and production', () => {
     s.available.tank_t1 -= 10;
     s.damaged.tank_t1 = 10;
     s = command(s, { type: 'repair', unitId: 'tank_t1', count: 10 });
-    s = advance(s, T + 20000);
+    const cost = s.jobs.repair!.unitCost.crystal!;
+    s = advance(s, T + s.jobs.repair!.duration * 4);
     expect(s.available.tank_t1).toBe(14);
     const crystal = s.wallet.crystal;
     s = command(s, { type: 'cancel', kind: 'repair' });
     expect(s.damaged.tank_t1).toBe(6);
-    expect(s.wallet.crystal - crystal).toBe(18);
+    expect(s.wallet.crystal - crystal).toBe(6 * cost);
     assertState(s);
   });
   it('accelerating completes remaining jobs once and consumes exact gold', () => {
     let s = command(game(), { type: 'produce', unitId: 'tank_t1', count: 20 });
     s = advance(s, T + 35000);
+    const gold = s.wallet.gold - accelerationCost(s, s.jobs.production!);
     s = command(s, { type: 'accelerate', kind: 'production' });
-    expect(s.wallet.gold).toBe(48);
+    expect(s.wallet.gold).toBe(gold);
     expect(s.available.tank_t1).toBe(40);
     expect(s.jobs.production).toBeUndefined();
     assertState(s);
@@ -160,9 +171,10 @@ describe('atomic economy and production', () => {
   });
   it('job speed snapshots survive later research changes', () => {
     const s = command(game(), { type: 'produce', unitId: 'tank_t1', count: 2 });
+    const duration = s.jobs.production!.duration;
     s.tech.production = 20;
-    expect(advance(s, T + 5000).available.tank_t1).toBe(21);
-    expect(advance(s, T + 9999).available.tank_t1).toBe(21);
+    expect(advance(s, T + duration).available.tank_t1).toBe(21);
+    expect(advance(s, T + duration * 2 - 1).available.tank_t1).toBe(21);
   });
 });
 describe('formation, battle and progression', () => {
@@ -215,7 +227,7 @@ describe('formation, battle and progression', () => {
     expect(simulate(a, d, 123)).toEqual(simulate(a, d, 123));
     expect(a).toEqual(before);
   });
-  it('combat events target front row before the rear', () => {
+  it('tank events prioritize the front of each column independently', () => {
     const a = army([{ unitId: 'tank_t1', count: 20 }, null, null, null, null, null]),
       d = army([
         null,
@@ -226,7 +238,9 @@ describe('formation, battle and progression', () => {
         null,
       ]);
     const r = simulate(a, d, 1);
-    expect(r.events[0].to).toBe(2);
+    expect(r.events[0].to).toBe(4);
+    expect(r.events.some((e) => e.ground)).toBe(false);
+    expect(r.events[1].to).toBe(2);
   });
   it('artillery hits only its anchored column', () => {
     const a = army([{ unitId: 'spg_t1', count: 5 }, null, null, null, null, null]),
@@ -260,7 +274,7 @@ describe('formation, battle and progression', () => {
       null,
     ]);
     const final = a.map((s) => ({ ...s, totalHp: 0 }));
-    expect(casualtySummary(a, final)[0]).toMatchObject({ lost: 3, repairable: 2, destroyed: 1 });
+    expect(casualtySummary(a, final)[0]).toMatchObject({ lost: 3, repairable: 3, destroyed: 0 });
   });
   it('A04 past reports preserve original stats after research', () => {
     let s = command(game(), { type: 'battle', stage: 0, training: true });
@@ -337,9 +351,12 @@ describe('formation, battle and progression', () => {
     expect(s.commander.prestige).toBe(40);
   });
   it('level-up books cannot go negative', () => {
-    let s = command(game(), { type: 'leadership' });
+    const ready = game();
+    ready.commander.prestige = 160;
+    ready.commander.books = 1;
+    let s = command(ready, { type: 'leadership' });
     expect(leadershipCap(s)).toBe(25);
-    expect(() => command(s, { type: 'leadership' })).toThrow('统率书');
+    expect(() => command(s, { type: 'leadership' })).toThrow('还缺');
   });
 });
 describe('world expeditions and conservation', () => {
@@ -349,24 +366,23 @@ describe('world expeditions and conservation', () => {
     s = command(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
     s = advance(s, T + 8000);
     expect(s.marches[0].phase).toBe('gathering');
-    s = advance(s, T + 8000 + 2400000);
-    expect(s.marches[0].cargo.iron).toBe(200);
-    expect(s.world[0].reserve).toBe(1800);
+    s = advance(s, s.marches[0].dueAt);
+    expect(s.marches[0].cargo.iron).toBe(8000);
+    expect(s.world[0].reserve).toBe(11200);
     expect(s.marches[0].phase).toBe('returning');
-    const before = s.wallet.iron;
-    s = advance(s, T + 2400000 + 16000);
+    const before = s.wallet.iron,
+      remainder = s.remainders.iron;
+    s = advance(s, s.marches[0].dueAt);
     expect(s.marches).toHaveLength(0);
-    expect(s.wallet.iron - before).toBe(
-      200 + Math.floor((120 * 8000 + s.remainders.iron) / 3600000),
-    );
+    expect(s.wallet.iron - before).toBe(8000 + Math.floor((600 * 8000 + remainder) / 3600000));
     expect(s.available.tank_t1).toBe(20);
     assertState(s);
   });
-  it('A13 recall partial 80 cargo returns once', () => {
+  it('A13 recall partial cargo returns once at the current extraction rate', () => {
     let s = game();
     s.formation = [{ unitId: 'tank_t1', count: 20 }, null, null, null, null, null];
     s = command(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
-    s = advance(s, T + 8000 + 960000);
+    s = advance(s, T + 8000 + 60000);
     expect(s.marches[0].cargo.iron).toBe(80);
     s = command(s, { type: 'recall', marchId: s.marches[0].id });
     s = advance(s, s.now + 8000);
@@ -398,13 +414,25 @@ describe('world expeditions and conservation', () => {
     let s = game();
     const target = s.world.find((t) => t.kind === 'npc')!;
     target.guards = Array(6).fill(null);
-    target.wallet = { iron: 1100, oil: 1200, lead: 1300, titanium: 500, crystal: 500, gold: 0 };
+    const protectedStock = {
+      iron: npcProtected(target, 'iron'),
+      oil: npcProtected(target, 'oil'),
+      lead: npcProtected(target, 'lead'),
+    };
+    target.wallet = {
+      iron: protectedStock.iron + 100,
+      oil: protectedStock.oil + 200,
+      lead: protectedStock.lead + 300,
+      titanium: 0,
+      crystal: 0,
+      gold: 0,
+    };
     s.formation = [{ unitId: 'tank_t1', count: 20 }, null, null, null, null, null];
     s = command(s, { type: 'march', targetId: target.id, mission: 'raid' });
     s = advance(s, s.marches[0].dueAt);
-    expect(s.marches[0].cargo).toMatchObject({ iron: 100, oil: 100, lead: 0 });
+    expect(s.marches[0].cargo).toMatchObject({ iron: 100, oil: 200, lead: 300 });
     const changed = s.world.find((t) => t.id === target.id)!;
-    expect(changed.wallet).toMatchObject({ iron: 1000, oil: 1100, lead: 1300 });
+    expect(changed.wallet).toMatchObject(protectedStock);
     assertState(s);
   });
   it('no troops can be sent twice', () => {
@@ -427,7 +455,7 @@ describe('world expeditions and conservation', () => {
     let s = game();
     s.world[0].reserve = 2;
     s = command(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
-    s = advance(s, T + 8000 + 24000);
+    s = advance(s, T + 8000 + 1500);
     expect(s.marches[0].cargo.iron).toBe(2);
     expect(s.world[0].reserve).toBe(0);
     s = advance(s, s.now + 8000);

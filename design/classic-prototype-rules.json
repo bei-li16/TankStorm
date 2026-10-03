@@ -40,7 +40,7 @@
     ],
     "maxRounds": 40,
     "initiativeTie": "attacker_first",
-    "turnOrder": "alternate_sides_by_slot",
+    "turnOrder": "major_round_once_per_survivor_alternating_exchanges",
     "timeoutOutcome": "defender_wins",
     "hpModel": "aggregate_hp_ceil_survivors",
     "partialHpAfterBattle": "restore_surviving_units_to_full",
@@ -62,14 +62,15 @@
         5
       ],
       "drawsPerTarget": 2,
-      "targetOrder": "slot_id_ascending",
+      "targetOrder": "attack_pattern_order; tank_columns_left_to_right_front_first",
       "rollBps": "floor(uint32*10000/4294967296)",
-      "consumeCritRollOnMiss": true
+      "consumeCritRollOnMiss": true,
+      "emptyCellDraws": 0
     },
     "auraStackPolicy": "maximum_per_class_recompute_at_action_start",
     "classProfiles": {
       "tank": {
-        "attackPattern": "front_row",
+        "attackPattern": "each_column_first_alive",
         "patternMultiplierBps": 10000,
         "damageType": "cannon",
         "aura": {
@@ -78,7 +79,7 @@
         }
       },
       "tank_destroyer": {
-        "attackPattern": "single_front",
+        "attackPattern": "own_column_first_alive",
         "patternMultiplierBps": 10000,
         "damageType": "piercing",
         "aura": {
@@ -87,7 +88,7 @@
         }
       },
       "spg": {
-        "attackPattern": "column",
+        "attackPattern": "own_column_alive",
         "patternMultiplierBps": 10000,
         "damageType": "explosive",
         "aura": {
@@ -96,7 +97,7 @@
         }
       },
       "rocket": {
-        "attackPattern": "all_alive",
+        "attackPattern": "fixed_six",
         "patternMultiplierBps": 10000,
         "damageType": "rocket",
         "aura": {
@@ -112,19 +113,19 @@
         "persistCasualties": false
       },
       "stage": {
-        "repairableBps": 7000,
+        "repairableBps": 8000,
         "persistCasualties": true,
-        "rounding": "aggregate_per_unit_id_floor_repairable"
+        "rounding": "aggregate_per_unit_id_ceil_repairable"
       },
       "world": {
-        "repairableBps": 7000,
+        "repairableBps": 8000,
         "persistCasualties": true,
-        "rounding": "aggregate_per_unit_id_floor_repairable"
+        "rounding": "aggregate_per_unit_id_ceil_repairable"
       },
       "dungeon": {
-        "repairableBps": 7000,
+        "repairableBps": 8000,
         "persistCasualties": true,
-        "rounding": "aggregate_per_unit_id_floor_repairable"
+        "rounding": "aggregate_per_unit_id_ceil_repairable"
       }
     },
     "unsupportedInV01": [
@@ -139,7 +140,8 @@
       "evasionBps": 0,
       "critBps": 0,
       "armorBps": 0
-    }
+    },
+    "targetSelection": "tank_each_column_front_else_rear_skip_empty; own_column_then_nearest_lower_tie; rocket_fixed_six_empty_ground"
   },
   "economy": {
     "resources": [
@@ -166,18 +168,18 @@
       "discardPassiveRemainderWhenFull": true
     },
     "baseRatePerHour": {
-      "iron": 120,
-      "oil": 100,
-      "lead": 80,
-      "titanium": 20,
-      "crystal": 30
+      "iron": 600,
+      "oil": 400,
+      "lead": 330,
+      "titanium": 150,
+      "crystal": 100
     },
-    "titaniumUnlockHeadquartersLevel": 8,
+    "titaniumUnlockHeadquartersLevel": 6,
     "buildingCurve": {
       "baseDurationSeconds": 30,
       "costGrowth": 1.35,
       "durationGrowth": 1.3,
-      "rateGrowth": 1.2,
+      "rateGrowth": 1.16,
       "runtime": "precomputed_integer_tables_required"
     },
     "techBonusPerLevelBps": 500,
@@ -193,15 +195,36 @@
       "production": 1,
       "repair": 1
     },
-    "waitingQueueSupported": false,
-    "taskSpeedPolicy": "snapshot_at_job_start"
+    "waitingQueueSupported": true,
+    "activeJobCapScope": "vip0_per_facility",
+    "productionFacilities": [
+      "factory",
+      "factory2",
+      "refit"
+    ],
+    "secondaryFactoryAndRefitUnlockHq": 13,
+    "repairWorkshopAvailableAtStart": true,
+    "taskSpeedPolicy": "snapshot_at_order_submission",
+    "playerStorage": {
+      "base": 30000,
+      "growth": 1.18,
+      "runtime": "src/core/content.ts storageCurve",
+      "legacyProductionCapacityScope": "npc"
+    },
+    "freeCompletionPolicy": "active_whole_batch_remaining_at_or_below_vip_minutes_auto",
+    "balanceVersion": "economy-v0.20",
+    "repairCostPolicy": "ceil(0.4*sum(manufacture_material*base_crystal_rate/base_material_rate)), then materials technology discount"
   },
   "commander": {
     "leadershipLevelMin": 1,
     "perSlotCapacityBase": 20,
     "perLeadershipLevelExtra": 5,
-    "leadershipUpgrade": "deterministic_with_books",
-    "maxPrototypeHeadquartersLevel": 20
+    "leadershipUpgrade": "independent_probability_no_pity_stop_batch_on_success",
+    "leadershipLevelMax": 120,
+    "leadershipBookGoldPrice": 19,
+    "leadershipChanceBps": "target<=10?10000:max(10,round(9000*(10/9000)^((target-11)/109)))",
+    "prestigeLevel": "min(120,max(legacyFloor,1+floor(sqrt(prestige/40))))",
+    "maxPrototypeHeadquartersLevel": 120
   },
   "world": {
     "size": {
@@ -213,7 +236,7 @@
     "distance": "euclidean",
     "travelSecondsPerTile": 8,
     "travelRounding": "ceil",
-    "mineGatherRatePerHour": 300,
+    "mineGatherRatePerHour": 4800,
     "cargoWeightPerResourceUnit": 1,
     "lootOrder": [
       "iron",
@@ -235,7 +258,10 @@
       "march_arrival_or_return": 30,
       "daily_reset": 40,
       "npc_decision": 50
-    }
+    },
+    "newMarchLoadMultiplier": 5,
+    "freeCompletionScope": "gathering_only_never_outbound_or_returning",
+    "gatherRatePolicy": "base_times_hq_rate_curve_times_mine_level_bonus_times_gather_and_survey_tech"
   },
   "time": {
     "authorityUnit": "utc_milliseconds",
@@ -260,17 +286,17 @@
       "hp": 160,
       "load": 10,
       "cost": {
-        "iron": 20,
-        "oil": 10,
-        "lead": 5,
+        "iron": 24,
+        "oil": 15,
+        "lead": 10,
         "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 5,
+      "productionSeconds": 72,
       "repairCost": {
-        "crystal": 3
+        "crystal": 5
       },
-      "repairSeconds": 5,
+      "repairSeconds": 11,
       "unlock": {
         "factoryLevel": 1
       },
@@ -288,17 +314,17 @@
       "hp": 90,
       "load": 8,
       "cost": {
-        "iron": 15,
-        "oil": 10,
-        "lead": 15,
+        "iron": 22,
+        "oil": 14,
+        "lead": 9,
         "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 6,
+      "productionSeconds": 65,
       "repairCost": {
-        "crystal": 3
+        "crystal": 4
       },
-      "repairSeconds": 5,
+      "repairSeconds": 10,
       "unlock": {
         "factoryLevel": 1
       },
@@ -316,17 +342,17 @@
       "hp": 80,
       "load": 8,
       "cost": {
-        "iron": 12,
-        "oil": 12,
-        "lead": 18,
+        "iron": 27,
+        "oil": 17,
+        "lead": 11,
         "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 7,
+      "productionSeconds": 76,
       "repairCost": {
-        "crystal": 3
+        "crystal": 5
       },
-      "repairSeconds": 5,
+      "repairSeconds": 12,
       "unlock": {
         "factoryLevel": 1
       },
@@ -344,17 +370,17 @@
       "hp": 70,
       "load": 8,
       "cost": {
-        "iron": 10,
-        "oil": 15,
-        "lead": 20,
+        "iron": 29,
+        "oil": 18,
+        "lead": 12,
         "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 9,
+      "productionSeconds": 80,
       "repairCost": {
-        "crystal": 3
+        "crystal": 6
       },
-      "repairSeconds": 5,
+      "repairSeconds": 12,
       "unlock": {
         "factoryLevel": 1
       },
@@ -372,17 +398,17 @@
       "hp": 320,
       "load": 15,
       "cost": {
-        "iron": 60,
-        "oil": 30,
-        "lead": 15,
-        "titanium": 5,
+        "iron": 120,
+        "oil": 72,
+        "lead": 48,
+        "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 10,
+      "productionSeconds": 216,
       "repairCost": {
-        "crystal": 6
+        "crystal": 22
       },
-      "repairSeconds": 10,
+      "repairSeconds": 33,
       "unlock": {
         "factoryLevel": 6
       },
@@ -400,17 +426,17 @@
       "hp": 180,
       "load": 12,
       "cost": {
-        "iron": 45,
-        "oil": 30,
-        "lead": 45,
-        "titanium": 5,
+        "iron": 108,
+        "oil": 65,
+        "lead": 44,
+        "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 12,
+      "productionSeconds": 195,
       "repairCost": {
-        "crystal": 6
+        "crystal": 20
       },
-      "repairSeconds": 10,
+      "repairSeconds": 30,
       "unlock": {
         "factoryLevel": 6
       },
@@ -428,17 +454,17 @@
       "hp": 160,
       "load": 12,
       "cost": {
-        "iron": 36,
-        "oil": 36,
-        "lead": 54,
-        "titanium": 5,
+        "iron": 132,
+        "oil": 80,
+        "lead": 53,
+        "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 14,
+      "productionSeconds": 227,
       "repairCost": {
-        "crystal": 6
+        "crystal": 24
       },
-      "repairSeconds": 10,
+      "repairSeconds": 35,
       "unlock": {
         "factoryLevel": 6
       },
@@ -456,17 +482,17 @@
       "hp": 140,
       "load": 12,
       "cost": {
-        "iron": 30,
-        "oil": 45,
-        "lead": 60,
-        "titanium": 5,
+        "iron": 144,
+        "oil": 87,
+        "lead": 58,
+        "titanium": 0,
         "crystal": 0
       },
-      "productionSeconds": 18,
+      "productionSeconds": 238,
       "repairCost": {
-        "crystal": 6
+        "crystal": 26
       },
-      "repairSeconds": 10,
+      "repairSeconds": 36,
       "unlock": {
         "factoryLevel": 6
       },
@@ -484,19 +510,19 @@
       "hp": 640,
       "load": 20,
       "cost": {
-        "iron": 180,
-        "oil": 90,
-        "lead": 45,
-        "titanium": 15,
+        "iron": 480,
+        "oil": 288,
+        "lead": 192,
+        "titanium": 39,
         "crystal": 0
       },
-      "productionSeconds": 20,
+      "productionSeconds": 432,
       "repairCost": {
-        "crystal": 12
+        "crystal": 95
       },
-      "repairSeconds": 20,
+      "repairSeconds": 65,
       "unlock": {
-        "factoryLevel": 12
+        "factoryLevel": 14
       },
       "provenance": {
         "status": "proposed",
@@ -512,19 +538,19 @@
       "hp": 360,
       "load": 16,
       "cost": {
-        "iron": 135,
-        "oil": 90,
-        "lead": 135,
-        "titanium": 15,
+        "iron": 432,
+        "oil": 260,
+        "lead": 173,
+        "titanium": 35,
         "crystal": 0
       },
-      "productionSeconds": 24,
+      "productionSeconds": 389,
       "repairCost": {
-        "crystal": 12
+        "crystal": 86
       },
-      "repairSeconds": 20,
+      "repairSeconds": 59,
       "unlock": {
-        "factoryLevel": 12
+        "factoryLevel": 14
       },
       "provenance": {
         "status": "proposed",
@@ -540,19 +566,19 @@
       "hp": 320,
       "load": 16,
       "cost": {
-        "iron": 108,
-        "oil": 108,
-        "lead": 162,
-        "titanium": 15,
+        "iron": 528,
+        "oil": 317,
+        "lead": 212,
+        "titanium": 43,
         "crystal": 0
       },
-      "productionSeconds": 28,
+      "productionSeconds": 454,
       "repairCost": {
-        "crystal": 12
+        "crystal": 105
       },
-      "repairSeconds": 20,
+      "repairSeconds": 69,
       "unlock": {
-        "factoryLevel": 12
+        "factoryLevel": 14
       },
       "provenance": {
         "status": "proposed",
@@ -568,19 +594,19 @@
       "hp": 280,
       "load": 16,
       "cost": {
-        "iron": 90,
-        "oil": 135,
-        "lead": 180,
-        "titanium": 15,
+        "iron": 576,
+        "oil": 346,
+        "lead": 231,
+        "titanium": 47,
         "crystal": 0
       },
-      "productionSeconds": 36,
+      "productionSeconds": 476,
       "repairCost": {
-        "crystal": 12
+        "crystal": 114
       },
-      "repairSeconds": 20,
+      "repairSeconds": 72,
       "unlock": {
-        "factoryLevel": 12
+        "factoryLevel": 14
       },
       "provenance": {
         "status": "proposed",
@@ -596,19 +622,19 @@
       "hp": 960,
       "load": 30,
       "cost": {
-        "iron": 324,
-        "oil": 162,
-        "lead": 81,
-        "titanium": 47,
+        "iron": 1500,
+        "oil": 900,
+        "lead": 600,
+        "titanium": 180,
         "crystal": 0
       },
-      "productionSeconds": 30,
+      "productionSeconds": 864,
       "repairCost": {
-        "crystal": 40
+        "crystal": 311
       },
-      "repairSeconds": 20,
+      "repairSeconds": 130,
       "unlock": {
-        "factoryLevel": 14
+        "factoryLevel": 24
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -629,19 +655,19 @@
       "hp": 540,
       "load": 26,
       "cost": {
-        "iron": 243,
-        "oil": 162,
-        "lead": 243,
-        "titanium": 47,
+        "iron": 1350,
+        "oil": 810,
+        "lead": 540,
+        "titanium": 162,
         "crystal": 0
       },
-      "productionSeconds": 34,
+      "productionSeconds": 778,
       "repairCost": {
-        "crystal": 40
+        "crystal": 280
       },
-      "repairSeconds": 20,
+      "repairSeconds": 117,
       "unlock": {
-        "factoryLevel": 14
+        "factoryLevel": 24
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -662,19 +688,19 @@
       "hp": 480,
       "load": 26,
       "cost": {
-        "iron": 195,
-        "oil": 195,
-        "lead": 292,
-        "titanium": 47,
+        "iron": 1651,
+        "oil": 991,
+        "lead": 661,
+        "titanium": 199,
         "crystal": 0
       },
-      "productionSeconds": 38,
+      "productionSeconds": 908,
       "repairCost": {
-        "crystal": 40
+        "crystal": 343
       },
-      "repairSeconds": 20,
+      "repairSeconds": 137,
       "unlock": {
-        "factoryLevel": 14
+        "factoryLevel": 24
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -695,19 +721,19 @@
       "hp": 420,
       "load": 26,
       "cost": {
-        "iron": 162,
-        "oil": 243,
-        "lead": 324,
-        "titanium": 47,
+        "iron": 1800,
+        "oil": 1080,
+        "lead": 720,
+        "titanium": 216,
         "crystal": 0
       },
-      "productionSeconds": 46,
+      "productionSeconds": 951,
       "repairCost": {
-        "crystal": 40
+        "crystal": 373
       },
-      "repairSeconds": 20,
+      "repairSeconds": 143,
       "unlock": {
-        "factoryLevel": 14
+        "factoryLevel": 24
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -728,19 +754,19 @@
       "hp": 1440,
       "load": 40,
       "cost": {
-        "iron": 486,
-        "oil": 243,
-        "lead": 122,
-        "titanium": 81,
+        "iron": 3600,
+        "oil": 2160,
+        "lead": 1440,
+        "titanium": 576,
         "crystal": 0
       },
-      "productionSeconds": 40,
+      "productionSeconds": 1296,
       "repairCost": {
-        "crystal": 50
+        "crystal": 785
       },
-      "repairSeconds": 25,
+      "repairSeconds": 195,
       "unlock": {
-        "factoryLevel": 16
+        "factoryLevel": 36
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -761,19 +787,19 @@
       "hp": 810,
       "load": 36,
       "cost": {
-        "iron": 365,
-        "oil": 243,
-        "lead": 365,
-        "titanium": 81,
+        "iron": 3240,
+        "oil": 1944,
+        "lead": 1296,
+        "titanium": 519,
         "crystal": 0
       },
-      "productionSeconds": 44,
+      "productionSeconds": 1167,
       "repairCost": {
-        "crystal": 50
+        "crystal": 706
       },
-      "repairSeconds": 25,
+      "repairSeconds": 176,
       "unlock": {
-        "factoryLevel": 16
+        "factoryLevel": 36
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -794,19 +820,19 @@
       "hp": 720,
       "load": 36,
       "cost": {
-        "iron": 292,
-        "oil": 292,
-        "lead": 438,
-        "titanium": 81,
+        "iron": 3961,
+        "oil": 2377,
+        "lead": 1585,
+        "titanium": 634,
         "crystal": 0
       },
-      "productionSeconds": 48,
+      "productionSeconds": 1361,
       "repairCost": {
-        "crystal": 50
+        "crystal": 863
       },
-      "repairSeconds": 25,
+      "repairSeconds": 205,
       "unlock": {
-        "factoryLevel": 16
+        "factoryLevel": 36
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -827,19 +853,19 @@
       "hp": 630,
       "load": 36,
       "cost": {
-        "iron": 243,
-        "oil": 365,
-        "lead": 486,
-        "titanium": 81,
+        "iron": 4320,
+        "oil": 2592,
+        "lead": 1728,
+        "titanium": 692,
         "crystal": 0
       },
-      "productionSeconds": 56,
+      "productionSeconds": 1426,
       "repairCost": {
-        "crystal": 50
+        "crystal": 942
       },
-      "repairSeconds": 25,
+      "repairSeconds": 214,
       "unlock": {
-        "factoryLevel": 16
+        "factoryLevel": 36
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -860,19 +886,19 @@
       "hp": 2144,
       "load": 50,
       "cost": {
-        "iron": 724,
-        "oil": 362,
-        "lead": 181,
-        "titanium": 121,
+        "iron": 7200,
+        "oil": 4320,
+        "lead": 2880,
+        "titanium": 1440,
         "crystal": 0
       },
-      "productionSeconds": 50,
+      "productionSeconds": 1728,
       "repairCost": {
-        "crystal": 60
+        "crystal": 1646
       },
-      "repairSeconds": 30,
+      "repairSeconds": 260,
       "unlock": {
-        "factoryLevel": 18
+        "factoryLevel": 48
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -893,19 +919,19 @@
       "hp": 1206,
       "load": 46,
       "cost": {
-        "iron": 543,
-        "oil": 362,
-        "lead": 543,
-        "titanium": 121,
+        "iron": 6480,
+        "oil": 3888,
+        "lead": 2592,
+        "titanium": 1296,
         "crystal": 0
       },
-      "productionSeconds": 54,
+      "productionSeconds": 1556,
       "repairCost": {
-        "crystal": 60
+        "crystal": 1481
       },
-      "repairSeconds": 30,
+      "repairSeconds": 234,
       "unlock": {
-        "factoryLevel": 18
+        "factoryLevel": 48
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -926,19 +952,19 @@
       "hp": 1072,
       "load": 46,
       "cost": {
-        "iron": 435,
-        "oil": 435,
-        "lead": 652,
-        "titanium": 121,
+        "iron": 7921,
+        "oil": 4753,
+        "lead": 3169,
+        "titanium": 1585,
         "crystal": 0
       },
-      "productionSeconds": 58,
+      "productionSeconds": 1815,
       "repairCost": {
-        "crystal": 60
+        "crystal": 1811
       },
-      "repairSeconds": 30,
+      "repairSeconds": 273,
       "unlock": {
-        "factoryLevel": 18
+        "factoryLevel": 48
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -959,19 +985,19 @@
       "hp": 938,
       "load": 46,
       "cost": {
-        "iron": 362,
-        "oil": 543,
-        "lead": 724,
-        "titanium": 121,
+        "iron": 8640,
+        "oil": 5184,
+        "lead": 3456,
+        "titanium": 1728,
         "crystal": 0
       },
-      "productionSeconds": 66,
+      "productionSeconds": 1901,
       "repairCost": {
-        "crystal": 60
+        "crystal": 1975
       },
-      "repairSeconds": 30,
+      "repairSeconds": 286,
       "unlock": {
-        "factoryLevel": 18
+        "factoryLevel": 48
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -992,19 +1018,19 @@
       "hp": 3072,
       "load": 60,
       "cost": {
-        "iron": 1037,
-        "oil": 519,
-        "lead": 260,
-        "titanium": 167,
+        "iron": 12000,
+        "oil": 7200,
+        "lead": 4800,
+        "titanium": 3000,
         "crystal": 0
       },
-      "productionSeconds": 60,
+      "productionSeconds": 2160,
       "repairCost": {
-        "crystal": 70
+        "crystal": 2902
       },
-      "repairSeconds": 35,
+      "repairSeconds": 324,
       "unlock": {
-        "factoryLevel": 20
+        "factoryLevel": 60
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -1025,19 +1051,19 @@
       "hp": 1728,
       "load": 56,
       "cost": {
-        "iron": 778,
-        "oil": 519,
-        "lead": 778,
-        "titanium": 167,
+        "iron": 10800,
+        "oil": 6480,
+        "lead": 4320,
+        "titanium": 2700,
         "crystal": 0
       },
-      "productionSeconds": 64,
+      "productionSeconds": 1944,
       "repairCost": {
-        "crystal": 70
+        "crystal": 2612
       },
-      "repairSeconds": 35,
+      "repairSeconds": 292,
       "unlock": {
-        "factoryLevel": 20
+        "factoryLevel": 60
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -1058,19 +1084,19 @@
       "hp": 1536,
       "load": 56,
       "cost": {
-        "iron": 623,
-        "oil": 623,
-        "lead": 934,
-        "titanium": 167,
+        "iron": 13201,
+        "oil": 7921,
+        "lead": 5281,
+        "titanium": 3301,
         "crystal": 0
       },
-      "productionSeconds": 68,
+      "productionSeconds": 2268,
       "repairCost": {
-        "crystal": 70
+        "crystal": 3193
       },
-      "repairSeconds": 35,
+      "repairSeconds": 341,
       "unlock": {
-        "factoryLevel": 20
+        "factoryLevel": 60
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",
@@ -1091,19 +1117,19 @@
       "hp": 1344,
       "load": 56,
       "cost": {
-        "iron": 519,
-        "oil": 778,
-        "lead": 1037,
-        "titanium": 167,
+        "iron": 14400,
+        "oil": 8640,
+        "lead": 5760,
+        "titanium": 3600,
         "crystal": 0
       },
-      "productionSeconds": 76,
+      "productionSeconds": 2377,
       "repairCost": {
-        "crystal": 70
+        "crystal": 3483
       },
-      "repairSeconds": 35,
+      "repairSeconds": 357,
       "unlock": {
-        "factoryLevel": 20
+        "factoryLevel": 60
       },
       "provenance": {
         "status": "singleplayer_adaptation_official_names",

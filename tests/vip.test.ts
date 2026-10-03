@@ -13,6 +13,7 @@ import {
   researchDuration,
   marchQuote,
   allJobs,
+  effectiveTime,
 } from '../src/core/vip';
 import { exportSave, parseSave } from '../src/core/storage';
 import { NativeStore } from '../native/rules/bridge';
@@ -67,87 +68,96 @@ describe('offline VIP and queued work', () => {
   });
   it('runs seven buildings concurrently and finishes/cancels only the chosen sequence', () => {
     let s = base(1000000);
+    for (const b of Object.keys(s.buildings))
+      s.buildings[b as keyof typeof s.buildings] = b === 'hq' ? 20 : 18;
     for (const building of ['iron', 'oil', 'lead', 'titanium', 'crystal', 'warehouse'] as const)
       s = run(s, { type: 'upgrade', building });
-    s.buildings.lab = 2;
+    s.buildings.lab = 18;
     s = run(s, { type: 'upgrade', building: 'lab' });
     expect(queueStatus(s, 'building').active).toHaveLength(7);
     expect(() => run(s, { type: 'upgrade', building: 'factory' })).toThrow();
     const originalGold = s.wallet.gold;
     const jobs = queueStatus(s, 'building').active;
     s = run(s, { type: 'accelerate', kind: 'building', seq: jobs[3].seq });
-    expect(s.buildings.titanium).toBe(2);
-    expect(s.wallet.gold).toBe(originalGold);
+    expect(s.buildings.titanium).toBe(19);
+    expect(s.wallet.gold).toBeLessThan(originalGold);
     s = run(s, { type: 'cancel', kind: 'building', seq: jobs[2].seq });
-    expect(s.buildings.lead).toBe(1);
-    s = advance(s, s.now + 3600000);
+    expect(s.buildings.lead).toBe(18);
+    s = advance(s, Math.max(...queueView(s).map((j) => s.now + j.remainingMs)));
     expect(s.jobs).toEqual({});
-    expect(s.buildings.iron).toBe(2);
-    expect(s.buildings.lab).toBe(3);
+    expect(s.buildings.iron).toBe(19);
+    expect(s.buildings.lab).toBe(19);
     assertState(s);
   });
   it('serializes five waiting batches; acceleration never completes the following batch for free', () => {
     let s = base(1000000);
-    for (let i = 0; i < 6; i++) s = run(s, { type: 'produce', unitId: 'tank_t1', count: 3 });
+    for (let i = 0; i < 6; i++) s = run(s, { type: 'produce', unitId: 'tank_t1', count: 100 });
     expect(s.jobBacklog).toHaveLength(5);
     expect(() => run(s, { type: 'produce', unitId: 'tank_t1', count: 1 })).toThrow('等待位已满');
     const jobs = queueView(s);
     expect(jobs[1].waitMs).toBe(jobs[0].remainingMs);
-    expect(jobs[5].remainingMs).toBe(productionQuote(s, 'tank_t1').duration * 18);
+    expect(jobs[5].remainingMs).toBe((productionQuote(s, 'tank_t1').duration * 100 - 900000) * 6);
     expect(() =>
       run(s, { type: 'accelerate', kind: 'production', seq: s.jobBacklog![0].seq }),
     ).toThrow('开工');
     s = run(s, { type: 'accelerate', kind: 'production' });
-    expect(s.available.tank_t1).toBe(23);
+    expect(s.available.tank_t1).toBe(120);
     expect(s.jobBacklog).toHaveLength(4);
     expect(s.jobs.production!.completed).toBe(0);
-    s = advance(s, s.now + 3600000);
-    expect(s.available.tank_t1).toBe(38);
+    s = advance(s, Math.max(...queueView(s).map((j) => s.now + j.remainingMs)));
+    expect(s.available.tank_t1).toBe(620);
     expect(s.jobs).toEqual({});
     assertState(s);
   });
   it('refunds queued core/refit reservations and conserves stock across offline save import', async () => {
     let s = base(7200);
-    s.available.tank_t5 = s.createdUnits.tank_t5 = 9;
-    s.arsenal!.cores.tank_core6 = 9;
+    s.buildings.hq = s.buildings.factory = 60;
+    s.industry = { version: 1, factory2: 60, refit: 60 };
+    s.available.tank_t5 = s.createdUnits.tank_t5 = 90;
+    s.arsenal!.cores.tank_core6 = 90;
     s = run(s, { type: 'produce', unitId: 'rocket_t1', count: 10 });
-    s = run(s, { type: 'refit', unitId: 'tank_t6', count: 4 });
-    s = run(s, { type: 'refit', unitId: 'tank_t6', count: 5 });
+    s = run(s, { type: 'refit', unitId: 'tank_t6', count: 40 });
+    s = run(s, { type: 'refit', unitId: 'tank_t6', count: 50 });
     s = await parseSave(await exportSave(s));
     expect(s.vip!.paidGold).toBe(7200);
     expect(s.available.tank_t5).toBe(0);
     s = run(s, { type: 'cancel', kind: 'production', seq: s.jobBacklog![0].seq });
-    expect(s.available.tank_t5).toBe(4);
-    expect(s.arsenal!.cores.tank_core6).toBe(4);
-    s = advance(s, s.now + 3600000);
-    expect(s.available.tank_t6).toBe(5);
-    expect(s.arsenal!.converted.tank_t5).toBe(5);
+    expect(s.available.tank_t5).toBe(50);
+    expect(s.arsenal!.cores.tank_core6).toBe(50);
+    s = advance(s, Math.max(...queueView(s).map((j) => s.now + j.remainingMs)));
+    expect(s.available.tank_t6).toBe(40);
+    expect(s.arsenal!.converted.tank_t5).toBe(40);
     assertState(s);
   });
   it('starts research in FIFO order and never lets duplicate tech levels book twice', () => {
     let s = base(960);
-    for (const tech of ['attack', 'hp', 'production'] as const)
+    s.tech.attack = s.tech.construction = s.tech.resourceOutput = 15;
+    for (const tech of ['attack', 'construction', 'resourceOutput'] as const)
       s = run(s, { type: 'research', tech });
     expect(s.jobBacklog).toHaveLength(2);
     expect(() => run(s, { type: 'research', tech: 'gather' })).toThrow();
     s = run(s, { type: 'cancel', kind: 'research', seq: s.jobBacklog![1].seq });
-    expect(() => run(s, { type: 'research', tech: 'hp' })).toThrow('已在队列');
-    s = advance(s, s.now + 30000);
-    expect(s.tech.attack).toBe(1);
-    expect(s.tech.hp).toBe(0);
-    expect(s.jobs.research!.target).toBe('hp');
-    s = advance(s, s.now + 30000);
-    expect(s.tech.hp).toBe(1);
+    expect(() => run(s, { type: 'research', tech: 'construction' })).toThrow('已在队列');
+    s = advance(s, s.now + queueView(s)[0].remainingMs);
+    expect(s.tech.attack).toBe(16);
+    expect(s.tech.construction).toBe(15);
+    expect(s.jobs.research!.target).toBe('construction');
+    s = advance(s, s.now + queueView(s)[0].remainingMs);
+    expect(s.tech.construction).toBe(16);
     assertState(s);
   });
   it('quotes actual durations, VIP rates and a complete uncontested mine trip', () => {
     let s = base(1000000);
     const build = buildingDuration(s, 'iron');
     s = run(s, { type: 'upgrade', building: 'iron' });
-    expect(s.jobs.building!.dueAt - s.now).toBe(build);
+    expect(build).toBeLessThanOrEqual(900000);
+    expect(s.jobs.building).toBeUndefined();
+    expect(s.buildings.iron).toBe(2);
     const research = researchDuration(s, 'attack');
     s = run(s, { type: 'research', tech: 'attack' });
-    expect(s.jobs.research!.duration).toBe(research);
+    expect(research).toBeLessThanOrEqual(900000);
+    expect(s.jobs.research).toBeUndefined();
+    expect(s.tech.attack).toBe(1);
     expect(productionQuote(s, 'tank_t1').duration).toBeLessThan(
       productionQuote(base(), 'tank_t1').duration,
     );
@@ -156,21 +166,23 @@ describe('offline VIP and queued work', () => {
     s = run(s, { type: 'march', targetId: s.world[0].id, mission: 'gather' });
     expect(s.marches[0].dueAt - start).toBe(q.outboundMs);
     s = advance(s, start + q.outboundMs);
-    expect(s.marches[0].dueAt - s.now).toBe(q.gatherMs);
+    expect(q.gatherMs).toBe(effectiveTime(s, q.rawGatherMs));
+    s = advance(s, start + q.outboundMs + q.gatherMs);
+    expect(s.marches[0].phase).toBe('returning');
     s = advance(s, start + q.totalMs - 1);
     expect(s.marches).toHaveLength(1);
     s = advance(s, start + q.totalMs);
     expect(s.marches).toHaveLength(0);
-    expect(capacity(s)).toBe(11000);
+    expect(capacity(s)).toBe(31680);
   });
   it('keeps VIP0 single queues; rejects forged overcapacity and duplicate sequence saves', () => {
     let s = base();
-    s = run(s, { type: 'produce', unitId: 'tank_t1', count: 1 });
-    expect(() => run(s, { type: 'produce', unitId: 'tank_t1', count: 1 })).toThrow();
+    s = run(s, { type: 'produce', unitId: 'tank_t1', count: 100 });
+    expect(() => run(s, { type: 'produce', unitId: 'tank_t1', count: 100 })).toThrow();
     s.jobBacklog = [structuredClone(s.jobs.production!)];
     expect(() => assertState(s)).toThrow();
     s = base(40);
-    s = run(s, { type: 'produce', unitId: 'tank_t1', count: 1 });
+    s = run(s, { type: 'produce', unitId: 'tank_t1', count: 100 });
     s.jobBacklog = [structuredClone(s.jobs.production!)];
     expect(() => assertState(s)).toThrow('序号重复');
   });

@@ -43,7 +43,7 @@ describe('durable saves', () => {
       ),
     ]);
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
-    expect((await loadSave(s.id))!.wallet.iron).toBe(1400);
+    expect((await loadSave(s.id))!.wallet.iron).toBe(1380);
   });
   it('duplicate id across serialized transactions does not duplicate rewards', async () => {
     const s = newGame('retry', '指挥官', 1700000000000);

@@ -1,3 +1,4 @@
+import { MAX_LEVEL } from './growth';
 // Structural validation runs before semantic checks. A checksum detects damaged files;
 // it is not a trust boundary and must never replace validating every persisted object.
 type Check = (v: unknown, path: string) => void;
@@ -85,8 +86,10 @@ const stack = obj(
     crit: num(-10000, 10000),
     armor: num(-10000, 10000),
     attackBonus: num(1, 1000000),
+    initiative: num(0, 1000000),
+    extraFire: num(0, 1000000),
   },
-  ['attackBonus'],
+  ['attackBonus', 'initiative', 'extraFire'],
 );
 const army = list(stack, 6);
 const report = obj(
@@ -96,25 +99,60 @@ const report = obj(
     at: time,
     seed: num(1, 4294967295),
     ruleset: str(100),
+    target: obj(
+      { type: one(['battle', 'dungeon']), stage: num(0, 111), dungeonId: str(30), training: bool },
+      ['stage', 'dungeonId', 'training'],
+    ),
     winner: one([0, 1]),
     rounds: num(0, 40),
     mode: one(['training', 'stage', 'world', 'dungeon']),
     coreRewards: record(num(0, 1e9), 8),
+    marchId: str(100),
     initial: list(army, 2, 2),
     final: list(army, 2, 2),
+    tactics: obj({
+      teams: list(obj({ initiative: num(0, 1000000), extraFire: num(0, 1000000) }), 2, 2),
+      firstSide: one([0, 1]),
+      chances: list(num(0, 3500), 2, 2),
+    }),
+    actions: list(
+      obj(
+        {
+          id: num(1, 960),
+          round: num(1, 40),
+          exchange: num(1, 6),
+          side: one([0, 1]),
+          from: num(1, 6),
+          extra: bool,
+          extraRoll: num(0, 9999),
+          extraTriggered: bool,
+        },
+        ['extraRoll', 'extraTriggered', 'exchange'],
+      ),
+      960,
+    ),
     events: list(
-      obj({
-        round: num(1, 40),
-        side: one([0, 1]),
-        from: num(1, 6),
-        to: num(1, 6),
-        damage: num(0, 1e12),
-        critical: bool,
-        miss: bool,
-        remaining: num(0, 10000),
-        hp: num(0, 1e10),
-      }),
-      3000,
+      obj(
+        {
+          action: num(1, 960),
+          exchange: num(1, 6),
+          shot: num(1, 6),
+          shots: num(1, 6),
+          ground: bool,
+          extra: bool,
+          round: num(1, 40),
+          side: one([0, 1]),
+          from: num(1, 6),
+          to: num(1, 6),
+          damage: num(0, 1e12),
+          critical: bool,
+          miss: bool,
+          remaining: num(0, 10000),
+          hp: num(0, 1e10),
+        },
+        ['action', 'shot', 'shots', 'extra', 'exchange', 'ground'],
+      ),
+      6000,
     ),
     casualties: list(
       obj({
@@ -130,10 +168,11 @@ const report = obj(
     rewards: cost,
     growth: obj({ xp: integer, books: integer, skillPoints: integer, prestige: integer }),
   },
-  ['growth', 'coreRewards'],
+  ['growth', 'coreRewards', 'tactics', 'actions', 'marchId', 'target'],
 );
 const job = obj(
   {
+    facility: one(['factory', 'factory2', 'refit']),
     kind,
     target: str(100),
     total: num(1, 10000),
@@ -146,7 +185,7 @@ const job = obj(
     sourceUnitId: unit,
     coreCost: obj({ id: str(50), count: num(1, 1) }),
   },
-  ['sourceUnitId', 'coreCost'],
+  ['sourceUnitId', 'coreCost', 'facility'],
 );
 const march = obj(
   {
@@ -160,12 +199,14 @@ const march = obj(
     travelMs: num(1, 1e9),
     cargo: wallet,
     capacity: num(0, 1e9),
-    gatherRate: num(1, 1e6),
+    gatherRate: num(1, 1e10),
     remainder: num(0, 3599999),
     seq: integer,
     combatArmy: army,
+    loadBps: num(10000, 350000),
+    unitLoads: record(num(1, 1e7), 28),
   },
-  ['combatArmy'],
+  ['combatArmy', 'loadBps', 'unitLoads'],
 );
 const coordinate = obj({ x: num(0, 31), y: num(0, 31) });
 const schema = obj({
@@ -187,13 +228,13 @@ const schema = obj({
   buildings: obj(
     Object.fromEntries(
       ['hq', 'lab', 'factory', 'warehouse', 'iron', 'oil', 'lead', 'titanium', 'crystal'].map(
-        (k) => [k, num(1, 20)],
+        (k) => [k, num(1, MAX_LEVEL)],
       ),
     ),
   ),
   tech: obj(
     Object.fromEntries(
-      ['attack', 'hp', 'production', 'construction', 'gather'].map((k) => [k, num(0, 20)]),
+      ['attack', 'hp', 'production', 'construction', 'gather'].map((k) => [k, num(0, MAX_LEVEL)]),
     ),
   ),
   available: record(integer, 28),
@@ -202,37 +243,41 @@ const schema = obj({
   destroyedUnits: record(integer, 28),
   formation,
   presets: list(obj({ name: str(20), formation }), 5),
-  jobs: record(job, 10),
+  jobs: record(job, 12),
   marches: list(march, 8),
   world: list(
-    obj({
-      id: str(100),
-      x: num(0, 31),
-      y: num(0, 31),
-      kind: one(['mine', 'npc']),
-      name: str(100),
-      level: num(1, 20),
-      resource,
-      reserve: integer,
-      guards: formation,
-      wallet,
-      lastGrowth: time,
-      conquered: bool,
-    }),
+    obj(
+      {
+        economyVersion: one([2, 3]),
+        id: str(100),
+        x: num(0, 31),
+        y: num(0, 31),
+        kind: one(['mine', 'npc']),
+        name: str(100),
+        level: num(1, MAX_LEVEL),
+        resource,
+        reserve: integer,
+        guards: formation,
+        wallet,
+        lastGrowth: time,
+        conquered: bool,
+      },
+      ['economyVersion'],
+    ),
     100,
     100,
   ),
   home: coordinate,
   intel: record(obj({ at: time, guards: formation, reserve: integer, wallet }), 100),
   reports: list(report, 100),
-  cleared: list(num(0, 11), 12),
+  cleared: list(num(0, 111), 112),
   commander: obj({
     xp: integer,
-    leadership: num(1, 20),
+    leadership: num(1, 120),
     books: integer,
     prestige: integer,
     skillPoints: integer,
-    attackSkill: num(0, 20),
+    attackSkill: num(0, MAX_LEVEL),
   }),
   counters: record(integer, 50),
   claimed: list(str(100), 20),
@@ -242,25 +287,73 @@ const schema = obj({
 });
 export function validateShape(value: unknown) {
   schema(value, 'save');
+  const ext = value as Record<string, any>;
+  if (ext.commandVersion !== undefined) one([1])(ext.commandVersion, 'save.commandVersion');
+  if (ext.prestigeFloor !== undefined) num(1, 120)(ext.prestigeFloor, 'save.prestigeFloor');
+  for (const skill of ['initiativeSkill', 'extraFireSkill'])
+    if (ext.commander[skill] !== undefined)
+      num(0, MAX_LEVEL)(ext.commander[skill], 'save.commander.' + skill);
+  if (ext.lastLeadership !== undefined)
+    obj({
+      target: num(2, 120),
+      attempts: num(1, 100),
+      chance: num(10, 10000),
+      roll: num(0, 9999),
+      success: bool,
+      payment: one(['books', 'gold']),
+      at: time,
+    })(ext.lastLeadership, 'save.lastLeadership');
+  const honors = (value as { honors?: unknown }).honors;
+  if (honors !== undefined)
+    list(
+      obj({
+        id: one(['tank', 'tank_destroyer', 'spg', 'rocket', 'low-loss']),
+        at: time,
+        reportId: str(100),
+      }),
+      5,
+    )(honors, 'save.honors');
+  const expeditionLog = (value as { expeditionLog?: unknown }).expeditionLog;
+  if (expeditionLog !== undefined)
+    list(
+      obj({
+        marchId: str(100),
+        targetId: str(100),
+        at: time,
+        outcome: one(['returned', 'defeated']),
+        cargo: wallet,
+        survivors: num(0, 60000),
+      }),
+      100,
+    )(expeditionLog, 'save.expeditionLog');
+  const researchVersion = (value as { researchVersion?: unknown }).researchVersion;
+  if (researchVersion !== undefined) one([1])(researchVersion, 'save.researchVersion');
+  const industry = (value as { industry?: unknown }).industry;
+  if (industry !== undefined)
+    obj({ version: one([1]), factory2: num(0, MAX_LEVEL), refit: num(0, MAX_LEVEL) })(
+      industry,
+      'save.industry',
+    );
   const extension = value as { vip?: unknown; jobBacklog?: unknown };
   if (extension.vip !== undefined)
     obj({ version: one([1]), paidGold: num(0, 1e12), lastDaily: num(-1, 1e9) })(
       extension.vip,
       'save.vip',
     );
-  if (extension.jobBacklog !== undefined) list(job, 10)(extension.jobBacklog, 'save.jobBacklog');
+  if (extension.jobBacklog !== undefined) list(job, 20)(extension.jobBacklog, 'save.jobBacklog');
   const arsenal = (value as { arsenal?: unknown }).arsenal;
   if (arsenal !== undefined)
     obj({
       version: one([1]),
       cores: record(num(0, 1e9), 8),
       converted: record(num(0, 1e9), 28),
-      cleared: list(str(50), 8),
+      cleared: list(str(50), 16),
     })(arsenal, 'save.arsenal');
   const worldSeed = (value as { worldSeed?: unknown }).worldSeed;
   if (worldSeed !== undefined) num(1, 4294967295)(worldSeed, 'save.worldSeed');
   const worldRules = (value as { worldRules?: unknown }).worldRules;
-  if (worldRules !== undefined) one(['renewable-v1'])(worldRules, 'save.worldRules');
+  if (worldRules !== undefined)
+    one(['renewable-v1', 'renewable-v2', 'renewable-v3'])(worldRules, 'save.worldRules');
   const timeOffset = (value as { timeOffset?: unknown }).timeOffset;
   if (timeOffset !== undefined) num(0, 315360000000)(timeOffset, 'save.timeOffset');
 }

@@ -1,4 +1,31 @@
+import {
+  enableResearch,
+  researchRequirements,
+  materialCost,
+  researchEffect,
+} from '../../src/core/research';
+import { restPreview, coreBudget, progression } from '../../src/core/planning';
+import { enableCommander, leadershipQuote, prestigeLevel } from '../../src/core/commander';
+import { arrangedFormation, powerOverview } from '../../src/core/power';
+import { attributeSheet } from '../../src/core/attributes';
+import { dispatchOverview } from '../../src/core/dispatch';
+import { fieldLibrary } from '../../src/core/library';
+import { dungeonBlock, coreChapters, repairAllQuote } from '../../src/core/arsenal';
+import {
+  inventoryView,
+  battleSummary,
+  transportStatus,
+  progressSummary,
+} from '../../src/core/overview';
 import { createServer } from 'node:http';
+import {
+  enableIndustry,
+  facilityNames,
+  facilityLevel,
+  facilityBlock,
+  INDUSTRY_UNLOCK,
+  productionFacilities,
+} from '../../src/core/industry';
 import {
   existsSync,
   mkdirSync,
@@ -24,6 +51,9 @@ import {
   researchDuration,
   marchQuote,
   queueWait,
+  effectiveTime,
+  unitLoad,
+  baseUnitLoad,
 } from '../../src/core/vip';
 import {
   advance,
@@ -36,6 +66,7 @@ import {
   leadershipCap,
   rate,
   upgradeBlock,
+  facilityUpgradeQuote,
   maxFormation,
   usableFormation,
 } from '../../src/core/engine';
@@ -50,7 +81,14 @@ import {
 import { exportSave, parseSave } from '../../src/core/storage';
 import { resources, type GameState } from '../../src/core/types';
 import { army } from '../../src/core/battle';
-import { mineCapacity, NPC_CAPACITY, NPC_PROTECTED, WORLD_INTERVAL } from '../../src/core/world';
+import {
+  mineCapacity,
+  NPC_CAPACITY,
+  NPC_PROTECTED,
+  WORLD_INTERVAL,
+  guardArmy,
+  scoutCost,
+} from '../../src/core/world';
 
 // Same deterministic rules as the original prototype; the client is entirely Godot.
 export class NativeStore {
@@ -129,6 +167,9 @@ export class NativeStore {
     assertState(s);
     if (s.id !== id) throw Error('存档身份不一致');
     enableArsenal(s);
+    enableIndustry(s);
+    enableResearch(s);
+    enableCommander(s);
     assertState(s);
     return s;
   }
@@ -254,8 +295,24 @@ export class NativeStore {
     // Historical event streams are requested only for replay, avoiding large polling payloads.
     const { receipts, reports, ...state } = s;
     return {
-      state: { ...state, reports: reports.map(({ events, initial, final, ...r }) => r) },
+      state: {
+        ...state,
+        reports: reports.map(({ events, initial, final, actions, ...r }) => ({
+          ...r,
+          transport: transportStatus(s, r as any),
+        })),
+      },
       info: {
+        dispatch: dispatchOverview(s),
+        progression: progression(s),
+        inventory: inventoryView(s),
+        repairAll: repairAllQuote(s),
+        dungeonStatus: dungeons.map((d) => ({
+          id: d.id,
+          block: dungeonBlock(s, d),
+          cleared: s.arsenal?.cleared.includes(d.id) ?? false,
+        })),
+        attributes: attributeSheet(s, usableFormation(s)),
         vip: {
           ...vipBenefits(s),
           paidGold: s.vip?.paidGold ?? 0,
@@ -281,18 +338,87 @@ export class NativeStore {
           }),
         ),
         jobs: queueView(s),
+        facilities: Object.fromEntries(
+          productionFacilities.map((id) => {
+            const q = queueStatus(s, 'production', id);
+            return [
+              id,
+              {
+                id,
+                name: facilityNames[id],
+                level: facilityLevel(s, id),
+                block: facilityBlock(s, id),
+                unlock: id === 'factory' ? 1 : INDUSTRY_UNLOCK,
+                active: q.active.length,
+                waiting: q.waiting.length,
+                waitingSlots: q.waitingSlots,
+                upgrade: {
+                  ...facilityUpgradeQuote(s, id),
+                  waitMs: queueWait(s, 'building'),
+                  booked:
+                    queueView(s).find((j) => j.kind === 'building' && j.target === id) ?? null,
+                },
+              },
+            ];
+          }),
+        ),
+        repairSummary: {
+          damaged: Object.values(s.damaged).reduce((n, v) => n + v, 0),
+          repairing: s.jobs.repair ? s.jobs.repair.total - s.jobs.repair.completed : 0,
+          destroyed: Object.values(s.destroyedUnits).reduce((n, v) => n + v, 0),
+        },
         stageStatus: content.stageNames.map((_, i) => ({
           cleared: s.cleared.includes(i),
           unlocked: i === 0 || s.cleared.includes(i - 1),
         })),
+        buildingBenefits: Object.fromEntries(
+          Object.keys(content.buildingNames).map((id) => {
+            const b = id as keyof typeof s.buildings;
+            const level = s.buildings[b],
+              next = Math.min(content.MAX_LEVEL, level + 1);
+            const upgraded = { ...s, buildings: { ...s.buildings, [b]: next } };
+            const resource = resources.find((r) => r === id);
+            return [
+              b,
+              {
+                level,
+                next,
+                rate: resource ? rate(s, resource) : 0,
+                nextRate: resource ? rate(upgraded, resource) : 0,
+                capacity: capacity(s),
+                nextCapacity: capacity(upgraded),
+              },
+            ];
+          }),
+        ),
         buildingTimes: Object.fromEntries(
-          Object.keys(content.buildingNames).map((b) => [b, buildingDuration(s, b as any)]),
+          Object.keys(content.buildingNames).map((b) => [
+            b,
+            effectiveTime(s, buildingDuration(s, b as any)),
+          ]),
+        ),
+        buildingCosts: Object.fromEntries(
+          Object.keys(content.buildingNames).map((b) => [
+            b,
+            materialCost(
+              s,
+              content.upgradeCost(b as any, s.buildings[b as keyof typeof s.buildings]),
+            ),
+          ]),
         ),
         researchQuotes: Object.fromEntries(
           Object.keys(content.techNames).map((t) => [
             t,
             {
-              duration: researchDuration(s, t as any),
+              ...researchRequirements(s, t as any),
+              effectCurrent: researchEffect(t as any, s.tech[t as keyof typeof s.tech]),
+              effectNext: researchEffect(
+                t as any,
+                Math.min(content.MAX_LEVEL, s.tech[t as keyof typeof s.tech] + 1),
+              ),
+              unitCost: content.researchCost(s.tech[t as keyof typeof s.tech]),
+              duration: effectiveTime(s, researchDuration(s, t as any)),
+              rawDuration: researchDuration(s, t as any),
               waitMs: queueWait(s, 'research'),
               duplicate: allJobs(s).some((j) => j.kind === 'research' && j.target === t),
               booked: queueView(s).find((j) => j.kind === 'research' && j.target === t) ?? null,
@@ -300,7 +426,26 @@ export class NativeStore {
           ]),
         ),
         marchQuotes: Object.fromEntries(
-          s.world.map((site) => [site.id, marchQuote(s, site, usableFormation(s))]),
+          s.world.map((site) => {
+            const q = marchQuote(s, site, usableFormation(s));
+            const localRate = rate(s, site.resource);
+            return [
+              site.id,
+              {
+                ...q,
+                scoutCost: scoutCost(site),
+                localRate,
+                localEquivalentHours: localRate ? q.amount / localRate : 0,
+                tripMultiple:
+                  localRate && q.totalMs ? (q.amount * 3600000) / (localRate * q.totalMs) : 0,
+              },
+            ];
+          }),
+        ),
+        knownGuardStats: Object.fromEntries(
+          s.world
+            .filter((site) => s.intel[site.id])
+            .map((site) => [site.id, guardArmy(site, s.intel[site.id].guards)]),
         ),
         savedAt: this.lastFlush,
         hasBackup: existsSync(this.path(s.id, '.backup')),
@@ -308,11 +453,19 @@ export class NativeStore {
         level: commanderLevel(s),
         rank: commanderRank(s),
         leadership: leadershipCap(s),
+        leadershipQuote: leadershipQuote(s),
+        prestigeLevel: prestigeLevel(s),
+        power: powerOverview(s, usableFormation(s)),
+        formationPlans: {
+          power: arrangedFormation(s, 'power'),
+          tier: arrangedFormation(s, 'tier'),
+        },
         rates: Object.fromEntries(resources.map((r) => [r, rate(s, r)])),
         blocks: Object.fromEntries(
           Object.keys(content.buildingNames).map((b) => [b, upgradeBlock(s, b as any) ?? '']),
         ),
         usable: usableFormation(s),
+        suggestedFormation: maxFormation(s),
         worldInterval: WORLD_INTERVAL,
         npcCapacity: NPC_CAPACITY,
         npcProtected: NPC_PROTECTED,
@@ -323,15 +476,23 @@ export class NativeStore {
               [{ unitId: u.unitId, count: 1 }, null, null, null, null, null],
               s.tech,
               s.commander.attackSkill,
+              s.commander,
             )[0];
             return [
               u.unitId,
               {
                 produce: productionQuote(s, u.unitId),
+                produce2: productionQuote(s, u.unitId, 'produce', 'factory2'),
                 refit: productionQuote(s, u.unitId, 'refit'),
                 repair: productionQuote(s, u.unitId, 'repair'),
                 attack: Math.floor((st.attack * (st.attackBonus ?? 10000)) / 10000),
                 hp: st.hp,
+                baseInitiative: 100 + (u.tier - 1) * 6,
+                baseExtraFire: 100 + (u.tier - 1) * 5,
+                initiative: st.initiative,
+                extraFire: st.extraFire,
+                load: unitLoad(s, u.unitId),
+                baseLoad: Math.floor(baseUnitLoad(u.unitId)),
                 marching: s.marches.reduce(
                   (n, m) =>
                     n + m.troops.reduce((a, t) => a + (t?.unitId === u.unitId ? t.count : 0), 0),
@@ -358,14 +519,21 @@ export class NativeStore {
         catalog: {
           ...content,
           coreList,
+          coreChapters,
           coreNames,
           dungeons,
           vipLevels,
+          fieldLibrary,
           stages: content.stageNames.map((name, i) => ({
             name,
             hint: content.stageHints[i],
             formation: content.stageFormation(i),
             reward: content.stageReward(i, true),
+            repeatReward: content.stageReward(i, false),
+            growth: content.stageGrowth(i, true),
+            repeatGrowth: content.stageGrowth(i, false),
+            chapter: Math.floor(i / 16),
+            number: (i % 16) + 1,
           })),
         },
         elapsed,
@@ -380,6 +548,7 @@ export class NativeStore {
         case 'command': {
           if (r.command?.type === 'vipRecharge') this.requireRoot();
           const before = this.state.reports[0]?.id;
+          const beforeState = this.state;
           const result = execute(
             this.state,
             r.command,
@@ -388,7 +557,13 @@ export class NativeStore {
           );
           this.commit(result.state);
           message = result.result;
-          if (this.state.reports[0]?.id !== before) extra.report = this.state.reports[0];
+          if (r.command?.type === 'rest')
+            extra.progress = { ...progressSummary(beforeState, this.state), ...result.accounting };
+          if (r.command?.type === 'battle' || r.command?.type === 'dungeon') {
+            // Receipt replay must reopen the original battle, never fight twice.
+            extra.report = this.state.reports.find((report) => report.id === result.result);
+          } else if (r.command?.type !== 'rest' && this.state.reports[0]?.id !== before)
+            extra.report = this.state.reports[0];
           break;
         }
         case 'rootLogin':
@@ -406,9 +581,17 @@ export class NativeStore {
           message = 'root 密码已更新，请重新登录';
           break;
         case 'autoFormation': {
+          if (r.mode !== undefined && !['balanced', 'power', 'tier'].includes(r.mode))
+            throw Error('未知排布方案');
           const result = execute(
             this.state,
-            { type: 'formation', slots: maxFormation(this.state) },
+            {
+              type: 'formation',
+              slots:
+                r.mode === 'power' || r.mode === 'tier'
+                  ? arrangedFormation(this.state, r.mode)
+                  : maxFormation(this.state),
+            },
             Date.now() + (this.state.timeOffset ?? 0),
             randomUUID(),
           );
@@ -416,6 +599,12 @@ export class NativeStore {
           message = result.result;
           break;
         }
+        case 'previewRest':
+          extra.restPreview = restPreview(this.state, r.minutes);
+          break;
+        case 'coreBudget':
+          extra.coreBudget = coreBudget(this.state, r.classId, r.tier, r.count, r.factory);
+          break;
         case 'report':
           extra.report = this.state.reports.find((x) => x.id === r.id);
           if (!extra.report) throw Error('战报不存在');
@@ -501,6 +690,10 @@ export class NativeStore {
         default:
           throw Error('未知请求');
       }
+    }
+    if (extra.report) {
+      extra.settlement = battleSummary(extra.report);
+      extra.report = { ...extra.report, transport: transportStatus(this.state, extra.report) };
     }
     const response = { ok: true, ...this.view(), ...extra, message };
     this.recovered = '';

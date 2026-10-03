@@ -1,0 +1,25 @@
+TankStorm v0.11 核心图标来源与映射
+
+使用内置 image_gen（imagegen 技能）生成四张 VII 阶精密核心；输出为透明 RGBA PNG。
+保留原有四张 VI 阶图集素材；新旧八种核心使用独立纹理键，界面统一加 VI/VII 角标。
+未重绘原始 VI 图像，也未进行程序性图像编辑。下列为实际生成提示与保存路径。
+
+tank
+保存：native/assets/tank_core7.png
+提示：
+Use case: stylized-concept. Asset: one premium tier VII precision upgrade core inventory icon for a native Windows armored strategy game. Render a single isolated an octagonal shield reactor with thick black steel layered tank armor, a prominent miniature twin-barrel tank turret silhouette in solid gold on its central green lens. Color theme green emerald, platinum bevels, fine brass fasteners, advanced circuitry. Strong unique silhouette easily readable at 48px, luxurious intricate machined metal 3D game item rendering. Front three-quarter view, centered fills 80% of square frame, soft studio highlights. NO text, NO letters, NO numbers, NO badge border, NO scenery, NO ground plane, NO watermark. Real transparent background, no painted checkerboard. This is a refined mechanical technology component, not jewelry or a medal.
+
+tank_destroyer
+保存：native/assets/tank_destroyer_core7.png
+提示：
+Use case: stylized-concept. Asset: one premium tier VII precision upgrade core inventory icon for a native Windows armored strategy game. Render a single isolated a sharp triangular targeting-computer core, long tapered silver penetrator spear through a blue optical targeting ring, angular low armored case. Color theme blue sapphire, platinum bevels, fine brass fasteners, advanced circuitry. Strong unique silhouette easily readable at 48px, luxurious intricate machined metal 3D game item rendering. Front three-quarter view, centered fills 80% of square frame, soft studio highlights. NO text, NO letters, NO numbers, NO badge border, NO scenery, NO ground plane, NO watermark. Real transparent background, no painted checkerboard. This is a refined mechanical technology component, not jewelry or a medal.
+
+spg
+保存：native/assets/spg_core7.png
+提示：
+Use case: stylized-concept. Asset: one premium tier VII precision upgrade core inventory icon for a native Windows armored strategy game. Render a single isolated a heavy square artillery breech energy core, an amber glowing mechanical chamber with paired oversized brass recoil cylinders and a raised howitzer barrel insignia. Color theme orange amber, platinum bevels, fine brass fasteners, advanced circuitry. Strong unique silhouette easily readable at 48px, luxurious intricate machined metal 3D game item rendering. Front three-quarter view, centered fills 80% of square frame, soft studio highlights. NO text, NO letters, NO numbers, NO badge border, NO scenery, NO ground plane, NO watermark. Real transparent background, no painted checkerboard. This is a refined mechanical technology component, not jewelry or a medal.
+
+rocket
+保存：native/assets/rocket_core7.png
+提示：
+Use case: stylized-concept. Asset: one premium tier VII precision upgrade core inventory icon for a native Windows armored strategy game. Render a single isolated a tall hexagonal missile guidance core, three prominent silver miniature missile shapes inside a violet crystal chamber with segmented black steel launcher housing. Color theme violet amethyst, platinum bevels, fine brass fasteners, advanced circuitry. Strong unique silhouette easily readable at 48px, luxurious intricate machined metal 3D game item rendering. Front three-quarter view, centered fills 80% of square frame, soft studio highlights. NO text, NO letters, NO numbers, NO badge border, NO scenery, NO ground plane, NO watermark. Real transparent background, no painted checkerboard. This is a refined mechanical technology component, not jewelry or a medal.

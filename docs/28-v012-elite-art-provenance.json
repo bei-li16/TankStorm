@@ -1,0 +1,25 @@
+{
+  "method": "built-in image_gen; VI references; saved as new sibling assets with generated alpha unchanged",
+  "assets": [
+    {
+      "asset": "tank_core7_field.png",
+      "reference": "tank_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: high tier military equipment component inventory icon. Based on the practical mechanical materials, restrained lighting and orthographic angle of the reference low tier module, create a more sophisticated VII tier dark olive green heavy armor servo module with a double bearing turret ring, layered ceramic steel protective housings. One isolated object centered with 12% transparent margin. Realistic military game 3D render, light from upper left, overhead three-quarter perspective, legible outline at 64 pixels. Thick matte painted steel, small bolts and precise mechanical assemblies, clean upper highlights. No gemstones, no glowing crystals, no ornaments, no jewelry, no gold trim, no shield badges, no text, no people, no pedestal. True transparent background."
+    },
+    {
+      "asset": "tank_destroyer_core7_field.png",
+      "reference": "tank_destroyer_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: high tier military equipment component inventory icon. Based on the practical mechanical materials, restrained lighting and orthographic angle of the reference low tier module, create a more sophisticated VII tier dark blue steel precision fire control assembly with two parallel long sabot penetrators and a rangefinder lens. One isolated object centered with 12% transparent margin. Realistic military game 3D render, light from upper left, overhead three-quarter perspective, legible outline at 64 pixels. Thick matte painted steel, small bolts and precise mechanical assemblies, clean upper highlights. No gemstones, no glowing crystals, no ornaments, no jewelry, no gold trim, no shield badges, no text, no people, no pedestal. True transparent background."
+    },
+    {
+      "asset": "spg_core7_field.png",
+      "reference": "spg_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: high tier military equipment component inventory icon. Based on the practical mechanical materials, restrained lighting and orthographic angle of the reference low tier module, create a more sophisticated VII tier muted amber industrial painted artillery breech assembly with twin recoil pistons, rear loading hinge and reinforced open gun cradle. One isolated object centered with 12% transparent margin. Realistic military game 3D render, light from upper left, overhead three-quarter perspective, legible outline at 64 pixels. Thick matte painted steel, small bolts and precise mechanical assemblies, clean upper highlights. No gemstones, no glowing crystals, no ornaments, no jewelry, no gold trim, no shield badges, no text, no people, no pedestal. True transparent background."
+    },
+    {
+      "asset": "rocket_core7_field.png",
+      "reference": "rocket_core6.png",
+      "prompt": "Use case: stylized-concept. Asset: high tier military equipment component inventory icon. Based on the practical mechanical materials, restrained lighting and orthographic angle of the reference low tier module, create a more sophisticated VII tier muted purple triple sealed missile canister assembly with ignition cabling and reinforced mounting bracket. One isolated object centered with 12% transparent margin. Realistic military game 3D render, light from upper left, overhead three-quarter perspective, legible outline at 64 pixels. Thick matte painted steel, small bolts and precise mechanical assemblies, clean upper highlights. No gemstones, no glowing crystals, no ornaments, no jewelry, no gold trim, no shield badges, no text, no people, no pedestal. True transparent background."
+    }
+  ]
+}

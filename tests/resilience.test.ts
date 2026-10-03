@@ -47,7 +47,7 @@ describe('save resilience, campaign coverage and long sessions', () => {
       expect(s.buildings.hq).toBe(level + 1);
       assertState(s);
     }
-    expect(() => apply(s, { type: 'upgrade', building: 'hq' })).toThrow('最高等级');
+    expect(apply(s, { type: 'upgrade', building: 'hq' }).jobs.building!.target).toBe('hq');
   });
   it('all 12 unit variants can be produced and conserved', () => {
     let s = base();

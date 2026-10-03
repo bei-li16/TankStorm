@@ -1,5 +1,8 @@
+import { enableResearch } from './research';
+import { enableCommander } from './commander';
 import { assertState } from './engine';
 import { enableArsenal } from './arsenal';
+import { enableIndustry } from './industry';
 import { RULESET } from './content';
 import type { GameState } from './types';
 const DB = 'tankstorm-classic-v1';
@@ -182,6 +185,9 @@ export async function parseSave(text: string): Promise<GameState> {
   try {
     assertState(doc.state);
     enableArsenal(doc.state);
+    enableIndustry(doc.state);
+    enableResearch(doc.state);
+    enableCommander(doc.state);
     assertState(doc.state);
   } catch (e) {
     throw Error(`存档数据无效：${(e as Error).message}`);

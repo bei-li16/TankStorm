@@ -5,11 +5,34 @@ export type Wallet = Record<Currency, number>;
 export type Cost = Partial<Wallet>;
 export type UnitClass = 'tank' | 'tank_destroyer' | 'spg' | 'rocket';
 export type Building = 'hq' | 'lab' | 'factory' | 'warehouse' | Resource;
-export type Technology = 'attack' | 'hp' | 'production' | 'construction' | 'gather';
+export type Technology =
+  | 'attack'
+  | 'hp'
+  | 'production'
+  | 'construction'
+  | 'gather'
+  | 'resourceOutput'
+  | 'ironOutput'
+  | 'oilOutput'
+  | 'leadOutput'
+  | 'titaniumOutput'
+  | 'crystalOutput'
+  | 'storage'
+  | 'repairSpeed'
+  | 'refitSpeed'
+  | 'researchSpeed'
+  | 'materials'
+  | 'march'
+  | 'cargo'
+  | 'survey'
+  | 'ballistics'
+  | 'armorPlating';
 export type Slot = { unitId: string; count: number } | null;
 export type Formation = Slot[];
 export type JobKind = 'building' | 'research' | 'production' | 'repair';
+export type ProductionFacility = 'factory' | 'factory2' | 'refit';
 export interface Job {
+  facility?: ProductionFacility;
   kind: JobKind;
   target: string;
   total: number;
@@ -35,8 +58,31 @@ export interface ArmyStack {
   crit: number;
   armor: number;
   attackBonus?: number;
+  initiative?: number;
+  extraFire?: number;
+}
+export interface CombatStats {
+  initiative: number;
+  extraFire: number;
+}
+export interface BattleAction {
+  id: number;
+  round: number;
+  exchange?: number;
+  side: 0 | 1;
+  from: number;
+  extra: boolean;
+  extraRoll?: number;
+  extraTriggered?: boolean;
 }
 export interface HitEvent {
+  /** An empty formation cell: no unit hit/miss roll, damage or casualty. */
+  ground?: boolean;
+  action?: number;
+  exchange?: number;
+  shot?: number;
+  shots?: number;
+  extra?: boolean;
   round: number;
   side: 0 | 1;
   from: number;
@@ -56,6 +102,10 @@ export interface Casualty {
   destroyed: number;
 }
 export interface BattleReport {
+  target?: { type: 'battle' | 'dungeon'; stage?: number; dungeonId?: string; training?: boolean };
+  marchId?: string;
+  tactics?: { teams: [CombatStats, CombatStats]; firstSide: 0 | 1; chances: [number, number] };
+  actions?: BattleAction[];
   id: string;
   title: string;
   at: number;
@@ -73,6 +123,7 @@ export interface BattleReport {
   rewards: Cost;
 }
 export interface WorldSite {
+  economyVersion?: 2 | 3;
   id: string;
   x: number;
   y: number;
@@ -93,12 +144,14 @@ export interface Intel {
   wallet: Wallet;
 }
 export interface March {
+  unitLoads?: Record<string, number>;
   id: string;
   targetId: string;
   phase: 'outbound' | 'gathering' | 'returning';
   mission: 'gather' | 'raid';
   troops: Formation;
   combatArmy?: ArmyStack[];
+  loadBps?: number;
   startedAt: number;
   dueAt: number;
   travelMs: number;
@@ -124,6 +177,28 @@ export interface Receipt {
 }
 export interface GameState {
   schema: 1;
+  commandVersion?: 1;
+  prestigeFloor?: number;
+  lastLeadership?: {
+    target: number;
+    attempts: number;
+    chance: number;
+    roll: number;
+    success: boolean;
+    payment: 'books' | 'gold';
+    at: number;
+  };
+  honors?: { id: string; at: number; reportId: string }[];
+  expeditionLog?: {
+    marchId: string;
+    targetId: string;
+    at: number;
+    outcome: 'returned' | 'defeated';
+    cargo: Wallet;
+    survivors: number;
+  }[];
+  researchVersion?: 1;
+  industry?: { version: 1; factory2: number; refit: number };
   vip?: { version: 1; paidGold: number; lastDaily: number };
   jobBacklog?: Job[];
   arsenal?: {
@@ -136,7 +211,7 @@ export interface GameState {
   id: string;
   nickname: string;
   worldSeed?: number;
-  worldRules?: 'renewable-v1';
+  worldRules?: 'renewable-v1' | 'renewable-v2' | 'renewable-v3';
   timeOffset?: number;
   seed: number;
   revision: number;
@@ -153,7 +228,7 @@ export interface GameState {
   destroyedUnits: Record<string, number>;
   formation: Formation;
   presets: { name: string; formation: Formation }[];
-  jobs: Partial<Record<JobKind | `building:${number}`, Job>>;
+  jobs: Partial<Record<JobKind | `building:${number}` | `production:${ProductionFacility}`, Job>>;
   marches: March[];
   world: WorldSite[];
   home: { x: number; y: number };
@@ -167,6 +242,8 @@ export interface GameState {
     prestige: number;
     skillPoints: number;
     attackSkill: number;
+    initiativeSkill?: number;
+    extraFireSkill?: number;
   };
   counters: Record<string, number>;
   claimed: string[];
@@ -175,21 +252,33 @@ export interface GameState {
   notices: { id: number; at: number; text: string }[];
 }
 export type Command =
+  | { type: 'repairAll'; quote: string }
   | { type: 'rest'; minutes: 60 | 480 }
   | { type: 'upgrade'; building: Building }
+  | { type: 'facilityUpgrade'; facility: 'factory2' | 'refit' }
   | { type: 'research'; tech: Technology }
-  | { type: 'produce' | 'repair' | 'refit'; unitId: string; count: number }
-  | { type: 'dungeon'; dungeonId: string; training?: boolean }
+  | {
+      type: 'produce' | 'repair' | 'refit';
+      unitId: string;
+      count: number;
+      facility?: ProductionFacility;
+    }
+  | { type: 'dungeon'; dungeonId: string; training?: boolean; formation?: Formation }
   | { type: 'cancel' | 'accelerate'; kind: JobKind; seq?: number }
   | { type: 'vipRecharge'; gold: number }
   | { type: 'vipDaily' }
   | { type: 'formation'; slots: Formation }
   | { type: 'presetSave'; name: string }
   | { type: 'presetLoad'; index: number }
-  | { type: 'battle'; stage: number; training?: boolean }
+  | { type: 'presetRename'; index: number; name: string }
+  | { type: 'presetReplace'; index: number }
+  | { type: 'presetDelete'; index: number }
+  | { type: 'battle'; stage: number; training?: boolean; formation?: Formation }
   | { type: 'scout'; targetId: string }
-  | { type: 'march'; targetId: string; mission: 'gather' | 'raid' }
+  | { type: 'march'; targetId: string; mission: 'gather' | 'raid'; formation?: Formation }
   | { type: 'recall'; marchId: string }
-  | { type: 'leadership' | 'skill' | 'daily' }
+  | { type: 'leadership'; payment?: 'books' | 'gold'; attempts?: 1 | 10 | 100 }
+  | { type: 'buyBooks'; count: number }
+  | { type: 'skill' | 'initiativeSkill' | 'extraFireSkill' | 'daily' }
   | { type: 'claim'; questId: string }
   | { type: 'rename'; nickname: string };

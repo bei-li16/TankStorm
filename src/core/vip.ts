@@ -1,5 +1,10 @@
+import { MAX_LEVEL, researchBaseTime, economyBonus, workDuration } from './growth';
+import { worldBaseRate } from './world';
 import type { Building, GameState, Job, JobKind, Technology, WorldSite, Formation } from './types';
-import { durationCurve, units } from './content';
+import { durationCurve, rateCurve, units } from './content';
+import { techLevel } from './research';
+import { facilityBlock, jobFacility, productionFacilities } from './industry';
+import type { ProductionFacility } from './types';
 
 // Benefits: Rayjoy official VIP article 173 (2016-10-18). Purchase permissions
 // become automatic unlocks for this offline edition. V10 threshold is our extension.
@@ -26,50 +31,72 @@ export function vipBenefits(s: GameState) {
 export function allJobs(s: GameState): Job[] {
   return [...Object.values(s.jobs).filter((j): j is Job => !!j), ...(s.jobBacklog ?? [])];
 }
-export function queueStatus(s: GameState, kind: JobKind) {
+export function queueStatus(
+  s: GameState,
+  kind: JobKind,
+  facility?: ProductionFacility,
+): {
+  active: Job[];
+  waiting: Job[];
+  slots: number;
+  waitingSlots: number;
+  full: boolean;
+} {
+  const matches = (j: Job) => j.kind === kind && (!facility || jobFacility(j) === facility);
   const active = Object.values(s.jobs)
-    .filter((j): j is Job => j?.kind === kind)
+    .filter((j): j is Job => !!j && matches(j))
     .sort((a, b) => a.seq - b.seq);
-  const waiting = (s.jobBacklog ?? []).filter((j) => j.kind === kind);
+  const waiting = (s.jobBacklog ?? []).filter(matches).sort((a, b) => a.seq - b.seq);
   const v = vipBenefits(s);
-  const slots = kind === 'building' ? v.building : 1;
-  const waitingSlots = kind === 'production' || kind === 'research' ? v.waiting : 0;
+  const lines = productionFacilities.filter((f) => !facilityBlock(s, f));
+  const slots =
+    kind === 'building' ? v.building : kind === 'production' && !facility ? lines.length : 1;
+  const waitingSlots =
+    kind === 'production' ? v.waiting * slots : kind === 'research' ? v.waiting : 0;
   return {
     active,
     waiting,
     slots,
     waitingSlots,
-    full: active.length >= slots && waiting.length >= waitingSlots,
+    full:
+      kind === 'production' && !facility
+        ? lines.every((f) => queueStatus(s, kind, f).full)
+        : active.length >= slots && waiting.length >= waitingSlots,
   };
 }
 export const jobRemaining = (s: GameState, j: Job) =>
   Math.max(0, j.dueAt - s.now + (j.total - j.completed - 1) * j.duration);
-export function queueWait(s: GameState, kind: JobKind) {
-  const q = queueStatus(s, kind);
+export const freeTime = (s: GameState) => vipBenefits(s).freeMinutes * 60000;
+export const effectiveTime = (s: GameState, duration: number) =>
+  Math.max(0, duration - freeTime(s));
+export const jobEffectiveRemaining = (s: GameState, j: Job) => effectiveTime(s, jobRemaining(s, j));
+export function queueWait(s: GameState, kind: JobKind, facility?: ProductionFacility) {
+  const q = queueStatus(s, kind, facility);
   return q.active.length
-    ? jobRemaining(s, q.active[0]) + q.waiting.reduce((n, j) => n + j.duration * j.total, 0)
+    ? jobEffectiveRemaining(s, q.active[0]) +
+        q.waiting.reduce((n, j) => n + effectiveTime(s, j.duration * j.total), 0)
     : 0;
 }
 export function accelerationCost(s: GameState, j: Job) {
-  const remaining = jobRemaining(s, j);
-  if (
-    (j.kind === 'building' || j.kind === 'research') &&
-    vipBenefits(s).freeMinutes > 0 &&
-    remaining <= vipBenefits(s).freeMinutes * 60000
-  )
-    return 0;
-  return Math.max(1, Math.ceil(remaining / 60000));
+  return Math.ceil(jobEffectiveRemaining(s, j) / 60000);
 }
 export function queueView(s: GameState) {
-  return (['building', 'production', 'research', 'repair'] as JobKind[]).flatMap((kind) => {
-    const q = queueStatus(s, kind);
-    let wait = q.active.length ? jobRemaining(s, q.active[0]) : 0;
+  const groups: { kind: JobKind; facility?: ProductionFacility }[] = [
+    { kind: 'building' },
+    ...productionFacilities.map((facility) => ({ kind: 'production' as const, facility })),
+    { kind: 'research' },
+    { kind: 'repair' },
+  ];
+  return groups.flatMap(({ kind, facility }) => {
+    const q = queueStatus(s, kind, facility);
+    let wait = q.active.length ? jobEffectiveRemaining(s, q.active[0]) : 0;
     return [
       ...q.active.map((j) => ({
         ...j,
         waiting: false,
         waitMs: 0,
-        remainingMs: jobRemaining(s, j),
+        remainingMs: jobEffectiveRemaining(s, j),
+        rawRemainingMs: jobRemaining(s, j),
         acceleration: accelerationCost(s, j),
       })),
       ...q.waiting.map((j) => {
@@ -77,7 +104,8 @@ export function queueView(s: GameState) {
           ...j,
           waiting: true,
           waitMs: wait,
-          remainingMs: wait + j.duration * j.total,
+          remainingMs: wait + effectiveTime(s, j.duration * j.total),
+          rawRemainingMs: j.duration * j.total,
           acceleration: 0,
         };
         wait = row.remainingMs;
@@ -87,28 +115,80 @@ export function queueView(s: GameState) {
   });
 }
 export function buildingDuration(s: GameState, b: Building) {
-  return Math.ceil((durationCurve[s.buildings[b]] * 10000) / (10000 + s.tech.construction * 500));
+  if (s.buildings[b] >= MAX_LEVEL) return 0;
+  const factor =
+    b === 'hq' ? 1 : b === 'lab' ? 0.9 : b === 'factory' ? 0.8 : b === 'warehouse' ? 0.6 : 0.35;
+  return workDuration(durationCurve[s.buildings[b]] * factor, s.tech.construction * 5, 0.5);
 }
 export function researchDuration(s: GameState, t: Technology) {
-  return Math.ceil((30000 * (s.tech[t] + 1) * 100) / (100 + vipBenefits(s).research));
+  if (techLevel(s, t) >= MAX_LEVEL) return 0;
+  const factor = ['ballistics', 'armorPlating'].includes(t)
+    ? 1
+    : ['materials', 'refitSpeed', 'repairSpeed'].includes(t)
+      ? 0.85
+      : ['construction', 'researchSpeed', 'production'].includes(t)
+        ? 0.75
+        : ['gather', 'march', 'cargo', 'survey'].includes(t)
+          ? 0.6
+          : ['attack', 'hp'].includes(t)
+            ? 0.5
+            : 0.3;
+  return workDuration(
+    researchBaseTime(techLevel(s, t)) * factor,
+    vipBenefits(s).research + techLevel(s, 'researchSpeed') * 5,
+    0.5,
+  );
 }
 export function travelDuration(s: GameState, site: WorldSite) {
   const base = Math.max(
     1000,
     Math.ceil(Math.hypot(site.x - s.home.x, site.y - s.home.y) * 8) * 1000,
   );
-  return Math.max(1000, Math.ceil((base * 100) / (100 + vipBenefits(s).marchSpeed)));
+  return Math.max(
+    1000,
+    Math.ceil((base * 100) / (100 + vipBenefits(s).marchSpeed + techLevel(s, 'march') * 5)),
+  );
 }
+export const loadBonus = (s: GameState) => 50000 + techLevel(s, 'cargo') * 2500;
+export const troopLoad = (f: Formation, bps: number) =>
+  Math.floor((f.reduce((n, t) => n + (t ? units[t.unitId].load * t.count : 0), 0) * bps) / 10000);
+export const baseUnitLoad = (id: string) => {
+  const u = units[id];
+  const nominal = [80, 150, 250, 375, 500, 625, 800][u.tier - 1];
+  return (nominal * u.load * 5) / [10, 15, 20, 30, 40, 50, 60][u.tier - 1];
+};
+export const unitLoad = (s: GameState, id: string) => {
+  return Math.floor((baseUnitLoad(id) * (100 + economyBonus(techLevel(s, 'cargo'), 5))) / 100);
+};
+export const expeditionLoad = (s: GameState, f: Formation) =>
+  f.reduce((n, t) => n + (t ? unitLoad(s, t.unitId) * t.count : 0), 0);
+export const gatheringRate = (s: GameState, site: WorldSite) =>
+  (site.economyVersion ?? 0) >= 2
+    ? Math.floor(
+        (worldBaseRate(site) *
+          8 *
+          (100 +
+            economyBonus(techLevel(s, 'gather'), 5) +
+            economyBonus(techLevel(s, 'survey'), 5))) /
+          100,
+      )
+    : Math.floor(
+        (((((4800 * rateCurve[s.buildings.hq]) / 10000) * (100 + (site.level - 1) * 20)) / 100) *
+          (100 + techLevel(s, 'gather') * 5 + techLevel(s, 'survey') * 5)) /
+          100,
+      );
 export function marchQuote(s: GameState, site: WorldSite, f: Formation) {
   const travelMs = travelDuration(s, site);
-  const load = f.reduce((n, t) => n + (t ? units[t.unitId].load * t.count : 0), 0);
-  const gatherRate = 300 + s.tech.gather * 15;
+  const load = expeditionLoad(s, f);
+  const gatherRate = gatheringRate(s, site);
   const amount = site.kind === 'mine' ? Math.min(load, site.reserve) : 0;
-  const gatherMs = Math.ceil((amount * 3600000) / gatherRate);
+  const rawGatherMs = Math.ceil((amount * 3600000) / gatherRate);
+  const gatherMs = effectiveTime(s, rawGatherMs);
   return {
     outboundMs: travelMs,
     returnMs: travelMs,
     gatherMs,
+    rawGatherMs,
     totalMs: travelMs * 2 + gatherMs,
     load,
     amount,

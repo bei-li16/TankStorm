@@ -9,7 +9,8 @@ let serial = 0;
 const act = (s: GameState, c: Command) => execute(s, c, s.now, `arsenal-${++serial}`).state;
 function rich() {
   const s = newGame('arsenal-test', '机械师', 1700000000000);
-  s.buildings.hq = s.buildings.factory = 20;
+  s.buildings.hq = s.buildings.factory = 60;
+  s.industry = { version: 1, factory2: 60, refit: 60 };
   for (const r of Object.keys(s.wallet)) s.wallet[r as keyof typeof s.wallet] = 1000000;
   return s;
 }
@@ -30,12 +31,12 @@ describe('seven-tier arsenal and core operations', () => {
       expect(unitList.filter((u) => u.classId === cls).map((u) => u.tier)).toEqual([
         1, 2, 3, 4, 5, 6, 7,
       ]);
-      expect(units[`${cls}_t7`].unlock.factoryLevel).toBe(20);
+      expect(units[`${cls}_t7`].unlock.factoryLevel).toBe(60);
     }
   });
   it('MAX floors the limiting resource, allows zero and respects unlocks and cores', () => {
     const s = newGame('max', '最大生产', 1700000000000);
-    s.wallet.iron = 101;
+    s.wallet.iron = units.tank_t1.cost.iron! * 5 + 1;
     expect(productionQuote(s, 'tank_t1').max).toBe(5);
     s.wallet.oil = 9;
     expect(productionQuote(s, 'tank_t1').max).toBe(0);
@@ -47,7 +48,7 @@ describe('seven-tier arsenal and core operations', () => {
     full.arsenal!.cores.tank_core6 = 100000;
     for (const r of Object.keys(full.wallet))
       full.wallet[r as keyof typeof full.wallet] = 100000000;
-    expect(productionQuote(full, 'tank_t6').max).toBe(10000);
+    expect(productionQuote(full, 'tank_t6').max).toBe(100);
   });
   it('quotes the same per-unit duration that production snapshots after speed research', () => {
     let s = rich();
@@ -91,7 +92,7 @@ describe('seven-tier arsenal and core operations', () => {
     expect(s.arsenal!.cores.tank_core6).toBe(0);
     assertState(s);
     s = await parseSave(await exportSave(s));
-    s = advance(s, s.jobs.production!.dueAt);
+    s = advance(s, s.jobs['production:refit']!.dueAt);
     expect(s.available.tank_t6).toBe(1);
     expect(s.arsenal!.converted.tank_t5).toBe(1);
     const beforeCancelIron = s.wallet.iron;
@@ -120,9 +121,11 @@ describe('seven-tier arsenal and core operations', () => {
     '$name drops first and repeat rewards once, while training grants nothing',
     (d) => {
       let s = rich();
-      s.commander.leadership = 20;
-      grant(s, 'tank_t7', 1000);
-      s.formation = Array.from({ length: 6 }, () => ({ unitId: 'tank_t7', count: 100 }));
+      s.commander.leadership = 120;
+      s.commander.prestige = 566440;
+      grant(s, 'tank_t7', 4000);
+      s.formation = Array.from({ length: 6 }, () => ({ unitId: 'tank_t7', count: 615 }));
+      s.arsenal!.cleared = dungeons.slice(0, d.index).map((v) => v.id);
       const before = structuredClone(s.arsenal);
       s = act(s, { type: 'dungeon', dungeonId: d.id, training: true });
       expect(s.arsenal).toEqual(before);
@@ -130,19 +133,26 @@ describe('seven-tier arsenal and core operations', () => {
       const key = 'one-drop-' + d.id;
       s = execute(s, command, s.now, key).state;
       expect(s.reports[0].winner).toBe(0);
-      expect(s.reports[0].coreRewards).toEqual({ [d.coreId]: 10 });
-      expect(s.arsenal!.cores[d.coreId]).toBe(10);
+      expect(s.reports[0].coreRewards).toEqual(
+        Object.fromEntries(d.drops.map((v) => [v.id, v.first])),
+      );
+      const credited = structuredClone(s.arsenal!.cores);
       s = execute(s, command, s.now, key).state;
-      expect(s.arsenal!.cores[d.coreId]).toBe(10);
+      expect(s.arsenal!.cores).toEqual(credited);
       s = act(s, command);
-      expect(s.arsenal!.cores[d.coreId]).toBe(13);
+      for (const drop of d.drops) {
+        const reward = s.reports[0].coreRewards![drop.id];
+        expect(reward).toBeGreaterThanOrEqual(drop.min);
+        expect(reward).toBeLessThanOrEqual(drop.max);
+        expect(s.arsenal!.cores[drop.id]).toBe(drop.first + reward);
+      }
       assertState(s);
     },
   );
   it('locked and failed dungeons give no cores', () => {
     let s = newGame('locked', '试炼', 1700000000000);
     expect(() => act(s, { type: 'dungeon', dungeonId: 'core-0' })).toThrow('工厂');
-    s.buildings.factory = s.buildings.hq = 20;
+    s.buildings.factory = s.buildings.hq = 36;
     s.formation = [{ unitId: 'tank_t1', count: 1 }, null, null, null, null, null];
     s = act(s, { type: 'dungeon', dungeonId: 'core-0' });
     expect(s.reports[0].winner).toBe(1);

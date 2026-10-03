@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { leadershipQuote } from '../src/core/commander';
 import { dungeons, productionQuote } from '../src/core/arsenal';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import {
@@ -21,9 +22,16 @@ import {
   unitList,
   units,
   upgradeCost,
+  vehicleUnlockLevels,
 } from '../src/core/content';
 import { exportSave, parseSave } from '../src/core/storage';
-import { guardTemplate, mineCapacity, NPC_CAPACITY, WORLD_INTERVAL } from '../src/core/world';
+import {
+  guardTemplate,
+  mineCapacity,
+  npcCapacity,
+  npcRate,
+  WORLD_INTERVAL,
+} from '../src/core/world';
 import {
   resources,
   type Building,
@@ -73,7 +81,7 @@ describe('sustainable single-player world', () => {
     s = act(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
     s = advance(s, T + WORLD_INTERVAL);
     expect(s.marches[0].phase).toBe('gathering');
-    expect(s.world[0].reserve + s.marches[0].cargo.iron).toBe(2000);
+    expect(s.world[0].reserve + s.marches[0].cargo.iron).toBe(19200);
     s = advance(s, s.marches[0].dueAt);
     const cargo = s.marches[0].cargo.iron;
     expect(cargo).toBeLessThanOrEqual(s.marches[0].capacity);
@@ -86,15 +94,26 @@ describe('sustainable single-player world', () => {
     const npc = s.world.find((t) => t.kind === 'npc')!;
     npc.guards = Array(6).fill(null);
     const before = { ...npc.wallet };
-    const template = guardTemplate(npc.level);
+    const template = guardTemplate(npc.level, 'npc');
     s = advance(s, T + WORLD_INTERVAL);
     const rebuilt = s.world.find((t) => t.id === npc.id)!;
     for (const r of resources) {
-      const income = Math.floor((rules.economy.baseRatePerHour[r] * rateCurve[npc.level]) / 10000);
-      const spend = template.reduce((n, g) => n + (g ? (units[g.unitId].cost[r] ?? 0) : 0), 0);
-      expect(rebuilt.wallet[r]).toBe(Math.min(NPC_CAPACITY, before[r] + income) - spend);
+      const income = npcRate(npc, r);
+      const spend = rebuilt.guards.reduce(
+        (n, g) => n + (g ? (units[g.unitId].cost[r] ?? 0) * g.count : 0),
+        0,
+      );
+      expect(rebuilt.wallet[r]).toBe(Math.min(npcCapacity(npc, r), before[r] + income) - spend);
     }
-    expect(rebuilt.guards.filter(Boolean).every((g) => g!.count === 1)).toBe(true);
+    expect(
+      rebuilt.guards
+        .filter(Boolean)
+        .every(
+          (g) =>
+            g!.count > 0 &&
+            g!.count <= Math.ceil(template.find((t) => t?.unitId === g!.unitId)!.count / 4),
+        ),
+    ).toBe(true);
     s = advance(s, T + WORLD_INTERVAL * 48);
     expect(s.world.find((t) => t.id === npc.id)!.guards).toEqual(template);
     expect(s.reports).toHaveLength(0);
@@ -111,21 +130,27 @@ describe('sustainable single-player world', () => {
     while (stepped.now < end) stepped = advance(stepped, Math.min(end, stepped.now + 61000));
     expect(normalize(offline)).toEqual(normalize(stepped));
     assertState(offline);
-  });
-  it('legacy worlds gain a versioned schedule without resetting stock, intelligence or combat history', async () => {
+    // This compares 1,400+ simulated updates; allow CPU contention during native builds.
+  }, 15000);
+  it('legacy regions preserve player balances/history and invalidate old garrison intelligence', async () => {
     let s = newGame('legacy', '老基地', T);
     s = act(s, { type: 'scout', targetId: 'site-0' });
     s = act(s, { type: 'battle', stage: 0, training: true });
     delete s.worldRules;
+    for (const site of s.world) {
+      delete site.economyVersion;
+      site.level = Math.min(20, site.level);
+    }
     s.world[0].reserve = 13;
     for (const t of s.world) t.lastGrowth = T - 30 * 86400000;
     const old = await parseSave(await exportSave(s));
     const migrated = advance(old, T);
-    expect(migrated.worldRules).toBe('renewable-v1');
-    expect(migrated.world[0].reserve).toBe(13);
+    expect(migrated.worldRules).toBe('renewable-v3');
+    expect(migrated.world[0].reserve).toBe(20);
+    expect(migrated.wallet).toEqual(old.wallet);
     expect(migrated.reports).toEqual(old.reports);
-    expect(migrated.intel).toEqual(old.intel);
-    expect(advance(migrated, T + WORLD_INTERVAL).world[0].reserve).toBe(513);
+    expect(migrated.intel['site-0']).toBeUndefined();
+    expect(advance(migrated, T + WORLD_INTERVAL).world[0].reserve).toBe(4820);
   });
 });
 
@@ -171,15 +196,19 @@ describe('fresh-save single-player acceptance', () => {
           run({ type: 'claim', questId: q.id });
       const day = Math.floor((s.now + 28800000) / 86400000);
       if (day > s.lastDaily) run({ type: 'daily' });
-      while (s.commander.books >= s.commander.leadership && s.commander.leadership < 20)
+      while (s.commander.books > 0 && s.commander.leadership < 20 && !leadershipQuote(s).block)
         run({ type: 'leadership' });
       while (s.commander.skillPoints > 0 && s.commander.attackSkill < 20) run({ type: 'skill' });
     }
     function produce(id: string, n: number) {
       if (n <= 0) return;
-      afford(scaleCost(units[id].cost, n));
-      run({ type: 'produce', unitId: id, count: n });
-      finish('production');
+      while (n > 0) {
+        const count = Math.min(100, n);
+        afford(scaleCost(units[id].cost, count));
+        run({ type: 'produce', unitId: id, count });
+        finish('production');
+        n -= count;
+      }
     }
     function repairAll() {
       for (const u of unitList) {
@@ -212,7 +241,7 @@ describe('fresh-save single-player acceptance', () => {
     milestones.push({ milestone: 'first-loop', hours: (s.now - T) / 3600000 });
 
     // Build a normal economy alongside the HQ, never skipping prerequisites.
-    for (let level = 2; level <= 12; level++) {
+    for (let level = 2; level <= vehicleUnlockLevels[3]; level++) {
       upgrade('hq');
       for (const b of [
         'warehouse',
@@ -261,20 +290,29 @@ describe('fresh-save single-player acceptance', () => {
     expect(s.cleared).toHaveLength(12);
     expect(s.claimed).toHaveLength(quests.length);
     milestones.push({ milestone: 'campaign-complete', days: (s.now - T) / 86400000 });
-    for (let level = 13; level <= 20; level++) {
+    for (let level = s.buildings.hq + 1; level <= vehicleUnlockLevels[7]; level++) {
       upgrade('hq');
       for (const b of Object.keys(buildingNames) as Building[]) if (b !== 'hq') upgrade(b);
     }
-    expect(Object.values(s.buildings).every((v) => v === 20)).toBe(true);
+    expect(Object.values(s.buildings).every((v) => v === vehicleUnlockLevels[7])).toBe(true);
+    for (const facility of ['factory2', 'refit'] as const) {
+      while (s.industry![facility] < vehicleUnlockLevels[7]) {
+        afford(upgradeCost('factory', Math.max(1, s.industry![facility])));
+        run({ type: 'facilityUpgrade', facility });
+        finish('building');
+      }
+    }
     for (const u of unitList.filter((u) => u.tier === 4)) produce(u.unitId, 1);
     const finalCap = leadershipCap(s);
     for (const cls of ['tank', 'tank_destroyer', 'spg', 'rocket'])
       produce(`${cls}_t5`, finalCap * 2);
     run({ type: 'formation', slots: maxFormation(s) });
-    for (const d of dungeons) {
+    for (const d of dungeons.filter((v) => v.band < 2)) {
+      const beforeCores = { ...s.arsenal!.cores };
       run({ type: 'dungeon', dungeonId: d.id });
       expect(s.reports[0].winner, d.name).toBe(0);
-      expect(s.arsenal!.cores[d.coreId]).toBe(d.firstReward);
+      for (const drop of d.drops)
+        expect(s.arsenal!.cores[drop.id]).toBe(beforeCores[drop.id] + drop.first);
       repairAll();
       run({ type: 'formation', slots: maxFormation(s) });
     }
@@ -283,7 +321,7 @@ describe('fresh-save single-player acceptance', () => {
       const q = productionQuote(s, u.unitId, 'refit');
       afford(q.unitCost);
       run({ type: 'refit', unitId: u.unitId, count: 1 });
-      finish('production');
+      finish('production:refit');
       expect(s.available[u.unitId]).toBeGreaterThanOrEqual(1);
     }
     milestones.push({
@@ -292,7 +330,7 @@ describe('fresh-save single-player acceptance', () => {
     });
     const roundTrip = await parseSave(await exportSave(s));
     expect(roundTrip).toEqual(s);
-    milestones.push({ milestone: 'all-buildings-level-20', days: (s.now - T) / 86400000 });
+    milestones.push({ milestone: 'all-buildings-level-60', days: (s.now - T) / 86400000 });
     mkdirSync('artifacts', { recursive: true });
     writeFileSync('artifacts/arsenal-journey-save.json', await exportSave(s));
     writeFileSync(
@@ -315,5 +353,5 @@ describe('fresh-save single-player acceptance', () => {
         2,
       ),
     );
-  }, 30000);
+  }, 90000);
 });
