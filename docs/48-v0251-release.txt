@@ -1,0 +1,39 @@
+《坦克风云 · 经典归来》v0.25.1 — Windows 重编译发布
+
+Windows x64 原生单机免安装版。
+下载 TankStorm-v0.25.1-portable.zip，完整解压后运行 TankStorm.exe。
+无需安装 Godot 或 Node.js，请保留包内 runtime、rules、licenses 和 README.txt。
+GitHub 自动生成的 Source code 是源码包，不是可直接游玩的程序。
+
+本次发布
+
+- 按当前已提交的 v0.25.0 源码重新构建，升级发布版本至 v0.25.1。
+- Godot 应用版本为0.25.1，Windows文件及产品版本为0.25.1.0。
+- 沿用维修筛选、十项结算奖励、六阵位侦察卡及既有体验改进。
+- 本次没有新增玩法，没有调整战斗规则、经济数值、工期或存档格式。
+- 独立构建目录保留旧版文件，不覆盖运行中的旧客户端。
+
+存档与分发
+
+存档继续位于 %APPDATA%/TankStormClassic/saves；升级无需手动搬运。
+请关闭旧版本后再正常游玩新版本，避免多个客户端同时修改同一存档。
+源码仓库只包含源码、文档和源素材；EXE、内置运行时、ZIP和校验文件不提交Git。
+Release附带完整便携包和SHA-256校验文件。
+
+本次验证
+
+- npm run check：类型与格式检查通过。
+- npm test -- --maxWorkers=1：28个测试文件、510项测试全部通过。
+- Godot脚本检查、素材导入及Windows原生导出通过。
+- 新EXE的文件与产品版本均为0.25.1.0；本地规则程序与v0.25.0的SHA-256一致。
+- 新EXE使用隔离smoke存档完成体验验收：维修列表和数量校验、全部维修入库、
+  已知/未知侦察、下一关取消、直接再次挑战、回放不重复发奖、弹窗重设尺寸通过。
+- 验收覆盖1180×680、1280×720、1920×1080、2560×1440和100%/120%字号。
+  复核了小窗口结算及1280×720侦察、维修截图。
+- 本轮为构建与发布验证，不代表新增一轮长期成长实玩或数值平衡调整。
+
+本地验证输出（忽略目录，不提交Git）：
+artifacts/test-results-v0251.json
+artifacts/native-v251/build.log
+artifacts/native-v251/game.log
+artifacts/native-v251/experience25-ui.json
