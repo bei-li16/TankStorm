@@ -104,7 +104,9 @@ const report = obj(
       ['stage', 'dungeonId', 'training'],
     ),
     winner: one([0, 1]),
-    rounds: num(0, 40),
+    rounds: num(0, 50),
+    roundLimit: num(1, 50),
+    endReason: one(['elimination', 'round-limit']),
     mode: one(['training', 'stage', 'world', 'dungeon']),
     coreRewards: record(num(0, 1e9), 8),
     marchId: str(100),
@@ -118,8 +120,8 @@ const report = obj(
     actions: list(
       obj(
         {
-          id: num(1, 960),
-          round: num(1, 40),
+          id: num(1, 1200),
+          round: num(1, 50),
           exchange: num(1, 6),
           side: one([0, 1]),
           from: num(1, 6),
@@ -129,18 +131,18 @@ const report = obj(
         },
         ['extraRoll', 'extraTriggered', 'exchange'],
       ),
-      960,
+      1200,
     ),
     events: list(
       obj(
         {
-          action: num(1, 960),
+          action: num(1, 1200),
           exchange: num(1, 6),
           shot: num(1, 6),
           shots: num(1, 6),
           ground: bool,
           extra: bool,
-          round: num(1, 40),
+          round: num(1, 50),
           side: one([0, 1]),
           from: num(1, 6),
           to: num(1, 6),
@@ -152,7 +154,7 @@ const report = obj(
         },
         ['action', 'shot', 'shots', 'extra', 'exchange', 'ground'],
       ),
-      6000,
+      7200,
     ),
     casualties: list(
       obj({
@@ -168,7 +170,7 @@ const report = obj(
     rewards: cost,
     growth: obj({ xp: integer, books: integer, skillPoints: integer, prestige: integer }),
   },
-  ['growth', 'coreRewards', 'tactics', 'actions', 'marchId', 'target'],
+  ['growth', 'coreRewards', 'tactics', 'actions', 'marchId', 'target', 'roundLimit', 'endReason'],
 );
 const job = obj(
   {
@@ -347,7 +349,7 @@ export function validateShape(value: unknown) {
       version: one([1]),
       cores: record(num(0, 1e9), 8),
       converted: record(num(0, 1e9), 28),
-      cleared: list(str(50), 16),
+      cleared: list(str(50), 80),
     })(arsenal, 'save.arsenal');
   const worldSeed = (value as { worldSeed?: unknown }).worldSeed;
   if (worldSeed !== undefined) num(1, 4294967295)(worldSeed, 'save.worldSeed');

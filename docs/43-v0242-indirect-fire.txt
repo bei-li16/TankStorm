@@ -1,0 +1,54 @@
+TankStorm v0.24.2 — 自行火炮与火箭车高位跨射
+日期：2026-10-03
+
+问题与改动
+此前跨射弹道的起始段先跟随炮口，再用贝塞尔曲线赶向地面折叠线；
+落弹段从折叠线直接连向目标，造成可见的急转和近似平射的入射方向。
+现在跨射保留两段可见直线：从炮口沿原发射方向射出；从目标上方斜向下落弹。
+自行火炮按屏幕水平线60度入射，火箭车按45度入射；左右方向按进攻方镜像。
+视野折叠省略远距离空中航程。出射段末端淡出，落弹段起点淡入，完整拖尾一起处理。
+隐藏航程的位置和切线连续；落弹段拖尾截断在其入口，不画跨越战场的连接线。
+坦克与歼击车保留原平射坐标、折叠区和颜色，没有应用高位跨射。
+
+保留行为
+只改Godot弹道表现，不改TypeScript战斗规则、概率、伤害、出手顺序或结算。
+每枚弹飞行表现仍为320毫秒；火箭一轮六发按原0/75/160/245/330/420毫秒发射。
+每轮火箭仅一次原发射音和一次原集束命中音；连击、全闪避、暂停和静音保持现有行为。
+命中空地仍生成弹坑，按落地时间锚定地面后移，绘制在车辆与标签下方。
+历史回放继续消费原始快照；未新增存档字段，未触碰玩家主存档。
+素材、旧音效文件和四系车辆不变。本版延续五章核心行动等此前功能。
+
+实现文件
+native/scripts/game.gd：跨射位置、可见拖尾、角度区分及原生验收。
+native/tests/indirect242.gd：全阵位几何检查及平射回归比较。
+native/tests/indirect242.mjs：构造独立测试报告并运行几何检查。
+package.json、package-lock.json、README.md、native/PLAYER_GUIDE.txt：版本与说明。
+
+验证结果
+Godot脚本解析通过，npm run check通过，git diff --check通过。
+七阶×双方×六个出发阵位×六个目标阵位，分别验证战车与地面落点：
+2016组跨射路径、1008组平射路径，465696项几何断言通过。
+验证出射与炮口同向、45/60度向下入射、落点一致、隐藏航段无拖尾、接缝切线连续。
+平射路径与固定的v0.24.1参考公式逐点比较一致；另有2016例炮口对齐检查通过。
+
+实际Windows导出程序验收V242_INDIRECT_QA: true：
+33组现代回放、96次首轮射击检查，覆盖双方四车系、空位、连击和全闪避。
+按1/2/4倍速、跳过、逐行动播放，最终生命和数量与原战报一致。
+旧v0.14/v0.20快照兼容；地面弹坑位移、伤亡和维修费用回归通过。
+实际帧推进验证火箭一次发射/命中、暂停恢复、静音与取消静音不重播。
+双方火炮与火箭分别采集发射、下降和命中，共12张专项实机截图。
+回归窗口1180×680、1280×720、1920×1080、2560×1440和100%/120%字号。
+截图检查炮口、落点、拖尾、数量标签与操作区；没有新增遮挡。
+所有运行使用smoke进程隔离存档；没有读取或覆盖主存档。
+
+复现（PowerShell）
+node native/tests/indirect242.mjs
+npm run build:native
+& ./release/TankStorm-v0.24.2/TankStorm.exe --log-file "$((Resolve-Path artifacts/native-v242).Path)/godot.log" -- --smoke --indirect-fire-only --qa-output="$((Resolve-Path artifacts/native-v242).Path)"
+
+报告：artifacts/native-v242/indirect242.log、aim.log、combat-ui.json、rocket-live.json、indirect-ui.json
+实机日志：artifacts/native-v242/godot.log
+截图：docs/images/spg-launch-v0242.png、spg-descent-v0242.png、rocket-descent-v0242.png
+免安装包：release/TankStorm-v0.24.2-portable.zip
+运行：完整解压后双击TankStorm.exe，保留runtime/rules/licenses。
+构建输出与ZIP仍由.gitignore排除；本次未发布新的公开Release。

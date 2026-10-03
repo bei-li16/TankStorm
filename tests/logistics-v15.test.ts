@@ -99,16 +99,18 @@ describe('v0.15 instant recovery', () => {
   });
 });
 describe('v0.15 core operation mainline', () => {
-  it('has sixteen sequential encounters with strictly increasing neutral enemy power and rewards by band', () => {
-    expect(dungeons).toHaveLength(16);
+  it('keeps the expanded eighty-stage mainline sequential with strictly increasing enemy power', () => {
+    expect(dungeons).toHaveLength(80);
     let s = fixture(),
       previousPower = 0;
+    s.buildings.hq = s.buildings.factory = 120;
+    Object.assign(s.tech, { attack: 120, hp: 120, ballistics: 120, armorPlating: 120, march: 120 });
     for (const d of dungeons) {
       const power = armyPower(army(d.formation));
       expect(power).toBeGreaterThan(previousPower);
       previousPower = power;
       expect(dungeonBlock(s, d)).toBe('');
-      if (d.index < 15) expect(dungeonBlock(s, dungeons[d.index + 1])).toContain('先通过');
+      if (d.index < 79) expect(dungeonBlock(s, dungeons[d.index + 1])).toContain('先通过');
       const before = { ...s.arsenal!.cores };
       s = act(s, { type: 'dungeon', dungeonId: d.id });
       expect(s.reports[0].winner).toBe(0);
@@ -117,7 +119,7 @@ describe('v0.15 core operation mainline', () => {
         expect(s.arsenal!.cores[drop.id]).toBe(before[drop.id] + drop.first);
       assertState(s);
     }
-    expect(s.arsenal!.cleared).toHaveLength(16);
+    expect(s.arsenal!.cleared).toHaveLength(80);
   });
   it('retains old cleared IDs, stocks and report rewards, while allowing a next-stage unlock', async () => {
     const s = fixture();
@@ -131,7 +133,7 @@ describe('v0.15 core operation mainline', () => {
         dungeons.find((d) => d.id === 'core-1')!,
       ),
     ).toBe('');
-    expect(dungeonBlock(loaded, dungeons[8])).toBe('');
+    expect(dungeonBlock(loaded, dungeons[20])).toBe('');
     expect(dungeonBlock(loaded, dungeons[2])).toContain('先通过');
   });
   it('repeat ranges vary, remain single-family, reproduce from a save and cannot reroll a receipt', async () => {
@@ -161,10 +163,10 @@ describe('v0.15 core operation mainline', () => {
     expect(early.victoriesMax).toBeNull();
     s.arsenal!.cleared = dungeons.slice(0, 12).map((d) => d.id);
     const late = coreBudget(s, 'tank', 7, 100);
-    expect(late.dungeonId).toBe('core-12');
-    expect(late.victoriesMin).toBe(11);
-    expect(late.victories).toBe(15);
-    expect(late.victoriesMax).toBe(21);
+    expect(late.dungeonId).toBe('core-c1-s13');
+    expect(late.victoriesMin).toBe(33);
+    expect(late.victories).toBe(48);
+    expect(late.victoriesMax).toBe(95);
   });
 });
 describe('v0.15 attribute power ledger', () => {

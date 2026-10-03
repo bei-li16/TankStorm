@@ -8,7 +8,7 @@ import {
   capacity,
 } from '../src/core/engine';
 import { restPreview, coreBudget, progression } from '../src/core/planning';
-import { productionQuote } from '../src/core/arsenal';
+import { dungeons, productionQuote } from '../src/core/arsenal';
 import { quests } from '../src/core/content';
 import { exportSave, parseSave } from '../src/core/storage';
 import type { Command, GameState } from '../src/core/types';
@@ -141,7 +141,8 @@ describe('v0.13 reviewed player journeys', () => {
     let s = rich();
     s.commander.leadership = 20;
     stock(s, 'tank_t7', 1000);
-    s.arsenal!.cleared = ['core-0', 'core-2', 'core-4', 'core-6'];
+    s.arsenal!.cleared = dungeons.slice(0, 16).map((d) => d.id);
+    Object.assign(s.tech, { attack: 40, hp: 40, ballistics: 40, armorPlating: 40, march: 40 });
     s.formation = Array.from({ length: 6 }, () => ({ unitId: 'tank_t7', count: leadershipCap(s) }));
     s = act(s, { type: 'dungeon', dungeonId: 'core-1', training: true });
     expect(s.honors).toBeUndefined();
@@ -154,7 +155,7 @@ describe('v0.13 reviewed player journeys', () => {
     s = act(s, { type: 'dungeon', dungeonId: 'core-1' });
     expect(s.honors).toHaveLength(2);
     expect(s.arsenal!.cores.tank_core7).toBeGreaterThanOrEqual(11);
-    expect(s.arsenal!.cores.tank_core7).toBeLessThanOrEqual(13);
+    expect(s.arsenal!.cores.tank_core7).toBeLessThanOrEqual(14);
     const loaded = await parseSave(await exportSave(s));
     expect(loaded.honors).toEqual(s.honors);
     assertState(loaded);

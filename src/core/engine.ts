@@ -39,6 +39,7 @@ import {
   coreList,
   coreNames,
   dungeons,
+  dungeonArmy,
   dungeonBlock,
   repairAllQuote,
   enableArsenal,
@@ -55,7 +56,7 @@ import {
   npcProtected,
   scoutCost,
 } from './world';
-import { army, rng32, simulate, survivors } from './battle';
+import { army, rng32, simulate, survivors, BATTLE_RULESET } from './battle';
 import {
   RULESET,
   classNames,
@@ -893,7 +894,7 @@ export function execute(
       const f = battleFormation(s, command.formation);
       const b = simulate(
         army(f, s.tech, s.commander.attackSkill, s.commander),
-        army(dungeon.formation),
+        dungeonArmy(dungeon),
         nextSeed(s),
         command.training ? 'training' : 'dungeon',
       );
@@ -914,12 +915,7 @@ export function execute(
           }
           if (first) s.arsenal!.cleared.push(dungeon.id);
           count(s, 'dungeonVictory');
-          b.growth = {
-            xp: [300, 1000, 1500, 2000][dungeon.band],
-            books: 1 + dungeon.band,
-            prestige: [150, 500, 800, 1100][dungeon.band],
-            skillPoints: 0,
-          };
+          b.growth = { ...dungeon.growth };
           s.commander.books += b.growth.books;
           s.commander.prestige += b.growth.prestige;
           s.commander.xp += b.growth.xp;
@@ -1385,7 +1381,8 @@ export function assertState(s: GameState) {
         if (
           !source ||
           !['tank', 'rocket'].includes(source.classId) ||
-          (r.ruleset === 'classic-combat-v0.22' && source.classId !== 'rocket') ||
+          (['classic-combat-v0.22', BATTLE_RULESET].includes(r.ruleset) &&
+            source.classId !== 'rocket') ||
           e.damage !== 0 ||
           e.hp !== 0 ||
           e.remaining !== 0 ||
@@ -1395,6 +1392,19 @@ export function assertState(s: GameState) {
         )
           fail('战报空位射击无效');
       } else recordedHp[1 - e.side].set(e.to, e.hp);
+    }
+    if (r.ruleset === BATTLE_RULESET) {
+      const bothAlive = r.final.every((team) => team.some((st) => st.totalHp > 0));
+      if (
+        r.roundLimit !== 50 ||
+        !r.tactics ||
+        r.rounds > r.roundLimit ||
+        r.events.some((e) => e.round > r.rounds) ||
+        r.actions?.some((a) => a.round > r.rounds) ||
+        r.endReason !== (bothAlive ? 'round-limit' : 'elimination') ||
+        (bothAlive && (r.rounds !== r.roundLimit || r.winner === r.tactics.firstSide))
+      )
+        fail('战报回合上限或超时判定无效');
     }
     if (
       r.coreRewards &&

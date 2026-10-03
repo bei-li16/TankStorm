@@ -1,9 +1,10 @@
 import { facilitySpeedBps, MAX_PRODUCTION_BATCH, workDuration } from './growth';
 import { materialCost, techLevel } from './research';
-import { classNames, unitList, units, vehicleUnlockLevels } from './content';
+import { classNames, unitList, units } from './content';
 import type { Cost, Formation, GameState, UnitClass, ProductionFacility } from './types';
 import { facilityBlock, facilityLevel, facilityNames } from './industry';
 import { allJobs, queueStatus, queueWait, vipBenefits } from './vip';
+import { army } from './battle';
 
 export const coreList = (Object.keys(classNames) as UnitClass[]).flatMap((classId) =>
   [6, 7].map((tier) => ({
@@ -14,78 +15,116 @@ export const coreList = (Object.keys(classNames) as UnitClass[]).flatMap((classI
   })),
 );
 export const coreNames = Object.fromEntries(coreList.map((c) => [c.id, c.name]));
-export const coreChapters = ['外围回收', '核心阵地', '精密防线', '终极要塞'];
-export const dungeons = Array.from({ length: 16 }, (_, index) => {
-  const band = Math.floor(index / 4),
-    cls = index % 4;
-  const classId = (Object.keys(classNames) as UnitClass[])[cls];
-  // Original eight IDs and names remain valid for saves and historical rematches.
-  const id = `core-${band < 2 ? cls * 2 + band : index}`;
-  const name = `${['装甲试验场', '猎手要塞', '重炮工事', '导弹基地'][cls]} · ${['普通', '精英', '纵深', '决战'][band]}`;
-  const first = [
-    [10, 2],
-    [12, 10],
-    [18, 14],
-    [26, 20],
-  ][band];
-  const range = [
-    [
-      [2, 4],
-      [0, 1],
-    ],
-    [
-      [3, 6],
-      [1, 3],
-    ],
-    [
-      [5, 9],
-      [2, 5],
-    ],
-    [
-      [8, 14],
-      [4, 8],
-    ],
-  ][band];
-  const drops = [6, 7].map((tier, i) => ({
-    id: `${classId}_core${tier}`,
-    first: first[i],
-    min: range[i][0],
-    max: range[i][1],
-  }));
-  const primary = drops[band === 0 ? 0 : 1];
-  return {
-    id,
-    index,
-    band,
-    classId,
-    name,
-    coreId: primary.id,
-    factoryLevel: [
-      vehicleUnlockLevels[5],
-      vehicleUnlockLevels[6],
-      Math.ceil((vehicleUnlockLevels[6] + vehicleUnlockLevels[7]) / 2),
-      vehicleUnlockLevels[7],
-    ][band],
-    firstReward: primary.first,
-    repeatReward: (primary.min + primary.max) / 2,
-    drops,
-    formation: Array.from({ length: 6 }, (_, slot) =>
-      slot < (band === 0 ? 4 : 6)
-        ? {
-            unitId: `${classId}_t${band === 0 ? 5 : band === 1 ? 6 : band === 2 ? (slot < 2 ? 7 : 6) : 7}`,
-            count: [12 + cls * 2, 16 + cls * 2, 28 + cls * 4, 50 + cls * 8][band],
-          }
-        : null,
-    ) as Formation,
-  };
-});
+export const CORE_STAGES_PER_CHAPTER = 16;
+export const coreChapters = ['外围回收', '军械基地', '精密防线', '钢铁要塞', '终极试验场'];
+// Four supply checkpoints per family per chapter. Gates follow the 36/48/60 vehicle unlocks,
+// then extend to the existing level-120 economy without changing vehicle costs or combat rules.
+export const coreCurves = [
+  { gate: [36, 47], count: [12, 27], tech: [0, 4], vi: [2, 4], vii: [0, 1], theme: 'industrial' },
+  { gate: [48, 59], count: [28, 43], tech: [5, 12], vi: [6, 9], vii: [2, 4], theme: 'oilfield' },
+  { gate: [60, 79], count: [46, 70], tech: [14, 28], vi: [10, 14], vii: [8, 12], theme: 'proving' },
+  {
+    gate: [80, 99],
+    count: [74, 100],
+    tech: [30, 48],
+    vi: [16, 22],
+    vii: [14, 20],
+    theme: 'fortress',
+  },
+  {
+    gate: [100, 120],
+    count: [104, 135],
+    tech: [50, 70],
+    vi: [24, 32],
+    vii: [22, 30],
+    theme: 'proving',
+  },
+];
+export const dungeons = Array.from(
+  { length: coreChapters.length * CORE_STAGES_PER_CHAPTER },
+  (_, index) => {
+    const band = Math.floor(index / CORE_STAGES_PER_CHAPTER),
+      step = index % CORE_STAGES_PER_CHAPTER,
+      block = Math.floor(step / 4),
+      cls = index % 4;
+    const curve = coreCurves[band];
+    const interpolate = (range: number[], ratio: number) =>
+      Math.round(range[0] + (range[1] - range[0]) * ratio);
+    const classId = (Object.keys(classNames) as UnitClass[])[cls];
+    // Keep all 16 historic IDs at the first four checkpoints of chapters 1–4.
+    // No save mutation or retroactive first-clear grant: newly inserted stages stay unclaimed.
+    const legacy = band < 4 && step < 4;
+    const id = legacy
+      ? `core-${band < 2 ? cls * 2 + band : band * 4 + cls}`
+      : `core-c${band + 1}-s${step + 1}`;
+    const legacyName = legacy
+      ? `${['装甲试验场', '猎手要塞', '重炮工事', '导弹基地'][cls]} · ${['普通', '精英', '纵深', '决战'][band]}`
+      : '';
+    const name = `${coreChapters[band]} ${band + 1}-${String(step + 1).padStart(2, '0')} · ${['回收站', '补给线', '核心库', '指挥所'][block]}`;
+    const drops = [6, 7].map((tier, i) => {
+      const range = i === 0 ? curve.vi : curve.vii;
+      const min = range[0] + (band === 0 && i === 1 ? Math.min(1, Math.max(0, block - 1)) : block);
+      const max = range[1] + (band === 0 && i === 1 ? Math.ceil(block / 2) : block);
+      const legacyFirst =
+        [
+          [10, 2],
+          [12, 10],
+          [18, 14],
+          [26, 20],
+        ][band]?.[i] ?? 0;
+      return {
+        id: `${classId}_core${tier}`,
+        first: Math.max(legacyFirst, Math.ceil((min + max) * 1.5)),
+        min,
+        max,
+      };
+    });
+    const primary = drops[band === 0 ? 0 : 1];
+    return {
+      id,
+      index,
+      band,
+      chapter: band,
+      number: step + 1,
+      classId,
+      name,
+      legacyName,
+      theme: curve.theme,
+      guardTech: interpolate(curve.tech, step / 15),
+      growth: { xp: 300 + index * 45, books: 1 + band, prestige: 150 + index * 20, skillPoints: 0 },
+      coreId: primary.id,
+      factoryLevel: interpolate(curve.gate, block / 3),
+      firstReward: primary.first,
+      repeatReward: (primary.min + primary.max) / 2,
+      drops,
+      formation: Array.from({ length: 6 }, (_, slot) =>
+        slot < (band === 0 && step < 4 ? 4 : 6)
+          ? {
+              unitId: `${classId}_t${band < 2 ? 5 + band + (block === 3 && slot < 2 ? 1 : 0) : 7}`,
+              count: interpolate(curve.count, step / 15),
+            }
+          : null,
+      ) as Formation,
+    };
+  },
+);
+export function dungeonArmy(d: (typeof dungeons)[number]) {
+  const level = d.guardTech;
+  return army(d.formation, {
+    attack: level,
+    hp: level,
+    ballistics: level,
+    armorPlating: level,
+    march: level,
+  } as GameState['tech']);
+}
 export function dungeonBlock(s: GameState, d: (typeof dungeons)[number]) {
   // Raising gates must not revoke an earned supply line or its repeat rewards.
   if (s.arsenal?.cleared.includes(d.id)) return '';
   if (Math.max(s.buildings.factory, s.industry?.factory2 ?? 0) < d.factoryLevel)
     return `核心副本需要制造工厂 ${d.factoryLevel} 级`;
   if (d.index > 0 && !s.arsenal?.cleared.includes(dungeons[d.index - 1].id))
-    return `先通过第 ${d.index} 关：${dungeons[d.index - 1].name}`;
+    return `先通过 ${dungeons[d.index - 1].band + 1}-${String(dungeons[d.index - 1].number).padStart(2, '0')}：${dungeons[d.index - 1].name.split(' · ')[1]}`;
   return '';
 }
 

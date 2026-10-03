@@ -6,11 +6,11 @@ import {
 } from '../../src/core/research';
 import { restPreview, coreBudget, progression } from '../../src/core/planning';
 import { enableCommander, leadershipQuote, prestigeLevel } from '../../src/core/commander';
-import { arrangedFormation, powerOverview } from '../../src/core/power';
+import { arrangedFormation, powerOverview, armyPower } from '../../src/core/power';
 import { attributeSheet } from '../../src/core/attributes';
 import { dispatchOverview } from '../../src/core/dispatch';
 import { fieldLibrary } from '../../src/core/library';
-import { dungeonBlock, coreChapters, repairAllQuote } from '../../src/core/arsenal';
+import { dungeonBlock, dungeonArmy, coreChapters, repairAllQuote } from '../../src/core/arsenal';
 import {
   inventoryView,
   battleSummary,
@@ -521,7 +521,7 @@ export class NativeStore {
           coreList,
           coreChapters,
           coreNames,
-          dungeons,
+          dungeons: dungeons.map((d) => ({ ...d, power: armyPower(dungeonArmy(d)) })),
           vipLevels,
           fieldLibrary,
           stages: content.stageNames.map((name, i) => ({

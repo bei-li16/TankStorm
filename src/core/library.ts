@@ -80,8 +80,15 @@ const values: Record<string, string> = {
     .join('；'),
   CORE_TABLE: coreChapters
     .map((name, i) => {
-      const d = dungeons[i * 4];
-      return `${name}：制造工厂${d.factoryLevel}级；首胜 VI / VII 为${d.drops[0].first} / ${d.drops[1].first}；重复 VI ${d.drops[0].min}—${d.drops[0].max}，VII ${d.drops[1].min}—${d.drops[1].max}。`;
+      return (
+        `${i + 1}章 ${name}（16关）：\n` +
+        [0, 1, 2, 3]
+          .map((block) => {
+            const d = dungeons[i * 16 + block * 4];
+            return `第${block * 4 + 1}—${block * 4 + 4}关：制造工厂${d.factoryLevel}级；首胜 VI / VII 为${d.drops[0].first} / ${d.drops[1].first}；重复 VI ${d.drops[0].min}—${d.drops[0].max}，VII ${d.drops[1].min}—${d.drops[1].max}。`;
+          })
+          .join('\n')
+      );
     })
     .join('\n'),
   VIP_TABLE: vipLevels
@@ -145,7 +152,7 @@ const authored: LibraryEntry[] = [
       },
       {
         title: '阵亡与结束',
-        text: '待行动单位已击毁就跳过，不给其他组额外轮次。一方全灭立即结束。达到 $MAX_ROUNDS 个大回合仍未歼灭防守方，判进攻方失败。',
+        text: '待行动单位已击毁就跳过，不给其他组额外轮次。一方全灭立即结束。第 $MAX_ROUNDS 个大回合双方全部行动（含连击）结束后，如双方仍有部队存活，判先手方失败，不进入下一回合。先手由出战时的先手值决定，与进攻方或防守方身份无关；同值时进攻方先手。旧战报保留原上限和结果。',
       },
     ],
     related: ['initiative', 'extra-fire'],
@@ -581,7 +588,7 @@ const authored: LibraryEntry[] = [
       },
       {
         title: '获取与支付',
-        text: '统率书可$BOOK_PRICE金币一本购买。每次升级用1本书，或直接花$BOOK_PRICE金币。买书不自动升级。战役每胜1本，核心四段每胜1/2/3/4本，任务和补给也可提供。',
+        text: '统率书可$BOOK_PRICE金币一本购买。每次升级用1本书，或直接花$BOOK_PRICE金币。买书不自动升级。战役每胜1本，核心第一至第五章每胜分别1/2/3/4/5本，任务和补给也可提供。',
       },
       {
         title: '概率速查',
@@ -634,12 +641,12 @@ const authored: LibraryEntry[] = [
     id: 'cores',
     category: 'growth',
     title: '核心主线与随机掉落',
-    summary: '16关连续推进；一关只产一个车系的两种核心。',
+    summary: '五章各16关、共80关；一关只产一个车系的两种核心。',
     keywords: '核心 副本 首通 随机 概率 产量 主线 原核心',
     sections: [
       {
         title: '开放规则',
-        text: '四段各四关，依次为坦克、歼击车、自行火炮、火箭车。需通过前一关并满足制造工厂等级，任一制造工厂达标即可。旧已通关的关保持开放，库存和8种核心ID保留，不追补旧首通新增奖励。',
+        text: '五章各16关，每四关依次为坦克、歼击车、自行火炮、火箭车。同系每章有四个逐渐加强的补给点。需通过前一关并满足制造工厂等级，任一制造工厂达标即可。章节首关承接上章第16关。旧16关对应前四章各自前四关；原已通关节点可重打并继续后续，新增关卡需正常突破，不追补旧首通奖励。核心库存、维修和历史战报保持不变。',
       },
       {
         title: '数量与门槛',
@@ -647,7 +654,7 @@ const authored: LibraryEntry[] = [
       },
       {
         title: '随机规则',
-        text: '每次重复胜利，两种数量分别在各自闭区间内等概率取整数，不共用总数量，只掉本关车系。外围VII为0—1，所以可能无精密核心；其他段两个区间都至少1。',
+        text: '每次重复胜利，两种数量分别在各自闭区间内等概率取整数，不共用总数量，只掉本关车系。第一章前8关的VII下限为0，所以可能无精密核心；后续两种区间的下限都至少1。重复产出每四关提高，后期需要同时提升兵力、科技和克制配置。',
       },
       {
         title: '结算',

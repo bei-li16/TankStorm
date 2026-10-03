@@ -67,7 +67,7 @@ function alive(a: ArmyStack[]) {
   return a.filter((s) => s.totalHp > 0);
 }
 // Save schema stays compatible; historical reports retain their recorded rules and events.
-export const BATTLE_RULESET = 'classic-combat-v0.22';
+export const BATTLE_RULESET = 'classic-combat-v0.24.3';
 // Commit targets once per action. Only rockets fire at empty cells.
 export function attackSlots(
   classId: ArmyStack['classId'],
@@ -146,7 +146,9 @@ export function simulate(
   const next = rng32(seed);
   // Separate stream: proc rolls do not consume the hit/crit stream.
   const nextExtra = rng32((seed ^ 0x9e3779b9) >>> 0);
-  let winner: 0 | 1 = 1;
+  // A full final major round (including extra fire) may still win by elimination.
+  // Otherwise the side that acted first loses the stalemate, whichever army it is.
+  let winner = (1 - firstSide) as 0 | 1;
   let rounds = 0;
   const attack = (source: ArmyStack, action: BattleAction) => {
     actions.push(action);
@@ -298,6 +300,8 @@ export function simulate(
     ruleset: BATTLE_RULESET,
     winner,
     rounds,
+    roundLimit: rules.battle.maxRounds,
+    endReason: teams.every((team) => alive(team).length > 0) ? 'round-limit' : 'elimination',
     mode,
     tactics: { teams: stats, firstSide, chances },
     actions,

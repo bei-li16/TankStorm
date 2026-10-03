@@ -121,6 +121,14 @@ describe('seven-tier arsenal and core operations', () => {
     '$name drops first and repeat rewards once, while training grants nothing',
     (d) => {
       let s = rich();
+      s.buildings.hq = s.buildings.factory = 120;
+      Object.assign(s.tech, {
+        attack: 120,
+        hp: 120,
+        ballistics: 120,
+        armorPlating: 120,
+        march: 120,
+      });
       s.commander.leadership = 120;
       s.commander.prestige = 566440;
       grant(s, 'tank_t7', 4000);

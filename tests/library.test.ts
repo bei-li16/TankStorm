@@ -44,7 +44,7 @@ describe('classified player library', () => {
       expect(entry.sources.length).toBeGreaterThan(0);
       expect(article(entry.id)).not.toMatch(/\$[A-Z_]+|undefined|NaN/);
     }
-    expect(fieldLibrary.ruleset).toBe('classic-combat-v0.22');
+    expect(fieldLibrary.ruleset).toBe('classic-combat-v0.24.3');
   });
   it('searches Chinese terms and aliases across article text without changing the catalog', () => {
     const before = JSON.stringify(fieldLibrary);
