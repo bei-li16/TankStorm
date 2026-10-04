@@ -1,3 +1,4 @@
+import { expeditionLoad } from './cargo';
 import { MAX_LEVEL, researchBaseTime, economyBonus, workDuration } from './growth';
 import { worldBaseRate } from './world';
 import type { Building, GameState, Job, JobKind, Technology, WorldSite, Formation } from './types';
@@ -153,16 +154,7 @@ export function travelDuration(s: GameState, site: WorldSite) {
 export const loadBonus = (s: GameState) => 50000 + techLevel(s, 'cargo') * 2500;
 export const troopLoad = (f: Formation, bps: number) =>
   Math.floor((f.reduce((n, t) => n + (t ? units[t.unitId].load * t.count : 0), 0) * bps) / 10000);
-export const baseUnitLoad = (id: string) => {
-  const u = units[id];
-  const nominal = [80, 150, 250, 375, 500, 625, 800][u.tier - 1];
-  return (nominal * u.load * 5) / [10, 15, 20, 30, 40, 50, 60][u.tier - 1];
-};
-export const unitLoad = (s: GameState, id: string) => {
-  return Math.floor((baseUnitLoad(id) * (100 + economyBonus(techLevel(s, 'cargo'), 5))) / 100);
-};
-export const expeditionLoad = (s: GameState, f: Formation) =>
-  f.reduce((n, t) => n + (t ? unitLoad(s, t.unitId) * t.count : 0), 0);
+export { baseUnitLoad, unitLoad, expeditionLoad } from './cargo';
 export const gatheringRate = (s: GameState, site: WorldSite) =>
   (site.economyVersion ?? 0) >= 2
     ? Math.floor(

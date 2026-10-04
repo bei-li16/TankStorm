@@ -81,7 +81,7 @@ describe('sustainable single-player world', () => {
     s = act(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
     s = advance(s, T + WORLD_INTERVAL);
     expect(s.marches[0].phase).toBe('gathering');
-    expect(s.world[0].reserve + s.marches[0].cargo.iron).toBe(19200);
+    expect(s.world[0].reserve + s.marches[0].cargo.iron).toBe(mineCapacity(s.world[0]));
     s = advance(s, s.marches[0].dueAt);
     const cargo = s.marches[0].cargo.iron;
     expect(cargo).toBeLessThanOrEqual(s.marches[0].capacity);
@@ -139,6 +139,7 @@ describe('sustainable single-player world', () => {
     delete s.worldRules;
     for (const site of s.world) {
       delete site.economyVersion;
+      delete site.reserveVersion;
       site.level = Math.min(20, site.level);
     }
     s.world[0].reserve = 13;
@@ -146,11 +147,14 @@ describe('sustainable single-player world', () => {
     const old = await parseSave(await exportSave(s));
     const migrated = advance(old, T);
     expect(migrated.worldRules).toBe('renewable-v3');
-    expect(migrated.world[0].reserve).toBe(20);
+    const remaining = Math.floor((mineCapacity(migrated.world[0]) * 13) / 12000);
+    expect(migrated.world[0].reserve).toBe(remaining);
     expect(migrated.wallet).toEqual(old.wallet);
     expect(migrated.reports).toEqual(old.reports);
     expect(migrated.intel['site-0']).toBeUndefined();
-    expect(advance(migrated, T + WORLD_INTERVAL).world[0].reserve).toBe(4820);
+    expect(advance(migrated, T + WORLD_INTERVAL).world[0].reserve).toBe(
+      remaining + mineCapacity(migrated.world[0]) / 4,
+    );
   });
 });
 

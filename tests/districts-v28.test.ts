@@ -81,11 +81,11 @@ describe('v28 warehouse protection', () => {
 
 describe('v28 appended campaign and materials', () => {
   it('keeps legacy stage 112 and opens 80 further stages with no difficulty reset', () => {
-    expect(stageNames).toHaveLength(192);
+    expect(stageNames).toHaveLength(576);
     expect(stageFormation(111).every((v) => v?.count === 160)).toBe(true);
     expect(stageFormation(112).every((v) => v?.count === 161)).toBe(true);
     expect(stageFormation(191).every((v) => v?.count === 285)).toBe(true);
-    for (let i = 112; i < 192; i++) {
+    for (let i = 112; i < stageNames.length; i++) {
       expect(stageFormation(i)[0]!.count).toBeGreaterThan(stageFormation(i - 1)[0]!.count);
       expect(stageReward(i, true).iron).toBe(250 + i * 150);
     }

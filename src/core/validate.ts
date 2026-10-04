@@ -1,4 +1,6 @@
+import { LEADERSHIP_BATCHES } from './commander';
 import { stageNames } from './content';
+import { dungeons } from './arsenal';
 import { MAX_LEVEL } from './growth';
 import { REPORT_LIMIT } from './archive';
 // Structural validation runs before semantic checks. A checksum detects damaged files;
@@ -69,7 +71,7 @@ const cost: Check = (v, p) => {
 };
 const formation = list(
   (v, p) => {
-    if (v !== null) obj({ unitId: unit, count: num(1, 10000) })(v, p);
+    if (v !== null) obj({ unitId: unit, count: num(1, Number.MAX_SAFE_INTEGER) })(v, p);
   },
   6,
   6,
@@ -79,15 +81,15 @@ const stack = obj(
     slot: num(1, 6),
     unitId: unit,
     classId: one(['tank', 'tank_destroyer', 'spg', 'rocket']),
-    count: num(1, 10000),
+    count: num(1, Number.MAX_SAFE_INTEGER),
     attack: num(1, 1000000),
-    hp: num(1, 1000000),
-    totalHp: num(0, 1e10),
+    hp: num(1, Number.MAX_SAFE_INTEGER),
+    totalHp: num(0, Number.MAX_SAFE_INTEGER),
     accuracy: num(-10000, 10000),
     evasion: num(-10000, 10000),
     crit: num(-10000, 10000),
     armor: num(-10000, 10000),
-    attackBonus: num(1, 1000000),
+    attackBonus: num(1, Number.MAX_SAFE_INTEGER),
     initiative: num(0, 1000000),
     extraFire: num(0, 1000000),
   },
@@ -154,11 +156,11 @@ const report = obj(
           side: one([0, 1]),
           from: num(1, 6),
           to: num(1, 6),
-          damage: num(0, 1e12),
+          damage: num(0, Number.MAX_SAFE_INTEGER),
           critical: bool,
           miss: bool,
-          remaining: num(0, 10000),
-          hp: num(0, 1e10),
+          remaining: num(0, Number.MAX_SAFE_INTEGER),
+          hp: num(0, Number.MAX_SAFE_INTEGER),
         },
         ['action', 'shot', 'shots', 'extra', 'exchange', 'ground'],
       ),
@@ -167,11 +169,11 @@ const report = obj(
     casualties: list(
       obj({
         unitId: unit,
-        sent: num(0, 60000),
-        survived: num(0, 60000),
-        lost: num(0, 60000),
-        repairable: num(0, 60000),
-        destroyed: num(0, 60000),
+        sent: num(0, Number.MAX_SAFE_INTEGER),
+        survived: num(0, Number.MAX_SAFE_INTEGER),
+        lost: num(0, Number.MAX_SAFE_INTEGER),
+        repairable: num(0, Number.MAX_SAFE_INTEGER),
+        destroyed: num(0, Number.MAX_SAFE_INTEGER),
       }),
       12,
     ),
@@ -232,7 +234,7 @@ const march = obj(
     dueAt: time,
     travelMs: num(1, 1e9),
     cargo: wallet,
-    capacity: num(0, 1e9),
+    capacity: num(0, Number.MAX_SAFE_INTEGER),
     gatherRate: num(1, 1e10),
     remainder: num(0, 3599999),
     seq: integer,
@@ -284,6 +286,7 @@ const schema = obj({
       {
         economyVersion: one([2, 3]),
         protectionVersion: one([1]),
+        reserveVersion: one([1]),
         id: str(100),
         x: num(0, 31),
         y: num(0, 31),
@@ -297,7 +300,7 @@ const schema = obj({
         lastGrowth: time,
         conquered: bool,
       },
-      ['economyVersion', 'protectionVersion'],
+      ['economyVersion', 'protectionVersion', 'reserveVersion'],
     ),
     100,
     100,
@@ -308,9 +311,9 @@ const schema = obj({
   cleared: list(num(0, stageNames.length - 1), stageNames.length),
   commander: obj({
     xp: integer,
-    leadership: num(1, 120),
+    leadership: num(1, Number.MAX_SAFE_INTEGER),
     books: integer,
-    prestige: integer,
+    prestige: num(0, Number.MAX_SAFE_INTEGER),
     skillPoints: integer,
     attackSkill: num(0, MAX_LEVEL),
   }),
@@ -324,20 +327,54 @@ export function validateShape(value: unknown) {
   schema(value, 'save');
   const ext = value as Record<string, any>;
   if (ext.commandVersion !== undefined) one([1])(ext.commandVersion, 'save.commandVersion');
-  if (ext.prestigeFloor !== undefined) num(1, 120)(ext.prestigeFloor, 'save.prestigeFloor');
+  if (ext.prestigeFloor !== undefined)
+    num(1, Number.MAX_SAFE_INTEGER)(ext.prestigeFloor, 'save.prestigeFloor');
   for (const skill of ['initiativeSkill', 'extraFireSkill'])
     if (ext.commander[skill] !== undefined)
       num(0, MAX_LEVEL)(ext.commander[skill], 'save.commander.' + skill);
+  const leadershipFields = {
+    target: num(2, Number.MAX_SAFE_INTEGER),
+    attempts: num(1, 1000),
+    chance: num(10, 10000),
+    roll: num(0, 9999),
+    success: bool,
+    payment: one(['books', 'gold']),
+    at: time,
+  };
   if (ext.lastLeadership !== undefined)
-    obj({
-      target: num(2, 120),
-      attempts: num(1, 100),
-      chance: num(10, 10000),
-      roll: num(0, 9999),
-      success: bool,
-      payment: one(['books', 'gold']),
-      at: time,
-    })(ext.lastLeadership, 'save.lastLeadership');
+    obj(leadershipFields)(ext.lastLeadership, 'save.lastLeadership');
+  if (ext.leadershipHistory !== undefined) {
+    list(
+      obj(
+        {
+          ...leadershipFields,
+          requested: one(LEADERSHIP_BATCHES),
+          rolls: list(num(0, 9999), 1000, 1),
+          legacy: (v: unknown, p: string) => {
+            if (v !== true) bad(p);
+          },
+        },
+        ['requested', 'rolls', 'legacy'],
+      ),
+      Number.MAX_SAFE_INTEGER,
+    )(ext.leadershipHistory, 'save.leadershipHistory');
+    for (const h of ext.leadershipHistory) {
+      if (h.success !== h.roll < h.chance) bad('save.leadershipHistory.result');
+      if (h.legacy) {
+        if (h.rolls !== undefined || h.requested !== undefined)
+          bad('save.leadershipHistory.legacy');
+      } else if (
+        !h.rolls ||
+        h.requested === undefined ||
+        h.attempts > h.requested ||
+        h.rolls.length !== h.attempts ||
+        h.rolls.at(-1) !== h.roll ||
+        h.rolls.slice(0, -1).some((v: number) => v < h.chance) ||
+        (!h.success && h.attempts !== h.requested)
+      )
+        bad('save.leadershipHistory.rolls');
+    }
+  }
   const honors = (value as { honors?: unknown }).honors;
   if (honors !== undefined)
     list(
@@ -375,7 +412,7 @@ export function validateShape(value: unknown) {
           at: time,
           outcome: one(['returned', 'defeated']),
           cargo: wallet,
-          survivors: num(0, 60000),
+          survivors: num(0, Number.MAX_SAFE_INTEGER),
         },
         ['mission', 'title', 'stored', 'discarded', 'battleId', 'casualties', 'success'],
       ),
@@ -402,7 +439,7 @@ export function validateShape(value: unknown) {
       version: one([1]),
       cores: record(num(0, 1e9), 8),
       converted: record(num(0, 1e9), 28),
-      cleared: list(str(50), 80),
+      cleared: list(str(50), dungeons.length),
     })(arsenal, 'save.arsenal');
   const worldSeed = (value as { worldSeed?: unknown }).worldSeed;
   if (worldSeed !== undefined) num(1, 4294967295)(worldSeed, 'save.worldSeed');

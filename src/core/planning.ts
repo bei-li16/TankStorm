@@ -3,10 +3,11 @@ import { productionQuote, dungeons, dungeonBlock } from './arsenal';
 import { quests, units, classNames, stageNames, vehicleUnlockLevels } from './content';
 import { progressSummary } from './overview';
 import type { GameState, Cost, UnitClass } from './types';
+import { validateRestMinutes } from './rest';
 
 // Uses a clone without expeditions: planning must not reveal unknown future battle outcomes.
 export function restPreview(s: GameState, minutes: number) {
-  if (![60, 480].includes(minutes)) throw Error('请选择休整 1 小时或 8 小时');
+  validateRestMinutes(minutes);
   const isolated = structuredClone(s);
   isolated.marches = [];
   const accounting: ResourceAccounting = { generated: {}, capacityLimited: [] };

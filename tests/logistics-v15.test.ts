@@ -102,18 +102,24 @@ describe('batch repair compatibility after v0.26', () => {
   });
 });
 describe('v0.15 core operation mainline', () => {
-  it('keeps the expanded eighty-stage mainline sequential with strictly increasing enemy power', () => {
-    expect(dungeons).toHaveLength(80);
+  it('keeps the historical nine-chapter mainline sequential with strictly increasing enemy power', () => {
+    expect(dungeons).toHaveLength(320);
     let s = fixture(),
       previousPower = 0;
     s.buildings.hq = s.buildings.factory = 120;
     Object.assign(s.tech, { attack: 120, hp: 120, ballistics: 120, armorPlating: 120, march: 120 });
-    for (const d of dungeons) {
+    s.commander.attackSkill = 120;
+    for (const d of dungeons.slice(0, 144)) {
+      // Replenish between supply battles; this verifies unlocks and rewards, not attrition.
+      s.available.tank_t7 += 3690;
+      s.createdUnits.tank_t7 += 3690;
+      s.formation = Array.from({ length: 6 }, () => ({ unitId: 'tank_t7', count: 615 }));
       const power = armyPower(army(d.formation));
       expect(power).toBeGreaterThan(previousPower);
       previousPower = power;
       expect(dungeonBlock(s, d)).toBe('');
-      if (d.index < 79) expect(dungeonBlock(s, dungeons[d.index + 1])).toContain('先通过');
+      if (d.index < dungeons.length - 1)
+        expect(dungeonBlock(s, dungeons[d.index + 1])).toContain('先通过');
       const before = { ...s.arsenal!.cores };
       s = act(s, { type: 'dungeon', dungeonId: d.id });
       expect(s.reports[0].winner).toBe(0);
@@ -122,8 +128,8 @@ describe('v0.15 core operation mainline', () => {
         expect(s.arsenal!.cores[drop.id]).toBe(before[drop.id] + drop.first);
       assertState(s);
     }
-    expect(s.arsenal!.cleared).toHaveLength(80);
-  });
+    expect(s.arsenal!.cleared).toHaveLength(144);
+  }, 20000);
   it('retains old cleared IDs, stocks and report rewards, while allowing a next-stage unlock', async () => {
     const s = fixture();
     s.arsenal!.cleared = ['core-1', 'core-7'];

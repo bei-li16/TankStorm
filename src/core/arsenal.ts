@@ -16,7 +16,28 @@ export const coreList = (Object.keys(classNames) as UnitClass[]).flatMap((classI
 );
 export const coreNames = Object.fromEntries(coreList.map((c) => [c.id, c.name]));
 export const CORE_STAGES_PER_CHAPTER = 16;
-export const coreChapters = ['外围回收', '军械基地', '精密防线', '钢铁要塞', '终极试验场'];
+export const coreChapters = [
+  '外围回收',
+  '军械基地',
+  '精密防线',
+  '钢铁要塞',
+  '终极试验场',
+  '深层军械库',
+  '熔炉核心',
+  '极地技术站',
+  '战略中枢',
+  '联合试验基地',
+  '裂谷兵工厂',
+  '深海补给站',
+  '重装研究所',
+  '赤沙军械城',
+  '冰原核心库',
+  '苍穹火控站',
+  '地下装甲堡',
+  '雷霆试射场',
+  '前沿技术城',
+  '无尽军械线',
+];
 // Four supply checkpoints per family per chapter. Gates follow the 36/48/60 vehicle unlocks,
 // then extend to the existing level-120 economy without changing vehicle costs or combat rules.
 export const coreCurves = [
@@ -40,6 +61,22 @@ export const coreCurves = [
     theme: 'proving',
   },
 ];
+// Extend the last chapter's slope: five units between chapters, intra-chapter
+// span grows by five. Preserve chapters 1–9 exactly; new enemy technology has no cap.
+// Entry gates remain attainable at factory 120; they are not enemy strength limits.
+for (let chapter = 5; chapter < coreChapters.length; chapter++) {
+  const previous = coreCurves[chapter - 1];
+  const start = previous.count[1] + 5;
+  const tech = chapter < 9 ? Math.min(120, previous.tech[1] + 2) : previous.tech[1] + 2;
+  coreCurves.push({
+    gate: [120, 120],
+    count: [start, start + 31 + (chapter - 4) * 5],
+    tech: [tech, chapter < 9 ? Math.min(120, tech + 22) : tech + 22],
+    vi: [previous.vi[0] + 8, previous.vi[1] + 10],
+    vii: [previous.vii[0] + 8, previous.vii[1] + 10],
+    theme: ['fortress', 'industrial', 'proving', 'fortress'][(chapter - 5) % 4],
+  });
+}
 export const dungeons = Array.from(
   { length: coreChapters.length * CORE_STAGES_PER_CHAPTER },
   (_, index) => {
@@ -270,3 +307,7 @@ export function productionQuote(
     waitMs: queueWait(s, kind, kind === 'production' ? facility : undefined),
   };
 }
+
+/** First-clear growth stays frozen in content; repeated victories keep XP, halve prestige. */
+export const dungeonGrowth = (d: (typeof dungeons)[number], first: boolean) =>
+  first ? { ...d.growth } : { ...d.growth, books: 0, prestige: Math.floor(d.growth.prestige / 2) };

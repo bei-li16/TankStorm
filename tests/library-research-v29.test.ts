@@ -81,7 +81,7 @@ describe('v29 research titanium', () => {
 
 describe('v29 library audit', () => {
   it('covers current research dependencies, materials, chapters, ranks and protection from live rules', () => {
-    expect(fieldLibrary.edition).toBe('v0.30.0');
+    expect(fieldLibrary.edition).toBe('v0.34.0');
     for (const tech of researchTree) {
       expect(article('research-paths')).toContain(tech.name + '：科研中心起始门槛' + tech.lab);
       for (const p of tech.prerequisites)

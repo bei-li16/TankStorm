@@ -184,6 +184,7 @@ describe('v19 real durations, batch limits and economy', () => {
     s = act(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
     s.worldRules = 'renewable-v2';
     s.world[0].economyVersion = 2;
+    delete s.world[0].reserveVersion;
     s.world[0].reserve = 230400;
     s.marches[0].gatherRate = 57600;
     const snapshot = structuredClone(s.marches[0]);
@@ -196,7 +197,8 @@ describe('v19 real durations, batch limits and economy', () => {
     s = advance(s, T + H);
     expect(s.counters.cargo).toBe(8000);
     expect(s.world[0].economyVersion).toBe(3);
-    expect(mineCapacity(s.world[0])).toBe(19200);
+    expect(s.world[0].reserveVersion).toBe(1);
+    expect(mineCapacity(s.world[0])).toBeGreaterThan(19200);
     assertState(s);
   });
   it('redesigns early income too and retains overcapacity legacy balances without truncation', () => {

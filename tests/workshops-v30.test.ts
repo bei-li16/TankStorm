@@ -75,8 +75,8 @@ describe('v30 workshop batch and snapshots', () => {
 });
 
 describe('v30 classic campaign first/repeat rewards', () => {
-  it('applies first-only currencies and half prestige across all 192 stages', () => {
-    expect(stageNames).toHaveLength(192);
+  it('applies first-only currencies and half prestige across all authored stages', () => {
+    expect(stageNames).toHaveLength(576);
     for (let i = 0; i < stageNames.length; i++) {
       const first = stageGrowth(i, true),
         repeat = stageGrowth(i, false);

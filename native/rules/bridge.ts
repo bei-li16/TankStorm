@@ -18,7 +18,13 @@ import { arrangedFormation, powerOverview, armyPower } from '../../src/core/powe
 import { attributeSheet } from '../../src/core/attributes';
 import { dispatchOverview } from '../../src/core/dispatch';
 import { fieldLibrary } from '../../src/core/library';
-import { dungeonBlock, dungeonArmy, coreChapters, repairAllQuote } from '../../src/core/arsenal';
+import {
+  dungeonGrowth,
+  dungeonBlock,
+  dungeonArmy,
+  coreChapters,
+  repairAllQuote,
+} from '../../src/core/arsenal';
 import {
   inventoryView,
   battleSummary,
@@ -324,7 +330,7 @@ export class NativeStore {
       this.lastFlush = Date.now();
     }
   }
-  view() {
+  view(prestigePage = 0) {
     const s = this.state;
     // Historical event streams are requested only for replay, avoiding large polling payloads.
     const { receipts, reports, ...state } = s;
@@ -532,7 +538,7 @@ export class NativeStore {
         leadership: leadershipCap(s),
         leadershipQuote: leadershipQuote(s),
         prestigeLevel: prestigeLevel(s),
-        prestige: prestigeOverview(s),
+        prestige: prestigeOverview(s, prestigePage * 10 + 1, 10),
         power: powerOverview(s, usableFormation(s)),
         formationPlans: {
           power: arrangedFormation(s, 'power'),
@@ -604,6 +610,7 @@ export class NativeStore {
           coreNames,
           dungeons: dungeons.map((d) => ({
             ...d,
+            repeatGrowth: dungeonGrowth(d, false),
             power: armyPower(
               dungeonArmy(d),
               commanderStats({ march: d.guardTech, ballistics: d.guardTech }),
@@ -786,7 +793,16 @@ export class NativeStore {
       extra.settlement = battleSummary(extra.report);
       extra.report = { ...extra.report, transport: transportStatus(this.state, extra.report) };
     }
-    const response = { ok: true, ...this.view(), ...extra, message };
+    const response = {
+      ok: true,
+      ...this.view(
+        Number.isSafeInteger(r.prestigePage) && r.prestigePage >= 0 && r.prestigePage < 100000000
+          ? r.prestigePage
+          : 0,
+      ),
+      ...extra,
+      message,
+    };
     this.recovered = '';
     return response;
   }

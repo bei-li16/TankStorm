@@ -129,10 +129,15 @@ describe('seven-tier arsenal and core operations', () => {
         armorPlating: 120,
         march: 120,
       });
-      s.commander.leadership = 120;
-      s.commander.prestige = 566440;
-      grant(s, 'tank_t7', 4000);
-      s.formation = Array.from({ length: 6 }, () => ({ unitId: 'tank_t7', count: 615 }));
+      // Reward contract fixture; new enemy tech is deliberately stronger than the old level-120 fleet.
+      const late = d.index >= 144;
+      s.commander.leadership = late ? 2000 : 120;
+      s.commander.prestige = late ? 40 * 1999 ** 2 : 566440;
+      grant(s, 'tank_t7', late ? 100000 : 4000);
+      s.formation = Array.from({ length: 6 }, () => ({
+        unitId: 'tank_t7',
+        count: late ? 10000 : 615,
+      }));
       s.arsenal!.cleared = dungeons.slice(0, d.index).map((v) => v.id);
       const before = structuredClone(s.arsenal);
       s = act(s, { type: 'dungeon', dungeonId: d.id, training: true });

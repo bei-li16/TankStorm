@@ -115,7 +115,12 @@ describe('v21 industrial unlocks and save continuity', () => {
   it('keeps core supply gates aligned and preserves old cleared stages without unlocking new ones', () => {
     const s = ready();
     expect(dungeons.filter((d) => d.index % 16 === 0).map((d) => d.factoryLevel)).toEqual([
-      36, 48, 60, 80, 100,
+      36,
+      48,
+      60,
+      80,
+      100,
+      ...Array(15).fill(120),
     ]);
     for (const d of dungeons) {
       s.arsenal!.cleared = dungeons.slice(0, d.index).map((v) => v.id);
