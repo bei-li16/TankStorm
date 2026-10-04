@@ -11,6 +11,8 @@ const act = (s: GameState, c: Command) => execute(s, c, s.now, 'v31-' + ++seq).s
 function gathering(guards = false) {
   let s = newGame('gather31', '归队验证', 1700000000000, 31);
   s.buildings.hq = s.buildings.warehouse = 40;
+  // Expanded mines can fill this fleet; gathering research keeps the complete trip within 8h.
+  s.tech.gather = 120;
   s.available.tank_t7 = s.createdUnits.tank_t7 = 20;
   s.formation = [{ unitId: 'tank_t7', count: 20 }, null, null, null, null, null];
   s.world[0].guards = guards

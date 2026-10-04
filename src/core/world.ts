@@ -1,3 +1,5 @@
+import { baseUnitLoad } from './cargo';
+import { economyBonus } from './growth';
 import { protectionLedger } from './protection';
 import { rateCurve, rules, units } from './content';
 import { army } from './battle';
@@ -23,10 +25,30 @@ export const worldBaseRate = (site: WorldSite, r = site.resource) => {
       10000,
   );
 };
-export const mineCapacity = (site: WorldSite) =>
+const legacyMineCapacity = (site: WorldSite) =>
   (site.economyVersion ?? 0) >= 2
     ? Math.ceil((worldBaseRate(site) * 32) / 4) * 4
     : 6000 + site.level * site.level * 6000;
+// Match a fixed regional reference, never the currently selected player formation.
+// Six full groups, leadership and cargo research at site level, regional vehicle tier.
+const referenceLoads = new Map<number, number>();
+export function referenceMineLoad(level: number) {
+  const cached = referenceLoads.get(level);
+  if (cached !== undefined) return cached;
+  const tier = worldTier(level);
+  const load = Math.max(
+    ...Object.values(units)
+      .filter((u) => u.tier === tier)
+      .map((u) => Math.floor((baseUnitLoad(u.unitId) * (100 + economyBonus(level, 5))) / 100)),
+  );
+  const total = 6 * (20 + (level - 1) * 5) * load;
+  referenceLoads.set(level, total);
+  return total;
+}
+export const mineCapacity = (site: WorldSite) =>
+  site.reserveVersion === 1 && site.kind === 'mine'
+    ? Math.ceil(Math.max(worldBaseRate(site) * 128, referenceMineLoad(site.level) * 2) / 4) * 4
+    : legacyMineCapacity(site);
 export const npcCapacity = (site: WorldSite, r = site.resource) =>
   (site.economyVersion ?? 0) >= 2
     ? Math.max(NPC_CAPACITY, worldBaseRate(site, r) * 4)
@@ -105,6 +127,7 @@ export function configureSite(site: WorldSite, level: number, now: number, prese
   site.level = level;
   site.economyVersion = 3;
   site.protectionVersion = 1;
+  site.reserveVersion = 1;
   site.lastGrowth = now;
   site.reserve = preserve
     ? Math.floor(mineCapacity(site) * Math.min(1, fraction))
@@ -131,12 +154,21 @@ export function enableRenewableWorld(s: GameState) {
       if (site.kind === 'npc') delete s.intel[site.id];
     }
   }
-  if (s.world.every((site) => site.economyVersion === 3)) return;
-  const levels = worldLevels(s.world);
+  const levels = s.world.every((site) => site.economyVersion === 3) ? {} : worldLevels(s.world);
   for (const site of s.world) {
     if (site.economyVersion === 3 || s.marches.some((m) => m.targetId === site.id)) continue;
     configureSite(site, levels[site.id], s.now, true);
     delete s.intel[site.id];
+  }
+  // Preserve depletion and active expedition snapshots; do not refill a depleted mine on load.
+  for (const site of s.world) {
+    if (site.reserveVersion === 1 || s.marches.some((m) => m.targetId === site.id)) continue;
+    const fraction = Math.min(1, site.reserve / Math.max(1, mineCapacity(site)));
+    site.reserveVersion = 1;
+    if (site.kind === 'mine') {
+      site.reserve = Math.floor(mineCapacity(site) * fraction);
+      delete s.intel[site.id];
+    }
   }
 }
 export function nextWorldEvent(s: GameState) {

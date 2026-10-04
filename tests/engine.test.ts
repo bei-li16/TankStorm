@@ -1,3 +1,4 @@
+import { mineCapacity } from '../src/core/world';
 import { describe, it, expect } from 'vitest';
 import {
   advance,
@@ -373,7 +374,7 @@ describe('world expeditions and conservation', () => {
     expect(s.marches[0].phase).toBe('gathering');
     s = advance(s, s.marches[0].dueAt);
     expect(s.marches[0].cargo.iron).toBe(8000);
-    expect(s.world[0].reserve).toBe(11200);
+    expect(s.world[0].reserve).toBe(mineCapacity(s.world[0]) - s.marches[0].cargo.iron);
     expect(s.marches[0].phase).toBe('returning');
     const before = s.wallet.iron,
       remainder = s.remainders.iron;

@@ -9,7 +9,7 @@ import {
 } from '../src/core/engine';
 import { restPreview, coreBudget, progression } from '../src/core/planning';
 import { dungeons, productionQuote } from '../src/core/arsenal';
-import { quests } from '../src/core/content';
+import { quests, stageNames } from '../src/core/content';
 import { exportSave, parseSave } from '../src/core/storage';
 import type { Command, GameState } from '../src/core/types';
 
@@ -163,7 +163,7 @@ describe('v0.13 reviewed player journeys', () => {
   it('objectives follow actual progress and old saves need no honor migration', () => {
     const s = rich();
     s.claimed = quests.map((q) => q.id);
-    s.cleared = Array.from({ length: 192 }, (_, i) => i);
+    s.cleared = Array.from({ length: stageNames.length }, (_, i) => i);
     expect(progression(s).next.title).toBe('四车系核心补给线');
     expect(s.honors).toBeUndefined();
     s.arsenal!.cleared = ['core-0', 'core-2', 'core-4', 'core-6'];

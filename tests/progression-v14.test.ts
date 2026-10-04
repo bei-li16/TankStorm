@@ -141,14 +141,14 @@ describe('normalized power and stock-limited arrangement', () => {
 });
 
 describe('twelve chapter campaign and persistent rewards', () => {
-  it('has 192 deterministic mixed-tier stages with ordered chapter difficulty', () => {
-    expect(chapters).toHaveLength(12);
-    expect(stageNames).toHaveLength(192);
+  it('has 576 deterministic mixed-tier stages with ordered chapter difficulty', () => {
+    expect(chapters).toHaveLength(36);
+    expect(stageNames).toHaveLength(576);
     expect(stageNames[0]).toBe('边境哨卡');
     expect(stageNames[11]).toBe('黎明行动');
     expect(stageFormation(0)[0]).toEqual({ unitId: 'tank_t1', count: 3 });
     expect(stageReward(0, true)).toMatchObject({ gold: 5, iron: 250 });
-    for (let i = 1; i < 192; i++) {
+    for (let i = 1; i < stageNames.length; i++) {
       expect(armyPower(army(stageFormation(i))), `stage ${i}`).toBeGreaterThanOrEqual(
         armyPower(army(stageFormation(i - 1))),
       );
@@ -206,7 +206,7 @@ describe('leadership and independent upgrade rolls', () => {
     expect(leadershipChance(10)).toBe(10000);
     expect(leadershipChance(11)).toBe(9000);
     expect(leadershipChance(120)).toBe(10);
-    expect(() => leadershipChance(121)).toThrow();
+    expect(leadershipChance(121)).toBe(10);
   });
   it('enforces prestige cap and validates costs before drawing a roll', () => {
     const s = game(),
@@ -276,7 +276,7 @@ describe('leadership and independent upgrade rolls', () => {
     const loaded = await parseSave(await exportSave(failing));
     expect(loaded.lastLeadership).toEqual(failing.lastLeadership);
     const max = act(s, { type: 'leadership' });
-    expect(() => act(max, { type: 'leadership' })).toThrow('120');
+    expect(() => act(max, { type: 'leadership' })).toThrow('需要声望等级 121');
   });
   it('migrates old earned leadership without losing troops or minting prestige', async () => {
     const s = game();

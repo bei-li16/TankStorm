@@ -1,6 +1,11 @@
 extends Control
 
 const QuantityFormat = preload("res://scripts/quantity_format.gd")
+const ConstructionList = preload("res://scripts/construction_list.gd")
+var construction_list
+const ResearchList = preload("res://scripts/research_list.gd")
+var research_list
+const RestSummary = preload("res://scripts/rest_summary.gd")
 
 const GOLD = Color("d7b776")
 const TEXT = Color("ebe7dc")
@@ -20,6 +25,11 @@ var catalog: Dictionary = {}
 var textures: Dictionary = {}
 var district_building = "hq"
 var campaign_chapter_page = 0
+var core_chapter_page = 0
+var navigation_history: Array = []
+var rest_hours = 8
+var rest_input: LineEdit
+var rest_summary: Control
 var font: SystemFont
 var bold: SystemFont
 var latin: SystemFont
@@ -87,6 +97,7 @@ var dirty = false
 var drag_slot = -1
 var selected_stage = 0
 var leadership_attempts = 1
+var leadership_history_page = 0
 var selected_site = "site-0"
 var map_zoom = 1.0
 var map_center = Vector2(16, 16)
@@ -219,6 +230,8 @@ func _ready():
 		muted = prefs.get_value("audio", "muted", false)
 		audio_volume = clampf(prefs.get_value("audio", "volume", 0.75), 0, 1)
 		ui_scale = clampf(prefs.get_value("display", "text_scale", 1.0), 1, 1.2)
+		rest_hours = clampi(int(prefs.get_value("play", "rest_hours", 8)),1,720)
+	rest_input.text = str(rest_hours)
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(0.001, audio_volume)))
 	player = AudioStreamPlayer.new()
 	add_child(player)
@@ -277,6 +290,32 @@ func _setup_dialogs():
 	quantity_input.add_theme_stylebox_override("focus", quantity_style)
 	quantity_input.text_changed.connect(func(value): quantity = int(value) if value.is_valid_int() and int(value) >= 0 and int(value) <= 10000 else 0)
 	add_child(quantity_input)
+	rest_input = LineEdit.new()
+	rest_input.position = Vector2(894,750)
+	rest_input.size = Vector2(93,42)
+	rest_input.max_length = 3
+	rest_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rest_input.text = str(rest_hours)
+	rest_input.placeholder_text = "小时"
+	rest_input.add_theme_stylebox_override("normal",quantity_style)
+	rest_input.add_theme_stylebox_override("focus",quantity_style)
+	rest_input.text_changed.connect(func(value):
+		if value.is_valid_int() and int(value)>=1 and int(value)<=720:
+			rest_hours=int(value)
+			_save_preferences())
+	rest_input.text_submitted.connect(func(_value):_action("restCustom"))
+	add_child(rest_input)
+	construction_list = ConstructionList.new()
+	construction_list.host = self
+	add_child(construction_list)
+	construction_list.hide()
+	research_list = ResearchList.new()
+	research_list.host = self
+	add_child(research_list)
+	research_list.hide()
+	rest_summary = RestSummary.new()
+	rest_summary.host = self
+	add_child(rest_summary)
 	text_dialog = ConfirmationDialog.new()
 	text_dialog.title = "指挥官档案"
 	text_dialog.min_size = Vector2i(460, 160)
@@ -329,6 +368,10 @@ func _setup_dialogs():
 		if not details_dialog.visible and details_key != "": details_scroll[details_key] = details_text.scroll_vertical)
 
 func _confirm(command_data: Dictionary, message: String):
+	# Resource spending is explicitly one-click; preserve confirmations for destructive edits.
+	if command_data.get("type","") in ["upgrade","facilityUpgrade","accelerate","research","produce","refit","repair","repairAll","buyBooks","leadership"]:
+		if not _command_pending(): command(command_data)
+		return
 	pending_request = {}
 	pending_action = command_data
 	confirm_dialog.dialog_text = message
@@ -381,7 +424,10 @@ func _process(delta):
 	_sync_battle_audio()
 	clock += delta
 	quantity_input.visible = (screen in ["factory", "repair"] or (screen == "queues" and dispatch_tab == "arrange" and dispatch_selected in ["factory","factory2","refit","repair"])) and not s.is_empty() and not _modal_open()
+	rest_input.visible = screen=="base" and not s.is_empty() and not _modal_open()
 	_library_sync()
+	construction_list.sync()
+	research_list.sync()
 	quantity_input.position = Vector2(748, 465) if screen == "factory" else Vector2(1100, 584) if screen == "queues" else Vector2(1121, 445)
 	if measure_frames:
 		frame_times.append(delta * 1000.0)
@@ -407,6 +453,7 @@ func _process(delta):
 	queue_redraw()
 
 func request(payload: Dictionary):
+	payload.prestigePage=prestige_page
 	if waiting:
 		requests.append(payload)
 		return
@@ -419,7 +466,7 @@ func request(payload: Dictionary):
 
 func _command_pending():
 	# Background resource polling must not swallow a mouse click.
-	return waiting and current_request.get("op", "") != "tick"
+	return (waiting and current_request.get("op", "") != "tick") or requests.any(func(r):return r.get("op", "") == "command")
 
 func command(data: Dictionary):
 	request({"op": "command", "command": data, "id": Crypto.new().generate_random_bytes(12).hex_encode()})
@@ -451,7 +498,7 @@ func _response(result, _code, _headers, body):
 				if archived.id == report.id: report.transport = archived.get("transport", {})
 		if data.has("progress"):
 			progress_report = data.progress
-			screen = "restReport"
+			rest_summary.show_summary(self,progress_report)
 		if deployment_reply:
 			deployment = {}
 			deployment_backup = {}
@@ -469,6 +516,12 @@ func _response(result, _code, _headers, body):
 			dirty = false
 			draft = info.usable.duplicate(true)
 		if current_request.op in ["boot", "new", "copy", "load", "import", "restore"]:
+			navigation_history.clear()
+			construction_list.scroll_vertical=0
+			construction_list.update_key=""
+			research_list.scroll_vertical=0
+			research_list.update_key=""
+			rest_summary.hide()
 			base_panel = "dispatch"
 			dispatch_selected = "building"
 			queue_page = 0
@@ -522,6 +575,7 @@ func toast_message(message: String):
 	toast_until = clock + 5
 
 func _gui_input(event):
+	if rest_summary.visible: return
 	if deployment_pending:
 		return
 	if screen == "world" and event is InputEventMouseButton:
@@ -565,6 +619,7 @@ func _gui_input(event):
 			drag_slot = -1
 
 func _unhandled_key_input(event):
+	if rest_summary.visible: return
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
 	if text_dialog.visible or confirm_dialog.visible or details_dialog.visible or file_dialog.visible:
@@ -598,9 +653,9 @@ func _unhandled_key_input(event):
 	elif event.keycode == KEY_F5 and not s.is_empty() and not _command_pending():
 		_action("save")
 	elif event.keycode == KEY_ESCAPE:
-		if screen == "base" and base_panel in ["facility", "construction"]: base_panel = "dispatch"
-		elif screen=="intel": _navigate("world")
-		else: _navigate(library_origin if screen == "library" else "campaign" if screen == "deployment" else "base" if screen != "base" else "settings")
+		if screen == "base" and base_panel in ["facility", "construction", "research"]: base_panel = "dispatch"
+		elif screen=="base": _navigate("settings")
+		else: _go_back()
 	elif event.keycode == KEY_Q and not s.is_empty():
 		_navigate("queues")
 	elif event.keycode == KEY_I and not s.is_empty():
@@ -610,7 +665,29 @@ func _unhandled_key_input(event):
 	elif event.keycode >= KEY_1 and event.keycode < KEY_1 + NAV.size():
 		_navigate(NAV[event.keycode - KEY_1][0])
 
-func _navigate(target):
+func _go_back():
+	if screen=="deployment":
+		_action("deploymentCancel")
+		return
+	if not navigation_history.is_empty():
+		var previous=navigation_history.pop_back()
+		_navigate(previous.screen,false)
+		district_building=previous.district_building
+		selected_factory=previous.selected_factory
+		production_mode=previous.production_mode
+		base_panel=previous.get("base_panel","dispatch")
+	else:
+		var fallback={"factory":"industry","repair":"industry","research":"command_zone","commandTraining":"commander","leadHistory":"commandTraining","prestige":"commander","doctrine":"army","presets":"army","intel":"world"}
+		if screen=="research": district_building="lab"
+		_navigate(library_origin if screen=="library" else fallback.get(screen,"base"),false)
+	queue_redraw()
+
+func _return_button():
+	var names={"base":"主基地","industry":"工业区","resources":"资源区","command_zone":"指挥科研区","commander":"指挥官","world":"世界地图","army":"编队","deployment":"战前编队","factory":"生产车间","research":"科研树","repair":"维修车间","inventory":"资源一览","attributes":"属性一览","campaign":"战役","battle":"战斗","queues":"作业调度","commandTraining":"统率培养","leadHistory":"升级记录"}
+	var parent=navigation_history.back().screen if not navigation_history.is_empty() else "industry" if screen in ["factory","repair"] else "command_zone" if screen=="research" else "base"
+	_button("goBack","← 返回"+names.get(parent,"上页"),Rect2(1342,111,220,47))
+
+func _navigate(target, remember=true):
 	if deployment_pending:
 		return
 	if screen == "library": _library_remember()
@@ -630,6 +707,9 @@ func _navigate(target):
 		toast_message("未保存的编队已保留，返回编队后可继续编辑")
 	if screen == "factory": manufacture_quantity = quantity
 	var previous_screen = screen
+	if remember and target!=screen and screen!="battle":
+		navigation_history.append({"screen":screen,"district_building":district_building,"selected_factory":selected_factory,"production_mode":production_mode,"base_panel":base_panel})
+		if navigation_history.size()>32: navigation_history.pop_front()
 	screen = target
 	if target == "industry" and previous_screen == "factory": district_building = selected_factory
 	if target == "industry" and previous_screen == "repair": district_building = "repair"
@@ -640,8 +720,11 @@ func _navigate(target):
 		elif previous_screen in ["repair", "research"]: dispatch_selected = previous_screen
 		elif previous_screen == "world": dispatch_selected = "expeditions"
 	if screen == "factory" and previous_screen != "factory": _set_quantity(manufacture_quantity)
-	if screen=="prestige" and previous_screen!="prestige": prestige_page=int((info.prestige.level-1)/10)
+	if screen=="prestige" and previous_screen!="prestige":
+		prestige_page=int((info.prestige.level-1)/10)
+		request({"op":"tick"})
 	if screen == "campaign" and previous_screen != "campaign": campaign_chapter_page=int(selected_stage/96)
+	if screen == "campaign" and previous_screen != "campaign": core_chapter_page=int(selected_dungeon/80)
 	if screen == "reports":
 		report_rows = info.archive.duplicate(true)
 		report_page = 0
@@ -682,7 +765,8 @@ func _action(id, data = null):
 		queue_page = 0
 		dispatch_tab = "arrange" if dispatch_selected == "building" else "orders"
 		if id.begins_with("dispatchOpen:"):
-			if screen == "base" and dispatch_selected == "building": base_panel = "construction"
+			if screen == "base" and dispatch_selected in ["building","research"]:
+				base_panel = "construction" if dispatch_selected=="building" else "research"
 			else: _navigate("queues")
 	elif id == "dispatchDestination":
 		_dispatch_destination()
@@ -701,7 +785,8 @@ func _action(id, data = null):
 				_navigate("world")
 				break
 	elif id.begins_with("nav:"):
-		_navigate(data)
+		if id=="nav:regionHome" and not navigation_history.is_empty() and navigation_history.back().screen=="base" and navigation_history.back().get("base_panel","")=="construction": _go_back()
+		else: _navigate(data)
 	elif id.begins_with("facility:"):
 		selected_factory = str(data)
 		production_mode = "refit" if selected_factory == "refit" else "produce"
@@ -888,8 +973,16 @@ func _action(id, data = null):
 		_navigate("campaign")
 	elif id == "unitGuide":
 		_unit_guide()
+	elif id=="goBack": _go_back()
+	elif id=="restCustom":
+		if not rest_input.text.is_valid_int() or int(rest_input.text)<1 or int(rest_input.text)>720:
+			toast_message("请输入 1—720 的整数小时")
+			return
+		rest_hours=int(rest_input.text)
+		_save_preferences()
+		command({"type":"rest","minutes":rest_hours*60})
 	elif id.begins_with("rest:"):
-		request({"op":"previewRest","minutes":int(data)})
+		command({"type":"rest","minutes":int(data)})
 	elif id.begins_with("site:"):
 		selected_site = data
 	elif id == "mapSearch":
@@ -1305,8 +1398,7 @@ func _library_action(id, data):
 
 func _draw_library():
 	_title("战地图书馆", "FIELD LIBRARY  /  游戏机制与作战手册")
-	_text("%s · %d 篇机制 · 公式 / 示例 / 入口"%[catalog.fieldLibrary.get("edition","当前单机规则"),_library_entries().size()], Vector2(905, 148), 19, GOLD)
-	_button("nav:libraryReturn", "返回上页", Rect2(691, 116, 184, 42), library_origin)
+	_text("%s · %d 篇机制 · 公式 / 示例 / 入口"%[catalog.fieldLibrary.get("edition","当前单机规则"),_library_entries().size()], Vector2(615, 148), 17, GOLD)
 	_text("检索机制", Vector2(55, 229), 22, TEXT, true)
 	_button("libraryClear", "清空搜索", Rect2(1384, 201, 176, 42))
 	var categories = [{"id":"all","name":"全部内容"}] + catalog.fieldLibrary.categories
@@ -1384,12 +1476,14 @@ func _draw():
 			"intel": _draw_intel()
 			"commander": _draw_commander()
 			"commandTraining": _draw_command_training()
+			"leadHistory": _draw_leadership_history()
 			"reports": _draw_reports()
 			"settings": _draw_settings()
 			"restReport": _draw_rest_report()
 			"doctrine": _draw_doctrine()
 			"vip": _draw_vip()
 			"queues": _draw_queues()
+		if screen in ["research","factory","repair","queues","inventory","attributes","library","settings","vip","commandTraining","leadHistory","objectives","presets","doctrine","intel","prestige","commander"]: _return_button()
 		_navbar()
 	for entry in buttons:
 		if entry.id==focus_id: draw_rect(entry.rect.grow(-2),GOLD,false,2)
@@ -1413,10 +1507,10 @@ func _draw():
 		var w = minf(800, maxf(360, font.get_string_size(toast, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14*ui_scale)).x + 40))
 		_panel(Rect2((1600 - w) / 2, 83, w, 19), Color("25322b"), GOLD)
 		_fit_text(toast, Vector2((1600 - w) / 2 + 20, 98), w-40, 14, TEXT)
-	if _modal_open(): draw_rect(Rect2(0,0,1600,900),Color(0.01,0.025,0.02,0.65))
+	if _modal_open() and not rest_summary.visible: draw_rect(Rect2(0,0,1600,900),Color(0.01,0.025,0.02,0.65))
 
 func _modal_open():
-	return (is_instance_valid(details_dialog) and details_dialog.visible) or (is_instance_valid(confirm_dialog) and confirm_dialog.visible) or (is_instance_valid(text_dialog) and text_dialog.visible)
+	return (is_instance_valid(rest_summary) and rest_summary.visible) or (is_instance_valid(details_dialog) and details_dialog.visible) or (is_instance_valid(confirm_dialog) and confirm_dialog.visible) or (is_instance_valid(text_dialog) and text_dialog.visible)
 
 func _fit_text(value, pos: Vector2, width: float, size_px=18, color=TEXT, heavy=false):
 	var face = bold if heavy else font
@@ -1562,12 +1656,13 @@ func _header():
 		var x = 222 + i * 172
 		_icon(i, Rect2(x, 14, 53, 53))
 		_hit("resource:" + RES[i], Rect2(x, 9, 168, 61), RES[i])
-		_text(catalog.resourceNames[RES[i]], Vector2(x + 57, 29), 13, MUTED)
-		_small(_amount(s.wallet[RES[i]]), Vector2(x + 57, 55), 24, GOLD if i == 5 else TEXT)
+		_text(catalog.resourceNames[RES[i]], Vector2(x + 57, 14), 12, MUTED)
+		_small(_amount(s.wallet[RES[i]]), Vector2(x + 57, 37), 23, GOLD if i == 5 else TEXT)
 		if i<5:
 			var fullness=float(s.wallet[RES[i]])/maxf(1,info.capacity)
-			_stock_bar(Rect2(x+57,61,107,6),fullness)
-			_small(("超仓 " if fullness>1 else "满仓 " if fullness==1 else "")+"/ "+_amount(info.capacity),Vector2(x+57,79),11,GOLD if fullness>=1 else MUTED)
+			_stock_bar(Rect2(x+57,43,107,5),fullness)
+			_small(("超仓 " if fullness>1 else "满仓 " if fullness==1 else "")+"/ "+_amount(info.capacity),Vector2(x+57,62),11,GOLD if fullness>=1 else MUTED)
+			_fit_text(("暂停 · " if fullness>=1 else "+")+_amount(info.rates[RES[i]])+"/时",Vector2(x+4,79),160,14,GOLD if fullness>=1 else GREEN)
 	_button("nav:settings", "存档 / 设置", Rect2(1395, 20, 172, 43), "settings", screen == "settings")
 	_small("LV.%02d" % int(info.level), Vector2(1282, 36), 21, GOLD)
 	_button("nav:vip", "VIP %d" % info.vip.level, Rect2(1270, 43, 99, 28), "vip", screen == "vip")
@@ -1600,12 +1695,13 @@ func _draw_base():
 	_text("指挥官，欢迎归队", Vector2(31, 151), 28, TEXT, true)
 	var goal = info.progression.next.title + " · " + info.progression.next.condition
 	var destination = info.progression.next.page
-	_panel(Rect2(24, 667, 770, 49), Color(0.045, 0.075, 0.07, 0.96), LINE)
-	_text("下一目标  " + goal.substr(0,42), Vector2(39, 697), 16, GOLD)
-	_hit("nav:objective", Rect2(24, 667, 770, 49), destination)
+	_panel(Rect2(24, 747, 750, 49), Color(0.045, 0.075, 0.07, 0.96), LINE)
+	_text("下一目标  " + goal.substr(0,42), Vector2(39, 777), 16, GOLD)
+	_hit("nav:objective", Rect2(24, 747, 750, 49), destination)
 	if not progress_report.is_empty(): _button("lastProgress","上次休整结算",Rect2(30,617,290,39))
-	_button("rest:60", "休整 1 小时", Rect2(812, 675, 155, 40), 60)
-	_button("rest:480", "休整 8 小时", Rect2(982, 675, 155, 40), 480)
+	_text("休整小时",Vector2(807,777),17,TEXT)
+	_button("restCustom","休整",Rect2(1000,750,137,42),null,true,not _command_pending())
+	_text("1—720 小时 · 推进生产、研究与远征",Vector2(807,817),14,GOLD)
 	_button("nav:industry", "工业区 · 制造 / 改装", Rect2(350, 617, 225, 39), "industry")
 	_button("nav:repair", "维修车间 · 待修 %d" % info.repairSummary.damaged, Rect2(590, 617, 225, 39), "repair", info.repairSummary.damaged > 0)
 	_button("nav:objectives","成长目标 / 挑战荣誉",Rect2(800,102,337,44),"objectives")
@@ -1619,20 +1715,14 @@ func _draw_base():
 		var x = fmod(i * 91.7 + clock * (3 + i % 4), 1120) + 30
 		var y = 180 + fmod(i * 69.3 - clock * 4 + 1200, 570)
 		draw_circle(Vector2(x, y), 1 + i % 2, Color(0.95, 0.8, 0.45, 0.2))
-	_panel(Rect2(24, 730, 1116, 83), Color(0.045, 0.075, 0.07, 0.96), LINE)
-	_small("BASE STATUS", Vector2(42, 753), 12, GOLD)
-	_text("自动生产中", Vector2(42, 785), 19, TEXT, true)
-	for i in range(5):
-		var x = 226 + i * 178
-		_icon(i, Rect2(x, 745, 44, 44))
-		_text("+%s / 时" % _amount(info.rates[RES[i]]), Vector2(x + 49, 772), 16)
-		_stock_bar(Rect2(x + 49, 784, 90, 3), s.wallet[RES[i]] / info.capacity)
-		_small("满仓·自产暂停" if s.wallet[RES[i]] >= info.capacity else "容量 " + _amount(info.capacity), Vector2(x + 49, 805), 11, GOLD if s.wallet[RES[i]] >= info.capacity else MUTED)
 	_panel(Rect2(1190, 82, 410, 754), Color("111b1c"), LINE)
-	_button("basePanel:dispatch", "作业调度", Rect2(1206, 96, 180, 38), "dispatch", base_panel == "dispatch")
+	_button("basePanel:dispatch", "作业调度", Rect2(1206, 96, 180, 38), "dispatch", base_panel in ["dispatch","construction","research"])
 	_button("basePanel:facility", "设施详情", Rect2(1396, 96, 188, 38), "facility", base_panel == "facility")
 	if base_panel == "construction":
 		_draw_base_construction()
+		return
+	if base_panel == "research":
+		_draw_base_research()
 		return
 	if base_panel == "dispatch":
 		_draw_base_dispatch()
@@ -1666,14 +1756,11 @@ func _draw_base():
 		_text("预计耗时  " + _eta(info.buildingTimes[b]), Vector2(1218, 418), 20, GOLD)
 		var blocked = info.blocks.get(b, "")
 		_button("upgrade", "开始升级" if blocked == "" else blocked, Rect2(1218, 433, 350, 44), null, true, blocked == "" and not _command_pending())
+	_upgrade_progress(b,Vector2(1218,484),350)
 	if b == "factory" or b == "lab":
-		_button("nav:facility", "进入战车工厂" if b == "factory" else "进入科研中心", Rect2(1218, 488, 350, 36), "factory" if b == "factory" else "research")
+		_button("nav:facility", "进入战车工厂" if b == "factory" else "进入科研中心", Rect2(1218, 523, 350, 36), "factory" if b == "factory" else "research")
 	_button("basePanel:back", "返回作业调度 · 全部工位", Rect2(1218, 782, 350, 35), "dispatch")
-	_button("upgradeBenefits", "查看升级收益与解锁 →", Rect2(1218,530,350,27),b)
-	var own_build = {}
-	for job in info.jobs:
-		if job.kind == "building" and job.target == b: own_build = job
-	_draw_job_card(own_build, Vector2(1218, 570), 350, "本设施建设")
+	_button("upgradeBenefits", "查看升级收益与解锁 →", Rect2(1218,568,350,27),b)
 	_draw_dispatch_station(_dispatch_station("research" if b == "lab" else "factory" if b == "factory" else "building"), Rect2(1218, 682, 350, 75), true)
 
 func _find_job(data):
@@ -1714,7 +1801,6 @@ func _draw_job_card(j, pos: Vector2, width, title):
 func _draw_queues():
 	_title("基地作业调度", "OPERATIONS / WORKSTATIONS")
 	_button("nav:vip", "VIP %d · 工位容量" % info.vip.level, Rect2(1050, 111, 242, 47), "vip")
-	_button("nav:dispatchBase", "收起 · 返回基地", Rect2(1310, 111, 252, 47), "base")
 	var groups = _dispatch_groups()
 	for i in range(groups.size()):
 		_draw_dispatch_station(groups[i], Rect2(40, 207+i*79, 345, 73), false)
@@ -1935,7 +2021,6 @@ func _draw_factory():
 	var factory = info.facilities[facility]
 	_title(factory.name+" · Lv.%d"%factory.level, "BASE / INDUSTRY / WORKSHOP")
 	_fit_text("独立车间 · 1个工作位 + 3个等待位",Vector2(829,147),493,18,GOLD)
-	_button("nav:industry", "返回工业区", Rect2(1360, 111, 202, 47), "industry")
 	for i in range(4):
 		_button("class:" + str(i), catalog.classNames[CLASSES[i]], Rect2(40 + i * 284, 200, 269, 60), i, selected_class == i)
 	for t in range(1, 8):
@@ -2038,7 +2123,6 @@ func _draw_industry():
 
 func _draw_repair():
 	_title("装甲维修车间", "RECOVERY  /  RETURN TO THE FRONT")
-	_button("nav:industry", "返回工业区", Rect2(1342, 111, 220, 47), "industry")
 	var summary = info.repairSummary
 	_repair_all_button(Rect2(680,111,640,47))
 	if info.repairAll.count>0:
@@ -2265,7 +2349,7 @@ func _inventory_entries():
 
 func _draw_inventory():
 	_title("资源一览", "DEPOT  /  MATERIALS · CORES · VEHICLES · COMMAND")
-	_button("nav:attributes","属性 / 战力一览",Rect2(1270,119,290,43),"attributes")
+	_button("nav:attributes","属性 / 战力一览",Rect2(1040,111,282,47),"attributes")
 	var categories = [["all", "全部"], ["materials", "矿产 / 金币"], ["cores", "改装核心"], ["vehicles", "战车库存"], ["items", "指挥官物品"]]
 	for i in range(categories.size()):
 		_button("inventoryCategory:" + categories[i][0], categories[i][1], Rect2(40 + i * 250, 201, 233, 43), categories[i][0], inventory_category == categories[i][0])
@@ -2463,7 +2547,7 @@ func _tech_rect(node):
 
 func _draw_research():
 	_title("科研技术树", "RESEARCH BUREAU  /  ECONOMY · INDUSTRY · LOGISTICS · COMBAT")
-	_text("科研中心 Lv.%02d" % int(s.buildings.lab), Vector2(1340, 148), 19, GOLD)
+	_text("科研中心 Lv.%02d" % int(s.buildings.lab), Vector2(1070, 148), 19, GOLD)
 	for i in range(catalog.researchBranches.size()):
 		var branch = catalog.researchBranches[i]
 		_button("researchBranch:" + branch.id, branch.name, Rect2(40 + i * 387, 199, 359, 48), branch.id, branch.id == research_branch)
@@ -2529,7 +2613,10 @@ func _draw_research():
 		_text("预计完成  " + _eta(q.booked.remainingMs if q.booked != null else q.waitMs + q.duration), Vector2(1147, 605), 21, TEXT, true)
 		_text("原时长 " + _time(q.booked.rawRemainingMs if q.booked != null else q.rawDuration) + " · VIP 免 " + str(int(info.vip.freeMinutes)) + " 分钟", Vector2(1147, 632), 15, MUTED)
 		_text("等待 " + _time(q.booked.waitMs if q.booked != null else q.waitMs) + " · 效果从完成时生效", Vector2(1147, 656), 15, MUTED)
-	_button("research:" + selected_tech, "已在队列中" if q.duplicate else "已达 120 级" if level>=int(catalog.MAX_LEVEL) else "前置条件未满足" if q.block != "" else "队列已满" if info.queues.research.full else "立即研究" if q.duration == 0 and q.waitMs == 0 else "加入研究计划", Rect2(1145, 671, 393, 49), selected_tech, true, not info.queues.research.full and not q.duplicate and q.block == "" and _affordable(q.unitCost) and not _command_pending())
+	if q.booked!=null:
+		_research_job_button(q.booked,Rect2(1145,671,393,49))
+	else:
+		_button("research:" + selected_tech, "已在队列中" if q.duplicate else "已达 120 级" if level>=int(catalog.MAX_LEVEL) else "前置条件未满足" if q.block != "" else "队列已满" if info.queues.research.full else "立即研究" if q.duration == 0 and q.waitMs == 0 else "加入研究计划", Rect2(1145, 671, 393, 49), selected_tech, true, not info.queues.research.full and not q.duplicate and q.block == "" and _affordable(q.unitCost) and not _command_pending())
 	_hit("nav:lab",Rect2(1144,418,395,31),"base")
 	_text("连线表示前置依赖；科技等级越高，所需前置等级也会提高。", Vector2(42, 782), 17, MUTED)
 	_text("机动推进每级额外 +3 先手；精密弹道每级额外 +4 二次开火。出征后保留属性快照。", Vector2(42, 811), 15, MUTED)
@@ -2547,7 +2634,8 @@ func _draw_campaign():
 		var c=campaign_chapter_page*6+n
 		if c>=catalog.chapters.size(): break
 		_button("chapter:"+str(c),"%d  %s"%[c+1,catalog.chapters[c].name],Rect2(40+n*217,198,205,39),c,c==chapter)
-	_button("chapterPage","7—12章 →" if campaign_chapter_page==0 else "← 1—6章",Rect2(1345,198,215,39),1-campaign_chapter_page)
+	var next_page=(campaign_chapter_page+1)%ceili(catalog.chapters.size()/6.0)
+	_button("chapterPage","%d—%d章 →"%[next_page*6+1,mini(catalog.chapters.size(),next_page*6+6)],Rect2(1345,198,215,39),next_page)
 	for n in range(16):
 		var i=chapter*16+n
 		var p = Vector2(40 + (n % 4) * 214, 253 + int(n / 4.0) * 130)
@@ -2586,19 +2674,22 @@ func _draw_campaign():
 	var unlocked = info.stageStatus[selected_stage].unlocked
 	_button("attack", "发起进攻", Rect2(1215, 749, 319, 43), null, true, unlocked and not _command_pending())
 	_button("campaignMode:dungeon", "核心副本 →", Rect2(40, 788, 230, 36), "dungeon")
-	_text("十二章架空行动 · 演习无掉落；正式胜利推进关卡。",Vector2(300,814),15,MUTED)
+	_text("%d章架空行动 · 演习无掉落；正式胜利推进关卡。"%catalog.chapters.size(),Vector2(300,814),15,MUTED)
 
 func _draw_dungeons():
 	_title("核心行动", "CORE OPERATIONS")
 	_button("campaignMode:stage", "← 经典战役", Rect2(1331,119,231,44), "stage")
 	selected_dungeon = clampi(selected_dungeon, 0, catalog.dungeons.size()-1)
 	var chapter=int(selected_dungeon/16)
-	_text("五章 · 每章16关   |   已突破 %d / %d   |   首通固定，重复随机"%[s.arsenal.cleared.size(),catalog.dungeons.size()],Vector2(43,179),17,GOLD)
-	for c in range(catalog.coreChapters.size()):
+	_text("%d章 · 每章16关   |   已突破 %d / %d   |   首通固定，重复随机"%[catalog.coreChapters.size(),s.arsenal.cleared.size(),catalog.dungeons.size()],Vector2(43,179),17,GOLD)
+	core_chapter_page=clampi(core_chapter_page,0,ceili(catalog.coreChapters.size()/5.0)-1)
+	for c in range(core_chapter_page*5,mini(catalog.coreChapters.size(),core_chapter_page*5+5)):
 		var cleared = 0
 		for i in range(c*16,c*16+16):
 			if info.dungeonStatus[i].cleared: cleared+=1
-		_button("coreChapter:"+str(c),"%d  %s  %d/16"%[c+1,catalog.coreChapters[c],cleared],Rect2(40+c*306,198,294,39),c,c==chapter)
+		_button("coreChapter:"+str(c),"%d  %s  %d/16"%[c+1,catalog.coreChapters[c],cleared],Rect2(40+(c%5)*260,198,248,39),c,c==chapter)
+	var next_page=(core_chapter_page+1)%ceili(catalog.coreChapters.size()/5.0)
+	_button("coreChapterPage","%d—%d章 →"%[next_page*5+1,mini(catalog.coreChapters.size(),next_page*5+5)],Rect2(1345,198,215,39),next_page)
 	for local in range(16):
 		var i = chapter*16+local
 		var d=catalog.dungeons[i]
@@ -2607,9 +2698,10 @@ func _draw_dungeons():
 		_panel(Rect2(p,Vector2(202,117)),Color("343a2b") if i==selected_dungeon else Color("172222"),GOLD if i==selected_dungeon else LINE)
 		_small("%d-%02d"%[chapter+1,local+1],p+Vector2(12,27),20,GOLD)
 		_core_icon(d.classId+"_core7",Rect2(p+Vector2(145,6),Vector2(45,45)))
-		_text(catalog.classNames[d.classId],p+Vector2(12,59),20,TEXT,true)
-		_text("VI %d—%d / VII %d—%d"%[d.drops[0].min,d.drops[0].max,d.drops[1].min,d.drops[1].max],p+Vector2(12,84),13,GOLD)
-		_text(("已突破" if status.cleared else "可挑战" if status.block=="" else "未开放")+" · 工厂%d级"%d.factoryLevel,p+Vector2(12,106),13,GREEN if status.cleared else MUTED)
+		_fit_text(catalog.classNames[d.classId],p+Vector2(12,54),178,19,TEXT,true)
+		_fit_text("VI  %d—%d"%[d.drops[0].min,d.drops[0].max],p+Vector2(12,75),178,14,GOLD)
+		_fit_text("VII %d—%d"%[d.drops[1].min,d.drops[1].max],p+Vector2(12,93),178,14,GOLD)
+		_fit_text(("已突破" if status.cleared else "可挑战" if status.block=="" else "未开放")+" · 工厂%d级"%d.factoryLevel,p+Vector2(12,111),178,13,GREEN if status.cleared else MUTED)
 		_hit("dungeon:"+str(i),Rect2(p,Vector2(202,117)),i)
 	var d=catalog.dungeons[selected_dungeon]
 	var status=info.dungeonStatus[selected_dungeon]
@@ -2626,8 +2718,9 @@ func _draw_dungeons():
 		_core_icon(drop.id,Rect2(934,y,49,49))
 		_text(catalog.coreNames[drop.id],Vector2(998,y+21),18,TEXT,true)
 		_text("首通 %d · 重复 %d—%d · 持有 %s"%[drop.first,drop.min,drop.max,_amount(s.arsenal.cores[drop.id])],Vector2(998,y+45),16,GOLD)
-	_text(("本次重复" if status.cleared else "本次首通")+" · 经验 %s / 声望 %s / 统率书 %d"%[_amount(d.growth.xp),_amount(d.growth.prestige),d.growth.books],Vector2(932,677),16,GREEN)
-	_text("两种数量独立、区间内等概率；失败 / 演习无掉落。",Vector2(932,703),15,MUTED)
+	var growth=d.repeatGrowth if status.cleared else d.growth
+	_fit_text(("重复 · 声望减半" if status.cleared else "首通")+" · 经验 %s / 声望 %s / 统率书 %d"%[_amount(growth.xp),_amount(growth.prestige),growth.books],Vector2(932,677),602,16,GREEN)
+	_text("统率书仅首通；两种核心独立随机；失败 / 演习无掉落。",Vector2(932,703),15,MUTED)
 	_text(status.block if status.block!="" else "建议先演习评估战损；重复收益需扣除补兵成本。",Vector2(932,730),15,RED if status.block!="" else GOLD)
 	_button("dungeonTraining","战术演习 · 无掉落",Rect2(929,749,270,43),null,false,not _command_pending())
 	_button("dungeonAttack","发起核心行动",Rect2(1215,749,319,43),null,true,status.block=="" and not _command_pending())
@@ -2635,7 +2728,7 @@ func _draw_dungeons():
 	_text("依次突破 · 跨章承接上一章末关 · 旧通关保持开放",Vector2(306,814),15,MUTED)
 
 func _core_route_details():
-	var lines: Array[String] = ["五章各16关。每四关按坦克、歼击、火炮、火箭循环；产出只属于本关车系。", "首通固定，重复数量独立随机。以下100辆预算只计算VII核心的均值产出，不含首通、失败、前置关、材料与战损补兵，不是次数保证。", ""]
+	var lines: Array[String] = ["九章各16关。每四关按坦克、歼击、火炮、火箭循环；产出只属于本关车系。", "首通固定，重复数量独立随机。以下100辆预算只计算VII核心的均值产出，不含首通、失败、前置关、材料与战损补兵，不是次数保证。", ""]
 	for c in range(catalog.coreChapters.size()):
 		var first=catalog.dungeons[c*16]
 		var last=catalog.dungeons[c*16+15]
@@ -3609,6 +3702,31 @@ func _smoke_test():
 		if arg.begins_with("--qa-output="):
 			out = arg.trim_prefix("--qa-output=")
 	DirAccess.make_dir_recursive_absolute(out)
+	if "--research36-only" in OS.get_cmdline_user_args():
+		var passed=await _research36_qa(out)
+		print("V36_BASE_RESEARCH_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 79)
+		return
+	if "--research35-only" in OS.get_cmdline_user_args():
+		var passed=await _research35_qa(out)
+		print("V35_RESEARCH_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 78)
+		return
+	if "--operations34-only" in OS.get_cmdline_user_args():
+		var passed=await _operations34_qa(out)
+		print("V34_OPERATIONS_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 77)
+		return
+	if "--command33-only" in OS.get_cmdline_user_args():
+		var passed=await _command33_qa(out)
+		print("V33_COMMAND_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 76)
+		return
+	if "--base32-only" in OS.get_cmdline_user_args():
+		var passed=await _base32_qa(out)
+		print("V32_BASE_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 75)
+		return
 	if "--expeditions31-only" in OS.get_cmdline_user_args():
 		var passed = await _expeditions31_qa(out)
 		print("V31_EXPEDITIONS_QA: ",passed)
@@ -5153,6 +5271,7 @@ func _save_preferences():
 	prefs.set_value("audio", "muted", muted)
 	prefs.set_value("audio", "volume", audio_volume)
 	prefs.set_value("display", "text_scale", ui_scale)
+	prefs.set_value("play", "rest_hours",rest_hours)
 	prefs.save("user://preferences.cfg")
 
 func _experience_action(id, data):
@@ -5205,14 +5324,20 @@ func _experience_action(id, data):
 			request({"op":"autoFormation","mode":mode})
 	elif id=="powerDetails": _power_details()
 	elif id=="counterDetails": _counter_details()
-	elif id=="leadAttempts": leadership_attempts={1:10,10:100,100:1}[leadership_attempts]
+	elif id.begins_with("leadBatch:"): leadership_attempts=int(data)
+	elif id=="leadHistory":
+		leadership_history_page=0
+		_navigate("leadHistory")
+	elif id.begins_with("leadHistoryPage:"): leadership_history_page=int(data)
+	elif id.begins_with("leadRecord:"): _leadership_record_details(int(data))
+	elif id=="leadAttempts": leadership_attempts={1:10,10:100,100:1000,1000:1}[leadership_attempts]
 	elif id=="buyBooks":
 		_confirm({"type":"buyBooks","count":leadership_attempts},"购买 %d 本统率书，共 %d 金币？\n单价 19 金币；购买不提升等级，使用时另行判定成功率。"%[leadership_attempts,leadership_attempts*19])
 	elif id in ["trainBooks","trainGold"]:
 		var payment="books" if id=="trainBooks" else "gold"
 		_confirm({"type":"leadership","payment":payment,"attempts":leadership_attempts},"目标统率 Lv.%d；每次成功率 %.2f%%\n最多尝试 %d 次，成功即停，未使用部分不扣费。\n每次消耗 %s；失败不降级、无保底。\n最多花费 %s。"%[info.leadershipQuote.target,info.leadershipQuote.chance/100.0,leadership_attempts,"1 本统率书" if payment=="books" else "19 金币","%d 本书"%leadership_attempts if payment=="books" else "%d 金币"%(leadership_attempts*19)])
 	elif id=="leadRules":
-		_details("统率、声望与独立概率","统率上限 120，且不能超过声望等级。声望等级 = 1 + floor(sqrt(声望 / 40))，最高 120；旧档保留已有统率所需的最低声望等级，不增加声望点。\n\n升至 2—10 级为 100%；11 级 90%，之后按指数曲线降低，120 级为 0.1%。每次独立判定，失败不降级、不累积保底；相同失败次数不会改变下一次概率。\n\n每次尝试一本统率书，或直接 19 金币。最多 10 / 100 次是独立尝试的批次，成功立即停止，不保证成功。1/p 是平均次数，不是保证次数，连续 200 次失败也可能发生。\n\n战役每胜 1 本；核心第一至第五章每胜分别 1 / 2 / 3 / 4 / 5 本。每日补给、既有任务和 19 金币购书仍可使用。战役和核心胜利都获得声望。")
+		_details("统率、声望与独立概率","统率与声望不设玩法等级上限，统率不能超过声望等级。声望等级 = 1 + floor(sqrt(声望 / 40))；旧档保留已有统率所需的最低声望等级，不增加声望点。\n\n升至 2—10 级为 100%；11 级 90%，之后按指数曲线降低，120 级及以后固定为 0.1%。每次独立判定，失败不降级、不累积保底；相同失败次数不会改变下一次概率。\n\n每次尝试一本统率书，或直接 19 金币。最多 1 / 10 / 100 / 1000 次是独立尝试的批次，成功立即停止，不保证成功。1/p 是平均次数，不是保证次数，连续 200 次失败也可能发生。\n\n经典战役仅首通 1 本；核心第一至第九章仅首通分别 1—9 本。重复胜利无统率书，声望为首通一半，经验不减。每日补给、既有任务和 19 金币购书仍可使用。战役和核心胜利都获得声望。")
 	elif id == "reportType":
 		var options=["all","stage","dungeon","mine","raid","gather-return","raid-return","world","training"]
 		report_type=options[(options.find(report_type)+1)%options.size()]
@@ -5267,7 +5392,7 @@ func _experience_action(id, data):
 	elif id == "battleStep": _step_action()
 	elif id == "battleAdvanced": _details("高级战斗详情", "规则版本：" + report.ruleset + "\n随机种子：" + str(int(report.seed)) + "\n战报编号：" + report.id + "\n回放仅消费本场快照和事件，不重新模拟战斗。")
 	elif id == "battleAdvice": _battle_advice()
-	elif id == "lastProgress": screen = "restReport"
+	elif id == "lastProgress" and not progress_report.is_empty(): rest_summary.show_summary(self,progress_report)
 	elif id == "progressDetails": _progress_details()
 	elif id == "reserveClass":
 		var choices = ["all"] + CLASSES
@@ -5346,7 +5471,7 @@ func _disabled_reason(id, data):
 	if id=="dungeonAttack": return info.dungeonStatus[selected_dungeon].block
 	if id in ["trainBooks","trainGold"]:
 		if info.leadershipQuote.block!="": return info.leadershipQuote.block
-		return "统率书缺少 %d 本；可用金币购买或挑战战役 / 核心副本"%maxi(0,leadership_attempts-int(s.commander.books)) if id=="trainBooks" else "金币还缺 %d"%maxi(0,leadership_attempts*19-int(s.wallet.gold))
+		return "统率书缺少 %d 本；可用金币购买、领取每日补给或首次通关"%maxi(0,leadership_attempts-int(s.commander.books)) if id=="trainBooks" else "金币还缺 %d"%maxi(0,leadership_attempts*19-int(s.wallet.gold))
 	if id=="buyBooks": return "购买 %d 本书需 %d 金币，还缺 %d"%[leadership_attempts,leadership_attempts*19,maxi(0,leadership_attempts*19-int(s.wallet.gold))]
 	if id in ["skill","initiativeSkill","extraFireSkill"]:
 		var key={"skill":"attackSkill","initiativeSkill":"initiativeSkill","extraFireSkill":"extraFireSkill"}[id]
@@ -5895,7 +6020,6 @@ func _draw_intel():
 	var intel=s.intel.get(site.id)
 	var stale=intel!=null and s.now-intel.at>=info.worldInterval
 	_title("侦察档案 · "+site.name,"FIELD INTELLIGENCE / SIX POSITIONS")
-	_button("nav:world","返回地图",Rect2(1350,118,210,45),"world")
 	_panel(Rect2(40,199,1520,63),Color("2c231b") if stale else Color("17261f"),GOLD if stale else LINE)
 	var status="未知 · 先侦察才能判断守军，未知不代表空阵" if intel==null else ("情报已过期 · 建议重新侦察" if stale else "已侦察 · 以下为当时守军快照")
 	_fit_text(status,Vector2(61,226),1060,21,GOLD if stale or intel==null else GREEN,true)
@@ -5972,12 +6096,14 @@ func _draw_command_training():
 	_title("统率与战术指挥","OFFICER ACADEMY / COMMAND & TACTICS")
 	var q=info.leadershipQuote
 	_panel(Rect2(40,203,745,539),Color("15231e"),GOLD.darkened(0.5))
-	_text("统率 Lv.%d / 120"%s.commander.leadership,Vector2(66,249),31,TEXT,true)
+	_text("统率 Lv.%d · 持续培养"%s.commander.leadership,Vector2(66,249),31,TEXT,true)
 	_text("单格 %d 辆 · 六格 %d 辆"%[info.leadership,info.leadership*6],Vector2(66,285),21,GOLD)
 	_text("声望 Lv.%d · 统率不得超过声望等级"%info.prestigeLevel,Vector2(66,323),20,TEXT)
-	_text("下一等级 %d · 每次成功率 %.2f%%"%[mini(120,q.target),q.chance/100.0] if q.target<=120 else "统率已满级",Vector2(66,367),25,GOLD,true)
+	_text("下一等级 %d · 每次成功率 %.2f%%"%[q.target,q.chance/100.0],Vector2(66,367),25,GOLD,true)
 	_text("平均约 %.1f 次 / %.0f 金币（非保底次数）"%[q.expectedAttempts,q.expectedAttempts*19],Vector2(66,406),18,MUTED)
-	_button("leadAttempts","最多尝试 %d 次 · 点击切换"%leadership_attempts,Rect2(66,438,690,41))
+	for i in range(4):
+		var amount=[1,10,100,1000][i]
+		_button("leadBatch:"+str(amount),"最多 %d 次"%amount,Rect2(66+i*175,438,165,41),amount,leadership_attempts==amount)
 	var ready=q.block=="" and not _command_pending()
 	_button("trainBooks","用书尝试 · 最多 %d 本"%leadership_attempts,Rect2(66,499,335,47),null,true,ready and s.commander.books>=leadership_attempts)
 	_button("trainGold","金币尝试 · 最多 %d"%(leadership_attempts*19),Rect2(416,499,340,47),null,false,ready and s.wallet.gold>=leadership_attempts*19)
@@ -5988,7 +6114,8 @@ func _draw_command_training():
 	if s.has("lastLeadership"):
 		var last=s.lastLeadership
 		_text("上次：目标 %d · 尝试 %d 次 · %s"%[last.target,last.attempts,"成功" if last.success else "未成功"],Vector2(66,659),20,GOLD)
-	_button("leadRules","升级概率 / 声望 / 书籍来源",Rect2(66,689,690,35))
+	_button("leadRules","升级规则 / 书籍来源",Rect2(66,689,335,35))
+	_button("leadHistory","全部升级记录 · 倒序",Rect2(416,689,340,35))
 	_panel(Rect2(810,203,750,539),Color("172221"),LINE)
 	_text("战斗指挥技能",Vector2(836,248),29,TEXT,true)
 	_text("技能点 %d · 首通 / 指挥中心21级起每日补给"%s.commander.skillPoints,Vector2(836,284),17,GOLD)
@@ -6011,6 +6138,43 @@ func _draw_command_training():
 	_button("powerDetails","当前满编总战力 %s · 计算说明"%_amount(info.power.ceiling),Rect2(40,771,745,48))
 	_button("nav:commander","返回指挥官",Rect2(810,771,750,48),"commander")
 
+func _draw_leadership_history():
+	_title("统率升级记录","最新记录在前 · 按批次查看每次判定")
+	var records=s.get("leadershipHistory",[])
+	var pages=maxi(1,ceili(records.size()/6.0))
+	leadership_history_page=clampi(leadership_history_page,0,pages-1)
+	_text("共 %d 批 · 成功即停，只扣实际尝试费用 · 全部记录随存档保存"%records.size(),Vector2(43,196),19,GOLD)
+	if records.is_empty():
+		_text("尚无升级记录；完成一次统率尝试后会自动记录。",Vector2(65,285),24,TEXT)
+	for i in range(6):
+		var index=records.size()-1-leadership_history_page*6-i
+		if index<0: break
+		var h=records[index]
+		var y=217+i*86
+		_panel(Rect2(40,y,1520,76),Color("162620") if h.success else Color("202322"),LINE)
+		var date=Time.get_datetime_string_from_unix_time(int(h.at/1000)+28800,true)
+		_text("#%d  %s"%[index+1,date],Vector2(55,y+28),18,MUTED)
+		_text("Lv.%d → %d · %s"%[h.target-1,h.target,"成功" if h.success else "未成功"],Vector2(398,y+28),21,GREEN if h.success else GOLD,true)
+		_text("实际 %d 次 / 最多 %s 次"%[h.attempts,str(int(h.requested)) if h.has("requested") else "未知"],Vector2(760,y+28),18,TEXT)
+		_text("每次成功率 %.2f%% · 消耗 %d %s"%[h.chance/100.0,h.attempts*(19 if h.payment=="gold" else 1),"金币" if h.payment=="gold" else "本统率书"],Vector2(398,y+56),18,TEXT)
+		_text("旧版保留的最后记录" if h.get("legacy",false) else "逐次结果已保存",Vector2(55,y+55),16,MUTED)
+		_button("leadRecord:"+str(index),"逐次详情",Rect2(1342,y+18,194,40),index)
+	_text("时间按存档日历（UTC+8）显示，休整会推进日期；编号按实际操作顺序。",Vector2(43,766),17,MUTED)
+	_button("leadHistoryPage:prev","← 较新记录",Rect2(40,790,260,39),leadership_history_page-1,false,leadership_history_page>0)
+	_text("%d / %d"%[leadership_history_page+1,pages],Vector2(767,817),21,GOLD)
+	_button("leadHistoryPage:next","较早记录 →",Rect2(1300,790,260,39),leadership_history_page+1,false,leadership_history_page<pages-1)
+
+func _leadership_record_details(index):
+	var h=s.get("leadershipHistory",[])[index]
+	var lines:Array[String]=["目标 Lv.%d · %s · 实际尝试 %d 次"%[h.target,"成功升级" if h.success else "未升级，等级不变",h.attempts],"每次成功率 %.2f%%；每次独立，不累计保底。"%(h.chance/100.0),"总消耗 %d %s"%[h.attempts*(19 if h.payment=="gold" else 1),"金币" if h.payment=="gold" else "本统率书"],""]
+	if h.get("legacy",false):
+		lines.append("旧版只保留最后一批的汇总，未保存逐次结果与更早历史，无法还原。")
+	else:
+		lines.append("本批逐次结果（倒序）；数值0—9999，小于%d即成功。"%h.chance)
+		for i in range(h.rolls.size()-1,-1,-1):
+			lines.append("第 %d 次 · %s · 判定值 %d"%[i+1,"成功" if h.rolls[i]<h.chance else "未成功",h.rolls[i]])
+	_details("统率记录 #%d"%(index+1),"\n".join(lines))
+
 func _repair_all_ready():
 	return info.repairAll.count>0 and info.repairAll.shortage.is_empty() and not _command_pending()
 
@@ -6023,7 +6187,7 @@ func _repair_material_text():
 
 func _draw_attributes():
 	_title("属性与战力一览","COMBAT ATTRIBUTES / POWER CONTRIBUTIONS")
-	_button("nav:inventory","资源一览",Rect2(1340,119,220,44),"inventory")
+	_button("nav:inventory","资源一览",Rect2(1095,111,230,47),"inventory")
 	var scopes=[["unit","单车型"],["formation","当前已保存编队"],["ceiling","六格满编上限"]]
 	for i in range(3): _button("attributeScope:"+scopes[i][0],scopes[i][1],Rect2(40+i*269,200,255,38),scopes[i][0],attribute_scope==scopes[i][0])
 	for i in range(4): _button("attributeClass:"+str(i),catalog.classNames[CLASSES[i]],Rect2(40+i*204,252,191,34),i,i==selected_class)
@@ -7391,6 +7555,7 @@ func _district_action(id, data):
 		_navigate(str(data))
 	elif id=="warehouseProtection": _protection_details()
 	elif id=="chapterPage": campaign_chapter_page=int(data)
+	elif id=="coreChapterPage": core_chapter_page=int(data)
 	elif id=="baseBuildPrev": base_build_page=maxi(0,base_build_page-1)
 	elif id=="baseBuildNext": base_build_page+=1
 	elif id.begins_with("constructUpgrade:"):
@@ -7422,14 +7587,27 @@ func _district_action(id, data):
 		var action={"type":mode,"unitId":_unit_id(),"count":quantity}
 		if mode!="repair": action.facility=dispatch_selected
 		_confirm(action,"%s ×%d\n材料：%s\n%s\n等待 %s · 本单 %s\n1个工作位 + 3个等待位，按顺序交付。"%[catalog.units[_unit_id()].name,quantity,_cost_text(q.unitCost,quantity),"原车："+catalog.units[q.sourceUnitId].name+" ×%d"%quantity if q.sourceUnitId!="" else "核心："+catalog.coreNames[q.coreCost.id]+" ×%d"%quantity if q.has("coreCost") else "无需原车或核心",_time(q.waitMs),_eta(_effective_time(q.duration*quantity))])
-	elif id=="prestigePrev": prestige_page=maxi(0,prestige_page-1)
-	elif id=="prestigeNext": prestige_page=mini(11,prestige_page+1)
-	elif id=="prestigeCurrent": prestige_page=int((info.prestige.level-1)/10)
+	elif id=="prestigePrev":
+		prestige_page=maxi(0,prestige_page-1)
+		request({"op":"tick"})
+	elif id=="prestigeNext":
+		prestige_page+=1
+		request({"op":"tick"})
+	elif id=="prestigeCurrent":
+		prestige_page=int((info.prestige.level-1)/10)
+		request({"op":"tick"})
 	else: return false
 	return true
 
 func _construction_block(row):
 	return row.block if row.block!="" else _missing_resources(row.cost)
+
+func _upgrade_progress(building, pos: Vector2, width):
+	for job in info.jobs:
+		if job.kind in ["building","facility"] and job.target==building:
+			_fit_text("升级剩余 "+_time(job.remainingMs),pos+Vector2(0,22),width-159,15,GREEN)
+			_button("accelerate:"+str(int(job.seq)),"免费完成" if job.acceleration==0 else "%d 金币加速"%job.acceleration,Rect2(pos.x+width-151,pos.y,151,31),{"seq":job.seq},false,s.wallet.gold>=job.acceleration and not _command_pending())
+			return
 
 func _construction_card(row, rect: Rect2, compact=false):
 	_panel(rect,Color("172522"),GREEN if row.booked!=null else LINE)
@@ -7440,24 +7618,27 @@ func _construction_card(row, rect: Rect2, compact=false):
 	_fit_text(status,p+Vector2(0,50 if compact else 53),rect.size.x-24,15,GOLD)
 	var block=_construction_block(row)
 	if compact:
-		_fit_text(block if block!="" else "可直接升级，也可查看设施",p+Vector2(0,72),rect.size.x-24,14,RED if block!="" and not maxed else MUTED)
-		_button("constructUpgrade:"+row.id,"施工中" if row.booked!=null else "已满级" if maxed else "直接升级",Rect2(p.x,rect.position.y+83,164,31),row.id,true,block=="" and not _command_pending())
-		_button("constructView:"+row.id,"设施详情 →",Rect2(p.x+175,rect.position.y+83,164,31),row.id)
+		_button("constructUpgrade:"+row.id,"施工中" if row.booked!=null else "已满级" if maxed else "直接升级",Rect2(p.x,rect.position.y+63,164,31),row.id,true,block=="" and not _command_pending())
+		_button("constructView:"+row.id,"设施详情 →",Rect2(p.x+175,rect.position.y+63,164,31),row.id)
+		if row.booked!=null: _upgrade_progress(row.id,p+Vector2(0,104),rect.size.x-24)
+		else: _fit_text(block if block!="" else "可直接升级，也可查看设施",p+Vector2(0,126),rect.size.x-24,14,MUTED)
 	else:
-		_fit_text(block if block!="" else "升级后立即刷新当前设施与调度信息",p+Vector2(0,79),680,15,RED if block!="" and not maxed else MUTED)
-		_button("constructUpgrade:"+row.id,"施工中" if row.booked!=null else "已满级" if maxed else "直接升级",Rect2(rect.end.x-396,rect.position.y+48,180,35),row.id,true,block=="" and not _command_pending())
-		_button("constructView:"+row.id,"设施详情 →",Rect2(rect.end.x-202,rect.position.y+48,185,35),row.id)
+		_fit_text(block if block!="" else "升级后立即刷新设施与调度信息",p+Vector2(0,79),660,15,RED if block!="" and not maxed else MUTED)
+		_button("constructUpgrade:"+row.id,"施工中" if row.booked!=null else "已满级" if maxed else "直接升级",Rect2(rect.end.x-396,rect.position.y+12,180,31),row.id,true,block=="" and not _command_pending())
+		_button("constructView:"+row.id,"设施详情 →",Rect2(rect.end.x-202,rect.position.y+12,185,31),row.id)
+		if row.booked!=null: _upgrade_progress(row.id,Vector2(rect.end.x-396,rect.position.y+51),379)
 
 func _draw_base_construction():
 	_text("基地建设 · 设施清单",Vector2(1210,175),25,TEXT,true)
 	_fit_text("工作 %d / %d · 升级无需离开基地"%[info.queues.building.active,info.queues.building.slots],Vector2(1210,201),375,16,GOLD)
-	var pages=ceili(info.construction.size()/4.0)
-	base_build_page=clampi(base_build_page,0,pages-1)
-	for i in range(mini(4,info.construction.size()-base_build_page*4)):
-		_construction_card(info.construction[base_build_page*4+i],Rect2(1207,215+i*129,377,121),true)
-	_button("baseBuildPrev","上一页",Rect2(1207,739,112,33),null,false,base_build_page>0)
-	_button("baseBuildNext","%d/%d 下一页"%[base_build_page+1,pages],Rect2(1330,739,254,33),null,false,base_build_page<pages-1)
-	_button("basePanel:dispatch","返回全部作业",Rect2(1207,787,377,35),"dispatch")
+	_text("滚轮浏览设施 · 升级后保持当前位置",Vector2(1210,786),14,MUTED)
+	_button("basePanel:dispatch","返回全部作业",Rect2(1207,797,377,31),"dispatch")
+
+func _draw_base_research():
+	_text("科研中心 · 科技清单",Vector2(1210,175),25,TEXT,true)
+	_fit_text("工作 %d/1 · 等待 %d/3 · 在此直接研究"%[info.queues.research.active,info.queues.research.waiting],Vector2(1210,201),375,16,GOLD)
+	_text("滚轮浏览科技 · 操作后保持当前位置",Vector2(1210,786),14,MUTED)
+	_button("basePanel:dispatch","返回全部作业",Rect2(1207,797,377,31),"dispatch")
 
 func _draw_resource_zone():
 	_draw_district_scene("resources")
@@ -7486,6 +7667,14 @@ func _dispatch_submit_block():
 		return "数量超限，当前最多%d辆"%q.max
 	return ""
 
+func _research_job_button(job, rect):
+	if job.waiting:
+		_button("researchWaiting:"+str(int(job.seq)),"排队中 · 等待开工",rect,null,false,false)
+	else:
+		var affordable=s.wallet.gold>=job.acceleration
+		var label="%s 金币加速"%_amount(job.acceleration) if affordable else "缺 %s 金币"%_amount(job.acceleration-s.wallet.gold)
+		_button("accelerate:research:"+str(int(job.seq)),label,rect,{"seq":int(job.seq)},true,affordable and not _command_pending())
+
 func _draw_dispatch_arrange(station):
 	if station.id in ["building","research"]:
 		var rows=info.construction if station.id=="building" else catalog.researchTree
@@ -7497,12 +7686,18 @@ func _draw_dispatch_arrange(station):
 			if station.id=="building": _construction_card(row,rect)
 			else:
 				var q=info.researchQuotes[row.id]
-				var block=q.block if q.block!="" else "该科技已在队列" if q.duplicate else "科研等待队列已满" if info.queues.research.full else _missing_resources(q.unitCost)
+				var booked=q.booked
+				var block=q.block if q.block!="" else "科研等待队列已满" if info.queues.research.full else _missing_resources(q.unitCost)
 				_panel(rect)
 				_fit_text(catalog.techNames[row.id]+" · Lv.%d / 120"%s.tech[row.id],rect.position+Vector2(15,25),710,20,TEXT,true)
 				_fit_text("收益 %.1f%% → %.1f%% · %s"%[q.effectCurrent,q.effectNext,_eta(q.duration)],rect.position+Vector2(15,52),710,16,GOLD)
-				_fit_text(block if block!="" else _cost_text(q.unitCost),rect.position+Vector2(15,77),710,15,RED if block!="" else MUTED)
-				_button("dispatchResearch:"+row.id,"直接研究",Rect2(1172,rect.position.y+43,173,36),row.id,true,block=="" and not _command_pending())
+				if booked!=null:
+					var status="等待 %s · 预计完成 %s"%[_time(booked.waitMs),_time(booked.remainingMs)] if booked.waiting else "研究中 · 剩余 "+_time(booked.remainingMs)
+					_fit_text(status+" · 材料已支付",rect.position+Vector2(15,77),710,16,GOLD if booked.waiting else GREEN)
+					_research_job_button(booked,Rect2(1172,rect.position.y+43,173,36))
+				else:
+					_fit_text(block if block!="" else _cost_text(q.unitCost),rect.position+Vector2(15,77),710,15,RED if block!="" else MUTED)
+					_button("dispatchResearch:"+row.id,"直接研究",Rect2(1172,rect.position.y+43,173,36),row.id,true,block=="" and not _command_pending())
 				_button("dispatchTechView:"+row.id,"科技树 →",Rect2(1359,rect.position.y+43,185,36),row.id)
 		_button("queuePrev","上一页",Rect2(1243,791,130,35),null,false,queue_page>0)
 		_button("queueNext","%d/%d 下一页"%[queue_page+1,pages],Rect2(1387,791,174,35),null,false,queue_page<pages-1)
@@ -7530,24 +7725,23 @@ func _draw_dispatch_arrange(station):
 
 func _draw_prestige():
 	_title("军衔与声望","OFFICER / HONOR PROGRESSION")
-	_button("nav:commander","返回指挥官",Rect2(1300,110,260,47),"commander")
 	var h=info.prestige
 	_panel(Rect2(40,205,495,590),Color("182820"),GOLD.darkened(0.5))
 	_image("emblem",Rect2(175,225,220,182))
-	_text(h.rank+" · 声望 Lv.%d / 120"%h.level,Vector2(66,446),26,TEXT,true)
+	_text(h.rank+" · 声望 Lv.%d"%h.level,Vector2(66,446),26,TEXT,true)
 	_fit_text("累计声望 "+QuantityFormat.exact(h.total),Vector2(66,490),440,21,GOLD)
 	_fit_text("已满级" if h.next==null else "升级需累计 %s · 还差 %s"%[QuantityFormat.exact(h.next),QuantityFormat.exact(h.remaining)],Vector2(66,530),440,18,TEXT)
 	_bar(Rect2(66,550,440,8),1.0 if h.next==null else clampf((h.total-h.floor)/maxf(1,h.next-h.floor),0,1),GREEN)
 	_text("全队攻击 +%.1f%% · 生命 +%.1f%%"%[h.bonusBps/100.0,h.bonusBps/100.0],Vector2(66,599),20,GREEN)
 	_fit_text("统率培养上限 %d · 当前统率 %d"%[h.trainingCap,s.commander.leadership],Vector2(66,638),440,19,TEXT)
-	_fit_text("每升1级，攻/生命 +0.1%；最高各 +11.9%。",Vector2(66,684),440,16,MUTED)
+	_fit_text("每升1级，攻击/生命 +0.1%；120级后仍增长。",Vector2(66,684),440,16,MUTED)
 	_fit_text("旧档统率资格保留，不补发声望或军衔属性。",Vector2(66,717),440,16,MUTED)
 	_fit_text("来源：战役、核心行动、世界行动、每日补给。",Vector2(66,754),440,16,GOLD)
 	var labels=["声望级 / 军衔","累计门槛","升下级还需*","攻/生命加成","统率满编/格"]
 	var xs=[578,872,1050,1232,1417]
 	for i in range(labels.size()): _text(labels[i],Vector2(xs[i],240),16,GOLD)
 	for i in range(10):
-		var row=h.levels[prestige_page*10+i]
+		var row=h.levels[i]
 		var y=279+i*44
 		_panel(Rect2(557,y-26,1003,41),Color("344132") if row.level==h.level else PANEL,LINE)
 		var vals=["%d · %s"%[row.level,row.rank],QuantityFormat.exact(row.required),"满级" if row.next==null else QuantityFormat.exact(row.next-row.required),"+%.1f%%"%(row.bonusBps/100.0),str(int(row.cap))]
@@ -7555,7 +7749,7 @@ func _draw_prestige():
 	_fit_text("* 从该级起点升到下一级的声望；统率容量需实际培养后获得。",Vector2(574,741),964,16,MUTED)
 	_button("prestigeCurrent","定位当前等级",Rect2(574,763,285,39))
 	_button("prestigePrev","上一页",Rect2(1125,763,180,39),null,false,prestige_page>0)
-	_button("prestigeNext","%d / 12 下一页"%(prestige_page+1),Rect2(1320,763,240,39),null,false,prestige_page<11)
+	_button("prestigeNext","第 %d 页 · 下一页"%(prestige_page+1),Rect2(1320,763,240,39),null,false,true)
 
 func _workstations26_qa(out):
 	if "smoke" not in save_root:
@@ -8003,20 +8197,21 @@ func _draw_district_facility():
 				n+=1
 		var block=_construction_block(row)
 		_fit_text("可在此直接升级" if block=="" else block,Vector2(1214,475),363,16,GREEN if block=="" else GOLD)
-		_button("constructUpgrade:"+id,"已满级" if row.level>=120 else "设施正在升级" if row.booked!=null else "确认升级设施",Rect2(1214,492,363,43),id,true,block=="" and not _command_pending())
+		_button("constructUpgrade:"+id,"已满级" if row.level>=120 else "设施正在升级" if row.booked!=null else "直接升级设施",Rect2(1214,492,363,43),id,true,block=="" and not _command_pending())
 	else:
 		_fit_text("战损车辆按订单依次修复，逐辆返回库存。" if id=="repair" else "提升统率扩大编队；分配技能完善战术。",Vector2(1214,359),363,17,TEXT)
 		_fit_text("查看工位与等待订单的进度和预计时间。" if id=="repair" else "军衔、升级声望及属性均可在档案查看。",Vector2(1214,400),363,17,MUTED)
+	if not special: _upgrade_progress(id,Vector2(1214,541),363)
 	var page="repair" if id=="repair" else "commander" if id=="academy" else "factory" if id in ["factory","factory2","refit"] else "research" if id=="lab" else "queues" if id=="hq" else "inventory"
 	var label={"repair":"进入维修车间","commander":"打开指挥官档案","factory":"进入改装车间" if id=="refit" else "进入生产车间","research":"打开科研树","queues":"全基地作业调度","inventory":"查看资源库存与用途"}[page]
-	_button("sceneFunction",label+" →",Rect2(1214,553,363,46),page,true)
+	_button("sceneFunction",label+" →",Rect2(1214,584,363,43),page,true)
 	if id=="warehouse":
-		_button("warehouseProtection","保护 / 可掠夺库存详情",Rect2(1214,617,363,43))
+		_button("warehouseProtection","保护 / 可掠夺库存详情",Rect2(1214,642,363,38))
 		_fit_text("升级仓库可提高容量与保护比例",Vector2(1214,692),363,18,GOLD)
 		_fit_text("单机 NPC 据点同样保留保护库存。",Vector2(1214,713),363,15,MUTED)
 	elif id in ["factory","factory2","refit","lab","repair"]:
 		var station="research" if id=="lab" else id
-		_draw_dispatch_station(_dispatch_station(station),Rect2(1214,620,363,94),true)
+		_draw_dispatch_station(_dispatch_station(station),Rect2(1214,642,363,78),true)
 		if special: _fit_text("点击工位可直接安排作业或查看等待订单",Vector2(1214,744),363,16,MUTED)
 	else:
 		_fit_text("设施升级与作业完成后，区域信息立即同步。",Vector2(1214,650),363,17,MUTED)
@@ -8397,13 +8592,11 @@ func _expeditions31_qa(out):
 	var receipt_count=s.get("expeditionLog",[]).size()
 	await _dispatch_qa_click("rest:480")
 	await _settled()
-	if not confirm_dialog.visible: return false
-	_confirm_action()
-	await _settled()
-	if screen!="restReport" or not s.marches.is_empty() or s.expeditionLog.size()!=receipt_count+1: return false
+	if not rest_summary.visible or confirm_dialog.visible or not s.marches.is_empty() or s.expeditionLog.size()!=receipt_count+1: return false
 	var receipt=s.expeditionLog[0]
 	if receipt.stored.iron<=0 or receipt.cargo.iron!=receipt.stored.iron: return false
 	await _qa_capture(out,"rest-credited")
+	rest_summary.hide()
 	_navigate("reports")
 	var captured=[]
 	for size_value in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
@@ -8441,6 +8634,7 @@ func _expeditions31_qa(out):
 	command({"type":"rest","minutes":480})
 	await _settled()
 	if not s.marches.is_empty() or s.expeditionLog[0].discarded.iron<=0 or s.expeditionLog[0].stored.iron!=0: return false
+	rest_summary.hide()
 	_navigate("reports")
 	report_type="gather-return"
 	report_result="all"
@@ -8464,4 +8658,617 @@ func _expeditions31_qa(out):
 	_navigate("reports")
 	report_type="all"
 	FileAccess.open(out.path_join("expeditions31-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"commander_stats":stats,"credited":receipt.stored,"overflow_discarded":s.expeditionLog[0].discarded,"filters":6,"replay_idempotent":true,"captures":captured,"save_root":save_root},"  "))
+	return true
+
+func _base32_check(condition, label):
+	if not condition: push_error("V32_FAILED: "+label)
+	return condition
+
+func _base32_mouse(pos):
+	var event=InputEventMouseButton.new()
+	event.position=pos
+	event.button_index=MOUSE_BUTTON_LEFT
+	event.pressed=true
+	Input.parse_input_event(event)
+	await get_tree().process_frame
+	event=InputEventMouseButton.new()
+	event.position=pos
+	event.button_index=MOUSE_BUTTON_LEFT
+	event.pressed=false
+	Input.parse_input_event(event)
+	await get_tree().process_frame
+
+func _base32_qa(out):
+	if not _base32_check("smoke" in save_root,"save isolation"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	if not _base32_check(catalog.chapters.size()==36 and catalog.dungeons.size()==320,"chapter counts"): return false
+	_navigate("base")
+	for zone in ["hq","research","industry","resources"]:
+		if not await _dispatch_qa_click("district:"+zone): return false
+		var region=screen
+		var ids=["hq","lab","academy"] if zone in ["hq","research"] else ["factory","factory2","refit","repair"] if zone=="industry" else ["iron","oil","lead","titanium","crystal","warehouse"]
+		for building in ids:
+			if not await _dispatch_qa_click("sceneBuilding:"+building): return false
+			if not await _dispatch_qa_click("sceneFunction"): return false
+			if building=="lab": await _qa_capture(out,"research-return")
+			if building in ["factory","factory2","refit"] and not _base32_check(selected_factory==building,"correct workshop"): return false
+			if not await _dispatch_qa_click("goBack"): return false
+			if not _base32_check(screen==region and district_building==building,"region roundtrip "+building): return false
+		if not await _dispatch_qa_click("nav:regionHome"): return false
+	for page in ["library","settings","vip","attributes","commandTraining","objectives","presets","doctrine","prestige"]:
+		_navigate(page)
+		if not await _dispatch_qa_click("goBack"): return false
+		if not _base32_check(screen=="base","page return "+page): return false
+	# Begin from the building button, confirm cost, then use its inline gold acceleration.
+	await _dispatch_qa_click("district:resources")
+	await _dispatch_qa_click("constructUpgrade:iron")
+	_confirm_action()
+	await _settled()
+	await _qa_capture(out,"building-countdown")
+	var row=info.construction.filter(func(r):return r.id=="iron")[0]
+	if not _base32_check(row.booked!=null,"upgrade started"): return false
+	var gold_before=s.wallet.gold
+	var quoted=row.booked.acceleration
+	if not await _dispatch_qa_click("accelerate:"+str(int(row.booked.seq))): return false
+	_confirm_action()
+	await _settled()
+	if not _base32_check(s.buildings.iron==41 and s.wallet.gold==gold_before-quoted,"accelerate fee and completion"): return false
+	await _dispatch_qa_click("constructUpgrade:iron")
+	_confirm_action()
+	await _settled()
+	await _dispatch_qa_click("nav:regionHome")
+	base_panel="construction"
+	base_build_page=1
+	await _qa_capture(out,"construction-inline")
+	base_panel="dispatch"
+	rest_input.text="120"
+	rest_input.text_changed.emit("120")
+	var offset=s.timeOffset
+	await _dispatch_qa_click("restCustom")
+	await _settled()
+	if not _base32_check(rest_summary.visible and not confirm_dialog.visible and screen=="base","direct overlay"): return false
+	if not _base32_check(s.timeOffset==offset+120*3600000 and rest_input.text=="120" and rest_hours==120,"hours retained"): return false
+	await _qa_capture(out,"rest-debug")
+	FileAccess.open(out.path_join("progress-debug.json"),FileAccess.WRITE).store_string(JSON.stringify(progress_report,"  "))
+	if not _base32_check(s.marches.is_empty() and progress_report.buildings.size()>0 and progress_report.produced>0 and progress_report.research.size()>0 and info.repairSummary.repairing==0,"rest settles all projects"): return false
+	if not _base32_check(rest_summary.find_children("*","BaseButton",true,false).is_empty(),"no overlay buttons"): return false
+	await _qa_capture(out,"rest-debug")
+	if not _base32_check(rest_summary.find_children("*","TextureRect",true,false).filter(func(v):return v.has_meta("resource_icon")).size()==6,"resource icons"): return false
+	var captures=[]
+	for size_value in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=size_value
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			rest_summary.show_summary(self,progress_report)
+			var name="rest-%dx%d-%d"%[size_value.x,size_value.y,int(scale_value*100)]
+			await _qa_capture(out,name)
+			captures.append(name)
+			rest_summary.hide()
+			await _qa_capture(out,"base-%dx%d-%d"%[size_value.x,size_value.y,int(scale_value*100)])
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	rest_summary.show_summary(self,progress_report)
+	offset=s.timeOffset
+	# A real viewport click above the underlying rest button must close without advancing.
+	await _base32_mouse(Vector2(1070,770))
+	await _settled()
+	if not _base32_check(not rest_summary.visible and s.timeOffset==offset,"close without click-through"): return false
+	await _dispatch_qa_click("restCustom")
+	await _settled()
+	if not _base32_check(s.timeOffset==offset+120*3600000 and rest_summary.visible and rest_input.text=="120","repeat same hours"): return false
+	rest_summary.hide()
+	await _dispatch_qa_click("lastProgress")
+	if not _base32_check(rest_summary.visible,"reopen summary"): return false
+	rest_summary.hide()
+	_navigate("campaign")
+	campaign_mode="stage"
+	selected_stage=0
+	campaign_chapter_page=0
+	await _dispatch_qa_click("chapterPage")
+	await _dispatch_qa_click("chapterPage")
+	await _dispatch_qa_click("chapter:17")
+	if not _base32_check(selected_stage==287,"last normal chapter reachable"): return false
+	await _qa_capture(out,"chapter-18")
+	await _dispatch_qa_click("campaignMode:dungeon")
+	core_chapter_page=0
+	await _dispatch_qa_click("coreChapterPage")
+	await _dispatch_qa_click("coreChapter:8")
+	if not _base32_check(selected_dungeon==143,"last core chapter reachable"): return false
+	await _qa_capture(out,"core-chapter-9")
+	_navigate("base")
+	var dense=progress_report.duplicate(true)
+	for i in range(12):
+		dense.buildings.append({"id":"iron","from":40+i,"to":41+i})
+		dense.research.append({"id":"resourceOutput","from":40+i,"to":41+i})
+		dense.returns.append({"title":"压力测试归队%d"%i,"targetId":"site-0","outcome":"returned","survivors":10,"cargo":{"iron":100},"stored":{"iron":100},"discarded":{},"losses":{"repairable":2,"destroyed":1}})
+	rest_summary.show_summary(self,dense)
+	await _qa_capture(out,"rest-long-top")
+	rest_summary.scroll.scroll_vertical=int(rest_summary.scroll.get_v_scroll_bar().max_value)
+	await _qa_capture(out,"rest-long-bottom")
+	if not _base32_check(rest_summary.scroll.scroll_vertical>0 and rest_summary.panel.get_rect().end.y<835,"long report remains bounded and scrollable"): return false
+	rest_summary.hide()
+	_toggle_fullscreen()
+	rest_summary.show_summary(self,progress_report)
+	await _qa_capture(out,"rest-fullscreen")
+	_toggle_fullscreen()
+	FileAccess.open(out.path_join("v32-regression.json"),FileAccess.WRITE).store_string(JSON.stringify({"entrances_and_returns":"pass","building_timer_gold":"pass","direct_rest":"pass","remember_hours":"pass","overlay_icons_no_buttons":"pass","mouse_close_no_clickthrough":"pass","projects_and_returns":"pass","chapter_pagination":"pass","captures":captures},"  "))
+	return true
+
+func _command33_check(condition,label):
+	if not condition: push_error("V33_FAILED: "+label)
+	return condition
+
+func _command33_qa(out):
+	if not _command33_check("smoke" in save_root,"isolated save"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	_navigate("commandTraining")
+	for amount in [1,10,100]:
+		if not await _dispatch_qa_click("leadBatch:"+str(amount)): return false
+		if not _command33_check(leadership_attempts==amount,"batch selection"): return false
+		var gold=s.wallet.gold
+		var records=s.leadershipHistory.size()
+		await _dispatch_qa_click("trainGold")
+		if not _command33_check(not confirm_dialog.visible,"direct spending"): return false
+		await _settled()
+		var last=s.leadershipHistory.back()
+		if not _command33_check(screen=="commandTraining" and last.requested==amount and last.rolls.size()==amount and not last.success,"batch history"): return false
+		if not _command33_check(s.wallet.gold==gold-amount*19 and s.leadershipHistory.size()==records+1,"actual payment"): return false
+	await _qa_capture(out,"training-batches")
+	await _dispatch_qa_click("leadHistory")
+	if not _command33_check(screen=="leadHistory" and leadership_history_page==0,"history navigation"): return false
+	await _qa_capture(out,"leadership-history")
+	await _dispatch_qa_click("leadRecord:"+str(s.leadershipHistory.size()-1))
+	if not _command33_check("第 100 次" in details_text.text and "第 1 次" in details_text.text,"all attempt results"): return false
+	await _qa_capture(out,"history-detail")
+	details_dialog.hide()
+	await _dispatch_qa_click("leadHistoryPage:next")
+	if not _command33_check(leadership_history_page==1,"older records"): return false
+	await _dispatch_qa_click("leadRecord:0")
+	if not _command33_check("未保存逐次" in details_text.text,"legacy explanation"): return false
+	details_dialog.hide()
+	await _dispatch_qa_click("goBack")
+	if not _command33_check(screen=="commandTraining","back to training"): return false
+	var captured=[]
+	for size_value in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=size_value
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for page in ["commandTraining","leadHistory"]:
+				_navigate(page)
+				leadership_history_page=0
+				var name="%s-%dx%d-%d"%[page,size_value.x,size_value.y,int(scale_value*100)]
+				await _qa_capture(out,name)
+				captured.append(name)
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("world")
+	var balance=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("balance.json")))
+	selected_site=balance.site
+	map_center=Vector2(_site().x,_site().y)
+	await _qa_capture(out,"expanded-mine")
+	if not _command33_check(info.marchQuotes[selected_site].amount==info.marchQuotes[selected_site].load and info.mineCaps[selected_site]==balance.current,"full cargo quote"): return false
+	_navigate("campaign")
+	campaign_mode="dungeon"
+	selected_dungeon=0
+	await _qa_capture(out,"core-first-rewards")
+	await _dispatch_qa_click("dungeonAttack")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	_action("battleSkip")
+	await _settled()
+	if not _command33_check(settlement_visible and report.growth.books==1,"first clear book"): return false
+	await _qa_capture(out,"core-first-result")
+	await _dispatch_qa_click("nav:campaign")
+	_navigate("campaign")
+	campaign_mode="dungeon"
+	selected_dungeon=0
+	await _qa_capture(out,"core-repeat-rewards")
+	await _dispatch_qa_click("dungeonAttack")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	_action("battleSkip")
+	await _settled()
+	if not _command33_check(settlement_visible and report.growth.books==0 and report.growth.prestige==75 and report.growth.xp==300,"repeat half prestige no book"): return false
+	await _qa_capture(out,"core-repeat-result")
+	await _dispatch_qa_click("nav:campaign")
+	_navigate("leadHistory")
+	_toggle_fullscreen()
+	await _qa_capture(out,"history-fullscreen")
+	_toggle_fullscreen()
+	FileAccess.open(out.path_join("command33-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"records":s.leadershipHistory.size(),"mine":balance,"captures":captured,"save_root":save_root},"  "))
+	return true
+
+
+func _operations34_check(ok,label):
+	if not ok: print("V34_FAILED: ",label)
+	return ok
+
+func _operations34_mouse(pos):
+	var motion=InputEventMouseMotion.new()
+	motion.position=pos
+	motion.global_position=pos
+	get_viewport().push_input(motion,true)
+	for pressed in [true,false]:
+		var event=InputEventMouseButton.new()
+		event.position=pos
+		event.global_position=pos
+		event.button_index=MOUSE_BUTTON_LEFT
+		event.button_mask=MOUSE_BUTTON_MASK_LEFT if pressed else 0
+		event.pressed=pressed
+		get_viewport().push_input(event,true)
+	await get_tree().process_frame
+
+func _operations34_wheel(pos):
+	var event=InputEventMouseButton.new()
+	event.position=pos
+	event.global_position=pos
+	event.button_index=MOUSE_BUTTON_WHEEL_DOWN
+	event.pressed=true
+	get_viewport().push_input(event,true)
+	event=event.duplicate()
+	event.pressed=false
+	get_viewport().push_input(event,true)
+	await get_tree().process_frame
+
+func _operations34_qa(out):
+	if not _operations34_check("smoke" in save_root,"save isolation"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("base")
+	await _dispatch_qa_click("dispatchOpen:building")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not _operations34_check(construction_list.visible and construction_list.rows.size()==info.construction.size(),"all facilities in scroll"): return false
+	await _qa_capture(out,"construction-top")
+	var iron=construction_list.rows.iron
+	for i in range(25):
+		if iron.upgrade.get_global_rect().get_center().y<570: break
+		await _operations34_wheel(Vector2(1490,510))
+	await get_tree().create_timer(0.2).timeout
+	var scroll=construction_list.scroll_vertical
+	if not _operations34_check(scroll>0 and iron.upgrade.get_global_rect().get_center().y>240,"wheel reaches iron"): return false
+	var level=s.buildings.iron
+	await _operations34_mouse(iron.upgrade.get_global_rect().get_center())
+	if not _operations34_check(not confirm_dialog.visible,"upgrade no confirmation"): return false
+	await _settled()
+	await get_tree().process_frame
+	await _qa_capture(out,"construction-upgrading")
+	if not _operations34_check(iron.speed.visible and construction_list.scroll_vertical==scroll,"upgrade keeps scroll and shows acceleration"):
+		print("V34_STATE ",iron.speed.visible," scroll ",scroll," -> ",construction_list.scroll_vertical," jobs ",JSON.stringify(s.jobs)," toast ",toast)
+		return false
+	var quote=info.construction.filter(func(row):return row.id=="iron")[0].booked.acceleration
+	var gold=s.wallet.gold
+	await _operations34_mouse(iron.speed.get_global_rect().get_center())
+	await _settled()
+	if not _operations34_check(not confirm_dialog.visible and s.buildings.iron==level+1 and s.wallet.gold==gold-quote,"one click gold completion"): return false
+	if not _operations34_check(construction_list.scroll_vertical==scroll,"acceleration keeps scroll"): return false
+	# The queued-request guard must also cover clicks arriving before the bridge starts work.
+	_action("constructUpgrade:iron","iron")
+	_action("constructUpgrade:iron","iron")
+	await _settled()
+	if not _operations34_check(info.queues.building.active==1,"duplicate click blocked"): return false
+	await _qa_capture(out,"construction-after-acceleration")
+	# Native detail and back navigation keep the original list position.
+	await _operations34_mouse(iron.view.get_global_rect().get_center())
+	if not _operations34_check(screen=="resources" and district_building=="iron","facility detail link"): return false
+	await _dispatch_qa_click("nav:regionHome")
+	await get_tree().process_frame
+	if not _operations34_check(screen=="base" and base_panel=="construction" and construction_list.scroll_vertical==scroll,"back retains list"): return false
+	_navigate("commandTraining")
+	for amount in [1,10,100,1000]:
+		await _dispatch_qa_click("leadBatch:"+str(amount))
+		if not _operations34_check(leadership_attempts==amount,"four batch choices"): return false
+	var books=s.commander.books
+	gold=s.wallet.gold
+	await _dispatch_qa_click("buyBooks")
+	await _settled()
+	if not _operations34_check(not confirm_dialog.visible and s.commander.books==books+1000 and s.wallet.gold==gold-19000,"direct book purchase"): return false
+	gold=s.wallet.gold
+	await _dispatch_qa_click("trainGold")
+	await _settled()
+	if not _operations34_check(not confirm_dialog.visible and s.commander.leadership==121 and s.wallet.gold==gold-19,"level 121 and actual one attempt cost"): return false
+	if not _operations34_check(s.leadershipHistory.back().requested==1000 and s.leadershipHistory.back().attempts==1,"1000 recorded with success stop"): return false
+	await _qa_capture(out,"training-121")
+	await _dispatch_qa_click("leadHistory")
+	await _qa_capture(out,"training-history")
+	await _dispatch_qa_click("goBack")
+	_navigate("prestige")
+	await _settled()
+	if not _operations34_check(prestige_page==13 and info.prestige.level==131 and info.prestige.rank=="上将" and info.prestige.levels[0].level==131,"prestige beyond 120"): return false
+	await _qa_capture(out,"prestige-131")
+	await _dispatch_qa_click("prestigeNext")
+	await _settled()
+	if not _operations34_check(info.prestige.levels[0].level==141,"future prestige page"): return false
+	# RepairAll now uses its queued quote immediately, with no bulk instant-completion bypass.
+	_navigate("repair")
+	await _dispatch_qa_click("repairAll")
+	await _settled()
+	if not _operations34_check(not confirm_dialog.visible and info.queues.repair.active==1 and s.damaged.tank_t7==0,"direct repair queues"): return false
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for page in ["base","commandTraining","prestige"]:
+				_navigate(page)
+				if page=="base": base_panel="construction"
+				if page=="prestige": await _settled()
+				var name="%s-%dx%d-%d"%[page,window_size.x,window_size.y,int(scale_value*100)]
+				await _qa_capture(out,name)
+				captures.append(name)
+	_toggle_fullscreen()
+	_navigate("base")
+	base_panel="construction"
+	await _qa_capture(out,"construction-fullscreen")
+	_toggle_fullscreen()
+	FileAccess.open(out.path_join("operations34-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"scroll":scroll,"leadership":s.commander.leadership,"prestige":info.prestige.level,"captures":captures,"save_root":save_root},"  "))
+	return true
+
+func _research35_check(ok,label):
+	if not ok: print("V35_FAILED: ",label," toast: ",toast)
+	return ok
+
+func _research35_qa(out):
+	if not _research35_check("smoke" in save_root,"save isolation"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("queues")
+	await _dispatch_qa_click("dispatchSelect:research")
+	await _dispatch_qa_click("dispatchTab:arrange")
+	for i in range(4): await _dispatch_qa_click("queueNext")
+	if not _research35_check(queue_page==4,"research page reached"): return false
+	var paid=s.wallet.duplicate(true)
+	var cost=info.researchQuotes.attack.unitCost.duplicate(true)
+	await _dispatch_qa_click("dispatchResearch:attack")
+	await _settled()
+	if not _research35_check(not confirm_dialog.visible and info.queues.research.active==1 and queue_page==4,"direct research stays on page"): return false
+	for key in cost:
+		if not _research35_check(s.wallet[key]==paid[key]-cost[key],"material paid once "+key): return false
+	for tech in ["hp","ballistics","survey"]:
+		await _dispatch_qa_click("dispatchResearch:"+tech)
+		await _settled()
+	if not _research35_check(info.queues.research.waiting==3,"three waiting projects"): return false
+	await _qa_capture(out,"research-active-queue")
+	var active=info.researchQuotes.attack.booked
+	var gold=s.wallet.gold
+	var level=s.tech.attack
+	await _dispatch_qa_click("accelerate:research:"+str(int(active.seq)))
+	await _settled()
+	if not _research35_check(not confirm_dialog.visible and s.tech.attack==level+1 and s.wallet.gold==gold-active.acceleration and queue_page==4,"one click acceleration exact cost"): return false
+	if not _research35_check(not info.researchQuotes.hp.booked.waiting and info.researchQuotes.ballistics.booked.waiting,"FIFO promotion"): return false
+	await _qa_capture(out,"research-promoted")
+	await _dispatch_qa_click("dispatchTechView:hp")
+	if not _research35_check(screen=="research" and selected_tech=="hp","tree opens same technology"): return false
+	active=info.researchQuotes.hp.booked
+	gold=s.wallet.gold
+	await _qa_capture(out,"research-tree-accelerate")
+	await _dispatch_qa_click("accelerate:research:"+str(int(active.seq)))
+	await _settled()
+	if not _research35_check(not confirm_dialog.visible and s.tech.hp==31 and s.wallet.gold==gold-active.acceleration,"tree direct acceleration"): return false
+	_navigate("queues")
+	dispatch_selected="research"
+	dispatch_tab="arrange"
+	queue_page=4
+	var captures=[]
+	for size_value in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=size_value
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for view in ["research-queue","main36","core20"]:
+				if view=="research-queue":
+					_navigate("queues")
+					dispatch_selected="research"
+					dispatch_tab="arrange"
+					queue_page=4
+				else:
+					_navigate("campaign")
+					campaign_mode="stage" if view=="main36" else "dungeon"
+					selected_stage=575
+					campaign_chapter_page=5
+					selected_dungeon=319
+					core_chapter_page=3
+				var name="%s-%dx%d-%d"%[view,size_value.x,size_value.y,int(scale_value*100)]
+				await _qa_capture(out,name)
+				captures.append(name)
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("campaign")
+	campaign_mode="stage"
+	campaign_chapter_page=0
+	for i in range(5): await _dispatch_qa_click("chapterPage")
+	await _dispatch_qa_click("chapter:35")
+	await _dispatch_qa_click("stage:575")
+	if not _research35_check(campaign_chapter_page==5 and selected_stage==575,"main chapter pagination"): return false
+	await _dispatch_qa_click("attack")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	_action("battleSkip")
+	if not _research35_check(settlement_visible and report.winner==0 and s.cleared.size()==576,"main endpoint settlement"): return false
+	await _qa_capture(out,"main36-result")
+	await _dispatch_qa_click("nav:campaign")
+	await _dispatch_qa_click("campaignMode:dungeon")
+	core_chapter_page=0
+	for i in range(3): await _dispatch_qa_click("coreChapterPage")
+	await _dispatch_qa_click("coreChapter:19")
+	await _dispatch_qa_click("dungeon:319")
+	if not _research35_check(selected_dungeon==319 and catalog.dungeons[319].guardTech==384,"core chapter pagination and strength"): return false
+	await _dispatch_qa_click("dungeonAttack")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	_action("battleSkip")
+	if not _research35_check(settlement_visible and report.winner==0 and s.arsenal.cleared.size()==320 and report.growth.books==20,"core endpoint settlement"): return false
+	await _qa_capture(out,"core20-result")
+	var snapshot=report.duplicate(true)
+	var wallet=s.wallet.duplicate(true)
+	var cores=s.arsenal.cores.duplicate(true)
+	_action("battleReplay")
+	if not _research35_check(not _battle_done() and battle_index==0,"replay entered"): return false
+	_action("battleSkip")
+	if not _research35_check(s.wallet==wallet and s.arsenal.cores==cores,"replay no re-credit"): return false
+	request({"op":"load","id":s.id})
+	await _settled()
+	if not _research35_check(s.cleared.size()==576 and s.arsenal.cleared.size()==320 and s.reports[0].id==snapshot.id,"save reload new endpoints"): return false
+	_navigate("queues")
+	dispatch_selected="research"
+	dispatch_tab="arrange"
+	queue_page=4
+	_toggle_fullscreen()
+	await _qa_capture(out,"research-fullscreen")
+	_toggle_fullscreen()
+	FileAccess.open(out.path_join("research35-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"main_chapters":36,"core_chapters":20,"direct_research":true,"inline_acceleration":true,"fifo_promotion":true,"tree_acceleration":true,"page_retained":true,"save_reload":true,"replay_no_credit":true,"captures":captures,"save_root":save_root},"  "))
+	return true
+
+func _research36_check(ok,label):
+	if not ok: print("V36_FAILED: ",label," toast: ",toast)
+	return ok
+
+func _research36_seek(id):
+	var button=research_list.rows[id].upgrade
+	for i in range(150):
+		var y=button.get_global_rect().get_center().y
+		if y>=245 and y<725: return true
+		await _operations34_wheel(Vector2(1510,510))
+	return false
+
+func _research36_qa(out):
+	if not _research36_check("smoke" in save_root,"isolated profile"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("base")
+	await _dispatch_qa_click("dispatchOpen:research")
+	await _qa_capture(out,"research-expanded")
+	if not _research36_check(screen=="base" and base_panel=="research" and research_list.visible and research_list.rows.size()==catalog.researchTree.size(),"opens in base all technologies"): return false
+	if not _research36_check(not construction_list.visible and research_list.rows.resourceOutput.upgrade.disabled,"maxed and exclusive panel"): return false
+	if not _research36_check(await _research36_seek("attack"),"wheel reaches combat research"): return false
+	var scroll=research_list.scroll_vertical
+	var row=research_list.rows.attack
+	var gold=s.wallet.gold
+	var materials=s.wallet.duplicate(true)
+	var cost=info.researchQuotes.attack.unitCost.duplicate(true)
+	await _operations34_mouse(row.upgrade.get_global_rect().get_center())
+	await _settled()
+	await _qa_capture(out,"research-working")
+	if not _research36_check(not confirm_dialog.visible and screen=="base" and row.speed.visible and research_list.scroll_vertical==scroll,"direct research and scroll retained"): return false
+	for key in cost:
+		if not _research36_check(s.wallet[key]==materials[key]-cost[key],"single payment "+key): return false
+	# A timer-driven refresh cannot recreate the row or reset its scroll position.
+	var row_identity=row.upgrade.get_instance_id()
+	request({"op":"tick"})
+	await _settled()
+	await _qa_capture(out,"research-timer")
+	if not _research36_check(row.upgrade.get_instance_id()==row_identity and research_list.scroll_vertical==scroll,"refresh stable controls"): return false
+	# Enter from a focused native button, as well as mouse operation.
+	row.view.grab_focus()
+	var enter=InputEventKey.new()
+	enter.keycode=KEY_ENTER
+	enter.pressed=true
+	get_viewport().push_input(enter,true)
+	enter=InputEventKey.new()
+	enter.keycode=KEY_ENTER
+	enter.pressed=false
+	get_viewport().push_input(enter,true)
+	await get_tree().process_frame
+	if not _research36_check(screen=="research" and selected_tech=="attack","keyboard detail entry"): return false
+	await _dispatch_qa_click("goBack")
+	await _qa_capture(out,"research-return")
+	if not _research36_check(screen=="base" and base_panel=="research" and research_list.scroll_vertical==scroll,"detail return retains list"): return false
+	var job=info.researchQuotes.attack.booked
+	gold=s.wallet.gold
+	await _operations34_mouse(row.speed.get_global_rect().get_center())
+	await _settled()
+	await _qa_capture(out,"research-completed")
+	if not _research36_check(s.tech.attack==31 and s.wallet.gold==gold-job.acceleration and not row.speed.visible and not row.upgrade.disabled and research_list.scroll_vertical==scroll and not confirm_dialog.visible,"one click gold finish"): return false
+	# Collapse/reopen retains research position independently of construction.
+	await _dispatch_qa_click("basePanel:dispatch")
+	await _dispatch_qa_click("dispatchOpen:building")
+	await _qa_capture(out,"construction-independent")
+	if not _research36_check(construction_list.visible and not research_list.visible and construction_list.scroll_vertical==0,"construction independent scroll"): return false
+	await _dispatch_qa_click("basePanel:dispatch")
+	await _dispatch_qa_click("dispatchOpen:research")
+	await _qa_capture(out,"research-reopened")
+	if not _research36_check(research_list.scroll_vertical==scroll,"collapse remembers position"): return false
+	# Same row cannot enqueue twice before a command response arrives.
+	row.upgrade.pressed.emit()
+	row.upgrade.pressed.emit()
+	await _settled()
+	if not _research36_check(info.queues.research.active==1 and info.queues.research.waiting==0,"duplicate press guarded"): return false
+	if not _research36_check(await _research36_seek("hp"),"scroll to next technology"): return false
+	var hp=research_list.rows.hp
+	await _operations34_mouse(hp.upgrade.get_global_rect().get_center())
+	await _settled()
+	await _qa_capture(out,"research-waiting")
+	if not _research36_check(info.researchQuotes.hp.booked.waiting and hp.upgrade.disabled and not hp.speed.visible,"waiting project no bypass"): return false
+	for tech in ["ballistics","armorPlating"]:
+		if not await _research36_seek(tech): return false
+		await _operations34_mouse(research_list.rows[tech].upgrade.get_global_rect().get_center())
+		await _settled()
+	await _qa_capture(out,"research-full-queue")
+	if not _research36_check(info.queues.research.waiting==3 and research_list.rows.survey.upgrade.disabled and "队列已满" in research_list.rows.survey.status.text,"full queue reason"): return false
+	# Completing the active project promotes hp in-place and preserves the current scroll.
+	job=info.researchQuotes.attack.booked
+	command({"type":"accelerate","kind":"research","seq":int(job.seq)})
+	await _settled()
+	research_list.scroll_vertical=scroll
+	await _qa_capture(out,"research-promoted")
+	if not _research36_check(not info.researchQuotes.hp.booked.waiting and hp.speed.visible,"waiting becomes active"): return false
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			# Frame the full active card for screenshots after each typography reflow.
+			research_list.scroll_vertical+=int(hp.title.get_global_rect().position.y-235)
+			await get_tree().process_frame
+			var name="base-research-%dx%d-%d"%[window_size.x,window_size.y,int(scale_value*100)]
+			await _qa_capture(out,name)
+			captures.append(name)
+			for parts in research_list.rows.values():
+				if not _research36_check(parts.cost.get_line_count()<=4,"full materials visible"): return false
+			if not _research36_check(research_list.get_rect()==Rect2(1207,215,377,554),"sidebar boundaries"): return false
+	_toggle_fullscreen()
+	await _qa_capture(out,"research-fullscreen")
+	_toggle_fullscreen()
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	# Gold shortage is visible and cannot charge or complete the job.
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("no-gold-save.json"))})
+	await _settled()
+	await _dispatch_qa_click("dispatchOpen:research")
+	await _qa_capture(out,"research-new-save-top")
+	if not _research36_check(research_list.scroll_vertical==0,"new save resets scroll"): return false
+	if not await _research36_seek("attack"): return false
+	await _qa_capture(out,"research-gold-shortage")
+	row=research_list.rows.attack
+	if not _research36_check(row.speed.disabled and "金币不足" in row.speed.tooltip_text,"gold shortage feedback"): return false
+	await _operations34_mouse(row.speed.get_global_rect().get_center())
+	await _settled()
+	if not _research36_check(s.wallet.gold==0 and s.tech.attack==30,"disabled acceleration no effect"): return false
+	var escape=InputEventKey.new()
+	escape.keycode=KEY_ESCAPE
+	escape.pressed=true
+	_unhandled_key_input(escape)
+	await _qa_capture(out,"research-collapsed")
+	if not _research36_check(screen=="base" and base_panel=="dispatch" and not research_list.visible,"escape collapses"): return false
+	FileAccess.open(out.path_join("research36-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"native_inline_research":true,"scroll":scroll,"stable_rows":true,"direct_acceleration":true,"fifo":true,"full_queue":true,"gold_shortage":true,"detail_back":true,"keyboard":true,"captures":captures,"save_root":save_root},"  "))
 	return true

@@ -1,7 +1,14 @@
 import { protectionLedger } from './protection';
+import { validateRestMinutes } from './rest';
 import { trimArchive, REPORT_LIMIT } from './archive';
 import { MAX_LEVEL, MAX_PRODUCTION_BATCH, facilitySpeedBps, economyBonus } from './growth';
-import { enableCommander, leadershipQuote, BOOK_PRICE, prestigeRank } from './commander';
+import {
+  enableCommander,
+  leadershipQuote,
+  BOOK_PRICE,
+  prestigeRank,
+  LEADERSHIP_BATCHES,
+} from './commander';
 import {
   enableResearch,
   researchTree,
@@ -42,6 +49,7 @@ import {
   coreNames,
   dungeons,
   dungeonArmy,
+  dungeonGrowth,
   dungeonBlock,
   repairAllQuote,
   enableArsenal,
@@ -233,6 +241,7 @@ export function newGame(id: string, nickname: string, now: number, seed = 260100
   const state: GameState = {
     schema: 1,
     commandVersion: 1,
+    leadershipHistory: [],
     prestigeFloor: 1,
     ruleset: RULESET,
     id,
@@ -777,7 +786,7 @@ export function execute(
   let accounting: ResourceAccounting | undefined;
   switch (command.type) {
     case 'rest': {
-      if (![60, 480].includes(command.minutes)) fail('请选择休整 1 小时或 8 小时');
+      validateRestMinutes(command.minutes);
       const elapsed = command.minutes * 60000;
       if ((s.timeOffset ?? 0) + elapsed > 315360000000) fail('此存档的休整时间已达到上限');
       s.timeOffset = (s.timeOffset ?? 0) + elapsed;
@@ -999,7 +1008,7 @@ export function execute(
           }
           if (first) s.arsenal!.cleared.push(dungeon.id);
           count(s, 'dungeonVictory');
-          b.growth = { ...dungeon.growth };
+          b.growth = dungeonGrowth(dungeon, first);
           s.commander.books += b.growth.books;
           s.commander.prestige += b.growth.prestige;
           s.commander.xp += b.growth.xp;
@@ -1102,7 +1111,7 @@ export function execute(
         payment = command.payment ?? 'books',
         attempts = command.attempts ?? 1;
       if (q.block) fail(q.block);
-      if (!['books', 'gold'].includes(payment) || ![1, 10, 100].includes(attempts))
+      if (!['books', 'gold'].includes(payment) || !LEADERSHIP_BATCHES.includes(attempts))
         fail('统率尝试参数无效');
       if (payment === 'books' && s.commander.books < attempts)
         fail(
@@ -1115,11 +1124,13 @@ export function execute(
       let tried = 0,
         roll = 0,
         success = false;
+      const rolls: number[] = [];
       for (; tried < attempts;) {
         if (payment === 'books') s.commander.books--;
         else pay(s, { gold: BOOK_PRICE });
         tried++;
         roll = Math.floor((nextSeed(s) * 10000) / 4294967296);
+        rolls.push(roll);
         success = roll < q.chance;
         if (success) {
           s.commander.leadership++;
@@ -1135,6 +1146,7 @@ export function execute(
         payment,
         at: s.now,
       };
+      s.leadershipHistory!.push({ ...s.lastLeadership, requested: attempts, rolls });
       result = success
         ? `第 ${tried} 次成功，统率 ${s.commander.leadership} 级，单格 ${leadershipCap(s)} 辆`
         : `${tried} 次未成功，统率保持 ${s.commander.leadership} 级；下次概率仍为 ${q.chance / 100}%`;
@@ -1263,14 +1275,19 @@ export function assertState(s: GameState) {
       (!s.researchVersion && !legacyTech.includes(t as (typeof legacyTech)[number]) && n !== 0)
     )
       fail('科技扩展无效');
-  if (!integer(s.commander.leadership, 1, 120) || !integer(s.commander.attackSkill, 0, MAX_LEVEL))
+  if (
+    !integer(s.commander.leadership, 1, Number.MAX_SAFE_INTEGER) ||
+    !integer(s.commander.attackSkill, 0, MAX_LEVEL)
+  )
     fail('指挥官等级无效');
   for (const k of ['xp', 'books', 'prestige', 'skillPoints'] as const)
-    if (!integer(s.commander[k], 0, 1e12)) fail('指挥官数据无效');
+    if (!integer(s.commander[k], 0, k === 'prestige' ? Number.MAX_SAFE_INTEGER : 1e12))
+      fail('指挥官数据无效');
   const validF = (f: Formation) => {
     if (!Array.isArray(f) || f.length !== 6) fail('阵位数据无效');
     for (const t of f)
-      if (t && (!units[t.unitId] || !integer(t.count, 1, 10000))) fail('战车数据无效');
+      if (t && (!units[t.unitId] || !integer(t.count, 1, Number.MAX_SAFE_INTEGER)))
+        fail('战车数据无效');
   };
   validF(s.formation);
   if (!Array.isArray(s.marches) || s.marches.length > vipBenefits(s).marches) fail('行军数据无效');
@@ -1397,7 +1414,7 @@ export function assertState(s: GameState) {
       !['outbound', 'gathering', 'returning'].includes(m.phase) ||
       !integer(m.dueAt, s.now, 8640000000000000) ||
       !integer(m.travelMs, 1, 1e9) ||
-      !integer(m.capacity, 0, 1e9) ||
+      !integer(m.capacity, 0, Number.MAX_SAFE_INTEGER) ||
       !integer(m.gatherRate, 1, 1e10) ||
       !integer(m.remainder, 0, 3599999)
     )

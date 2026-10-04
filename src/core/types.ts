@@ -127,6 +127,7 @@ export interface BattleReport {
   rewards: Cost;
 }
 export interface WorldSite {
+  reserveVersion?: 1;
   protectionVersion?: 1;
   economyVersion?: 2 | 3;
   id: string;
@@ -184,19 +185,26 @@ export interface Receipt {
   result: string;
   revision: number;
 }
+export interface LeadershipResult {
+  target: number;
+  attempts: number;
+  chance: number;
+  roll: number;
+  success: boolean;
+  payment: 'books' | 'gold';
+  at: number;
+}
+export interface LeadershipRecord extends LeadershipResult {
+  requested?: 1 | 10 | 100 | 1000;
+  rolls?: number[];
+  legacy?: true;
+}
 export interface GameState {
   schema: 1;
   commandVersion?: 1;
   prestigeFloor?: number;
-  lastLeadership?: {
-    target: number;
-    attempts: number;
-    chance: number;
-    roll: number;
-    success: boolean;
-    payment: 'books' | 'gold';
-    at: number;
-  };
+  lastLeadership?: LeadershipResult;
+  leadershipHistory?: LeadershipRecord[];
   honors?: { id: string; at: number; reportId: string }[];
   expeditionLog?: {
     success?: boolean;
@@ -269,7 +277,7 @@ export interface GameState {
 }
 export type Command =
   | { type: 'repairAll'; quote: string }
-  | { type: 'rest'; minutes: 60 | 480 }
+  | { type: 'rest'; minutes: number }
   | { type: 'upgrade'; building: Building }
   | { type: 'facilityUpgrade'; facility: 'factory2' | 'refit' }
   | { type: 'research'; tech: Technology }
@@ -293,7 +301,7 @@ export type Command =
   | { type: 'scout'; targetId: string }
   | { type: 'march'; targetId: string; mission: 'gather' | 'raid'; formation?: Formation }
   | { type: 'recall'; marchId: string }
-  | { type: 'leadership'; payment?: 'books' | 'gold'; attempts?: 1 | 10 | 100 }
+  | { type: 'leadership'; payment?: 'books' | 'gold'; attempts?: 1 | 10 | 100 | 1000 }
   | { type: 'buyBooks'; count: number }
   | { type: 'skill' | 'initiativeSkill' | 'extraFireSkill' | 'daily' }
   | { type: 'claim'; questId: string }

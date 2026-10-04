@@ -144,9 +144,7 @@ describe('v0.26 prestige and half-attack combo', () => {
       const p = prestigeOverview(s);
       expect(p.level).toBe(level);
       expect(p.bonusBps).toBe((level - 1) * 10);
-      expect(p.remaining).toBe(
-        level < 120 ? prestigeRequired(level + 1) - prestigeRequired(level) : 0,
-      );
+      expect(p.remaining).toBe(prestigeRequired(level + 1) - prestigeRequired(level));
       expect(p.levels[level - 1].rank).toBe(p.rank);
     }
     s.commander.prestige = 0;

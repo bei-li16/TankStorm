@@ -20,10 +20,10 @@ const fresh = () => {
 };
 
 describe('v24 five-chapter core campaign', () => {
-  it('provides 5 × 16 unique stages, four supply nodes per family per chapter and increasing strength', () => {
-    expect(coreChapters).toHaveLength(5);
-    expect(dungeons).toHaveLength(80);
-    expect(new Set(dungeons.map((d) => d.id)).size).toBe(80);
+  it('provides 20 × 16 unique stages, four supply nodes per family per chapter and increasing strength', () => {
+    expect(coreChapters).toHaveLength(20);
+    expect(dungeons).toHaveLength(320);
+    expect(new Set(dungeons.map((d) => d.id)).size).toBe(320);
     let power = 0;
     for (const d of dungeons) {
       expect(d.number).toBe((d.index % 16) + 1);
@@ -48,7 +48,7 @@ describe('v24 five-chapter core campaign', () => {
         }
       }
     }
-    for (let c = 0; c < 5; c++)
+    for (let c = 0; c < coreChapters.length; c++)
       for (const family of ['tank', 'tank_destroyer', 'spg', 'rocket'])
         expect(dungeons.filter((d) => d.band === c && d.classId === family)).toHaveLength(4);
   });
@@ -89,17 +89,17 @@ describe('v24 five-chapter core campaign', () => {
     expect(dungeonBlock(loaded, dungeons[64])).toContain('工厂');
   });
 
-  it('settles the last stage once, serializes all 80 clears and preserves historical snapshots', async () => {
+  it('settles the historical chapter-nine endpoint once, serializes its 144 clears and preserves historical snapshots', async () => {
     const s = fresh();
-    const d = dungeons.at(-1)!;
-    s.arsenal!.cleared = dungeons.slice(0, -1).map((v) => v.id);
+    const d = dungeons[143];
+    s.arsenal!.cleared = dungeons.slice(0, 143).map((v) => v.id);
     const command = { type: 'dungeon' as const, dungeonId: d.id };
     const after = execute(s, command, s.now, 'last').state;
     expect(after.reports[0].winner).toBe(0);
-    expect(after.arsenal!.cleared).toHaveLength(80);
+    expect(after.arsenal!.cleared).toHaveLength(144);
     expect(after.reports[0].growth).toEqual(d.growth);
     expect(after.reports[0].initial[1]).toEqual(dungeonArmy(d));
-    expect(after.reports[0].tactics!.teams[1].initiative).toBe(310);
+    expect(after.reports[0].tactics!.teams[1].initiative).toBe(460);
     const snapshot = structuredClone(after.reports[0]);
     after.tech.attack = 1;
     const loaded = await parseSave(await exportSave(after));
