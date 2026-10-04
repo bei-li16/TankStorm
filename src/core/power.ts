@@ -1,6 +1,6 @@
-import { army, extraFireChance } from './battle';
+import { army, extraFireChance, commanderStats } from './battle';
 import { unitList, units, rules } from './content';
-import type { ArmyStack, Formation, GameState } from './types';
+import type { ArmyStack, Formation, GameState, CombatStats } from './types';
 
 const coverage = { tank: 3, tank_destroyer: 1, spg: 2, rocket: 6 };
 // Neutral, full target coverage. Matchups and conditional team auras remain tactical,
@@ -24,18 +24,20 @@ export const tierPower = Array.from({ length: 7 }, (_, i) => {
     .map((u) => Math.sqrt(ability(army([{ unitId: u.unitId, count: 1 }])[0])));
   return Math.round((10 * baseline.reduce((a, b) => a + b, 0)) / baseline.length);
 });
-export function unitPower(st: ArmyStack) {
+export function unitPower(
+  st: ArmyStack,
+  tactics: CombatStats = { initiative: st.initiative ?? 100, extraFire: st.extraFire ?? 100 },
+) {
   const u = units[st.unitId],
     base = army([{ unitId: st.unitId, count: 1 }])[0];
-  const initiative = 1 + Math.max(0, (st.initiative ?? base.initiative!) - base.initiative!) / 1000;
-  const extra =
-    (1 + extraFireChance(st.extraFire ?? base.extraFire!, base.extraFire!) / 10000) / 1.1;
+  const initiative = 1 + Math.max(0, tactics.initiative - 100) / 1000;
+  const extra = (1 + extraFireChance(tactics.extraFire, 100) / 20000) / 1.05;
   return Math.round(
     tierPower[u.tier - 1] * Math.sqrt(ability(st) / ability(base)) * initiative * extra,
   );
 }
-export function armyPower(stacks: ArmyStack[]) {
-  return stacks.reduce((n, st) => n + unitPower(st) * Math.ceil(st.totalHp / st.hp), 0);
+export function armyPower(stacks: ArmyStack[], tactics?: CombatStats) {
+  return stacks.reduce((n, st) => n + unitPower(st, tactics) * Math.ceil(st.totalHp / st.hp), 0);
 }
 export function powerUnits(s: GameState) {
   return Object.fromEntries(
@@ -43,6 +45,7 @@ export function powerUnits(s: GameState) {
       u.unitId,
       unitPower(
         army([{ unitId: u.unitId, count: 1 }], s.tech, s.commander.attackSkill, s.commander)[0],
+        commanderStats(s.tech, s.commander),
       ),
     ]),
   );

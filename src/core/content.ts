@@ -76,9 +76,13 @@ export function researchCost(level: number): Cost {
   if (level >= MAX_LEVEL) return {};
   const scale = 1.2 * (level + 1) ** 2.65;
   return {
-    iron: Math.ceil(100 * scale),
-    lead: Math.ceil(80 * scale),
-    crystal: Math.ceil(30 * scale),
+    // Apply v29's additional 50% to the rounded v28 research quote only.
+    // Levels 1–5 remain reachable before HQ6 unlocks local titanium production.
+    iron: Math.ceil((level < 5 ? 80 : 60) * scale),
+    oil: Math.ceil((level < 5 ? 55 : 39) * scale),
+    lead: Math.ceil((level < 5 ? 65 : 46) * scale),
+    titanium: level < 5 ? 0 : Math.ceil(Math.ceil(Math.ceil(32 * scale) * 1.5) * 1.5),
+    crystal: Math.ceil((level < 5 ? 26 : 17) * scale),
   };
 }
 const legacyStageNames = [
@@ -140,6 +144,11 @@ export const chapters = [
   { name: '钢铁会战', theme: '工业基地与装甲决战', tier: 5 },
   { name: '极地突围', theme: '冰原边境与精锐集群', tier: 6 },
   { name: '终焉黎明', theme: '精密战车与最后防区', tier: 7 },
+  { name: '破晓追击', theme: '越过旧防线，追击纵深装甲集团', tier: 7 },
+  { name: '熔炉风暴', theme: '夺回钢铁工业带与重型军械库', tier: 7 },
+  { name: '荒原铁流', theme: '贯穿沙海油田与长距离补给线', tier: 7 },
+  { name: '寒锋壁垒', theme: '冰原要塞与密集防御集群', tier: 7 },
+  { name: '最终攻势', theme: '精锐装甲总攻与指挥中枢决战', tier: 7 },
 ];
 const chapterMissions = [
   '前沿侦察',
@@ -160,7 +169,7 @@ const chapterMissions = [
   '决战黎明',
 ];
 export const stageNames = Array.from(
-  { length: 112 },
+  { length: chapters.length * 16 },
   (_, i) =>
     legacyStageNames[i] ?? `${chapters[Math.floor(i / 16)].name} · ${chapterMissions[i % 16]}`,
 );
@@ -180,22 +189,28 @@ export function stageFormation(index: number): Formation {
     const tier = chapter === 0 ? 2 : Math.min(7, chapter + 1 + (step >= 12 && slot === 0 ? 1 : 0));
     return {
       unitId: `${classes[(slot + Math.floor(step / 4)) % 6]}_t${tier}`,
-      count: chapter === 0 ? 3 + index * 2 : 16 + chapter * 20 + Math.floor(step * 1.6),
+      // VII is the highest vehicle tier. Append strength through troop counts;
+      // a 25-unit chapter step preserves the existing +floor(step*1.6) slope without boundary regression.
+      count:
+        chapter === 0
+          ? 3 + index * 2
+          : (chapter >= 7 ? 161 + (chapter - 7) * 25 : 16 + chapter * 20) + Math.floor(step * 1.6),
     };
   });
 }
 export function stageReward(index: number, first: boolean): Cost {
   const reward = legacyStageReward(index, first);
-  if (index >= 12)
-    reward.gold = first ? 15 + Math.floor(index / 16) * 5 : 2 + Math.floor(index / 16);
+  if (index >= 12) reward.gold = first ? 15 + Math.floor(index / 16) * 5 : 0;
   return reward;
 }
 export function stageGrowth(index: number, first: boolean) {
+  const prestige =
+    index < 12 ? 10 + index * 5 : 50 + Math.floor(index / 16) * 150 + (index % 16) * 10;
   return {
     xp: (index + 1) * 50,
-    books: 1,
+    books: first ? 1 : 0,
     skillPoints: first ? 1 : 0,
-    prestige: index < 12 ? 10 + index * 5 : 50 + Math.floor(index / 16) * 150 + (index % 16) * 10,
+    prestige: first ? prestige : Math.floor(prestige / 2),
   };
 }
 export const quests: Quest[] = [

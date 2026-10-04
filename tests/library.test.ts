@@ -18,7 +18,7 @@ const article = (id: string) =>
 describe('classified player library', () => {
   it('has unique, complete and connected articles with valid native destinations', () => {
     expect(libraryCategories).toHaveLength(7);
-    expect(libraryEntries).toHaveLength(26);
+    expect(libraryEntries).toHaveLength(39);
     const ids = new Set(libraryEntries.map((e) => e.id));
     expect(ids.size).toBe(libraryEntries.length);
     for (const entry of libraryEntries) {
@@ -40,11 +40,14 @@ describe('classified player library', () => {
         'queues',
         'settings',
         'world',
+        'base',
+        'commander',
+        'objectives',
       ]).toContain(entry.destination.page);
       expect(entry.sources.length).toBeGreaterThan(0);
       expect(article(entry.id)).not.toMatch(/\$[A-Z_]+|undefined|NaN/);
     }
-    expect(fieldLibrary.ruleset).toBe('classic-combat-v0.24.3');
+    expect(fieldLibrary.ruleset).toBe('classic-combat-v0.31');
   });
   it('searches Chinese terms and aliases across article text without changing the catalog', () => {
     const before = JSON.stringify(fieldLibrary);
@@ -56,13 +59,13 @@ describe('classified player library', () => {
     expect(searchLibrary('battle', ' \t ')).toHaveLength(8);
     expect(JSON.stringify(fieldLibrary)).toBe(before);
   });
-  it('matches the stated unweighted initiative, tie break and extra-fire examples', () => {
+  it('matches the commander-independent initiative, tie break and extra-fire examples', () => {
     const team = army([
       { unitId: 'tank_t1', count: 100 },
       { unitId: 'tank_t7', count: 1 },
     ]);
-    expect(combatStats(team).initiative).toBe(118);
-    expect(article('initiative')).toContain('118');
+    expect(combatStats(team).initiative).toBe(100);
+    expect(article('initiative')).toContain('指挥官先手为100');
     const report = simulate(
       army([{ unitId: 'tank_t1', count: 20 }]),
       army([{ unitId: 'tank_t1', count: 20 }]),

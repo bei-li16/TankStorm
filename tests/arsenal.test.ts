@@ -48,7 +48,7 @@ describe('seven-tier arsenal and core operations', () => {
     full.arsenal!.cores.tank_core6 = 100000;
     for (const r of Object.keys(full.wallet))
       full.wallet[r as keyof typeof full.wallet] = 100000000;
-    expect(productionQuote(full, 'tank_t6').max).toBe(100);
+    expect(productionQuote(full, 'tank_t6').max).toBe(500);
   });
   it('quotes the same per-unit duration that production snapshots after speed research', () => {
     let s = rich();

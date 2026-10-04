@@ -1,3 +1,6 @@
+import { archiveRows } from '../../src/core/archive';
+import { protectionLedger } from '../../src/core/protection';
+import { MAX_PRODUCTION_BATCH } from '../../src/core/growth';
 import {
   enableResearch,
   researchRequirements,
@@ -5,7 +8,12 @@ import {
   researchEffect,
 } from '../../src/core/research';
 import { restPreview, coreBudget, progression } from '../../src/core/planning';
-import { enableCommander, leadershipQuote, prestigeLevel } from '../../src/core/commander';
+import {
+  enableCommander,
+  leadershipQuote,
+  prestigeLevel,
+  prestigeOverview,
+} from '../../src/core/commander';
 import { arrangedFormation, powerOverview, armyPower } from '../../src/core/power';
 import { attributeSheet } from '../../src/core/attributes';
 import { dispatchOverview } from '../../src/core/dispatch';
@@ -69,6 +77,7 @@ import {
   facilityUpgradeQuote,
   maxFormation,
   usableFormation,
+  formationAvailability,
 } from '../../src/core/engine';
 import * as content from '../../src/core/content';
 import {
@@ -80,9 +89,11 @@ import {
 } from '../../src/core/arsenal';
 import { exportSave, parseSave } from '../../src/core/storage';
 import { resources, type GameState } from '../../src/core/types';
-import { army } from '../../src/core/battle';
+import { commanderStats, army } from '../../src/core/battle';
 import {
   mineCapacity,
+  npcCapacity,
+  npcProtected,
   NPC_CAPACITY,
   NPC_PROTECTED,
   WORLD_INTERVAL,
@@ -184,6 +195,29 @@ export class NativeStore {
         const summary = (s: GameState, backup = false) => ({
           id: s.id,
           nickname: s.nickname,
+          protection: {
+            ...protectionLedger(0, capacity(s), s.buildings.warehouse),
+            nextBps: protectionLedger(0, capacity(s), s.buildings.warehouse + 1).bps,
+            resources: Object.fromEntries(
+              resources.map((r) => [
+                r,
+                protectionLedger(s.wallet[r], capacity(s), s.buildings.warehouse),
+              ]),
+            ),
+          },
+          siteProtection: Object.fromEntries(
+            s.world
+              .filter((site) => site.kind === 'npc')
+              .map((site) => [
+                site.id,
+                Object.fromEntries(
+                  resources.map((r) => [
+                    r,
+                    { capacity: npcCapacity(site, r), limit: npcProtected(site, r) },
+                  ]),
+                ),
+              ]),
+          ),
           level: commanderLevel(s),
           at: s.now,
           savedAt: Math.floor(statSync(this.path(id, backup ? '.backup' : '.json')).mtimeMs),
@@ -303,6 +337,10 @@ export class NativeStore {
         })),
       },
       info: {
+        archive: archiveRows(s).map((r) =>
+          r.mode === 'world' ? { ...r, transport: transportStatus(s, r as any) } : r,
+        ),
+        commanderStats: commanderStats(s.tech, s.commander),
         dispatch: dispatchOverview(s),
         progression: progression(s),
         inventory: inventoryView(s),
@@ -364,13 +402,29 @@ export class NativeStore {
         ),
         repairSummary: {
           damaged: Object.values(s.damaged).reduce((n, v) => n + v, 0),
-          repairing: s.jobs.repair ? s.jobs.repair.total - s.jobs.repair.completed : 0,
+          repairing: allJobs(s)
+            .filter((j) => j.kind === 'repair')
+            .reduce((n, j) => n + j.total - j.completed, 0),
           destroyed: Object.values(s.destroyedUnits).reduce((n, v) => n + v, 0),
         },
         stageStatus: content.stageNames.map((_, i) => ({
           cleared: s.cleared.includes(i),
           unlocked: i === 0 || s.cleared.includes(i - 1),
         })),
+        construction: [...Object.keys(content.buildingNames), 'factory2', 'refit'].map((id) => {
+          const extra = id === 'factory2' || id === 'refit';
+          const b = id as keyof typeof s.buildings;
+          const quote = extra ? facilityUpgradeQuote(s, id) : null;
+          return {
+            id,
+            name: extra ? facilityNames[id] : content.buildingNames[b],
+            level: extra ? quote!.level : s.buildings[b],
+            cost: extra ? quote!.unitCost : materialCost(s, content.upgradeCost(b, s.buildings[b])),
+            duration: effectiveTime(s, extra ? quote!.duration : buildingDuration(s, b)),
+            block: extra ? quote!.block : (upgradeBlock(s, b) ?? ''),
+            booked: queueView(s).find((j) => j.kind === 'building' && j.target === id) ?? null,
+          };
+        }),
         buildingBenefits: Object.fromEntries(
           Object.keys(content.buildingNames).map((id) => {
             const b = id as keyof typeof s.buildings;
@@ -450,11 +504,35 @@ export class NativeStore {
         savedAt: this.lastFlush,
         hasBackup: existsSync(this.path(s.id, '.backup')),
         capacity: capacity(s),
+        protection: {
+          ...protectionLedger(0, capacity(s), s.buildings.warehouse),
+          nextBps: protectionLedger(0, capacity(s), s.buildings.warehouse + 1).bps,
+          resources: Object.fromEntries(
+            resources.map((r) => [
+              r,
+              protectionLedger(s.wallet[r], capacity(s), s.buildings.warehouse),
+            ]),
+          ),
+        },
+        siteProtection: Object.fromEntries(
+          s.world
+            .filter((site) => site.kind === 'npc')
+            .map((site) => [
+              site.id,
+              Object.fromEntries(
+                resources.map((r) => [
+                  r,
+                  { capacity: npcCapacity(site, r), limit: npcProtected(site, r) },
+                ]),
+              ),
+            ]),
+        ),
         level: commanderLevel(s),
         rank: commanderRank(s),
         leadership: leadershipCap(s),
         leadershipQuote: leadershipQuote(s),
         prestigeLevel: prestigeLevel(s),
+        prestige: prestigeOverview(s),
         power: powerOverview(s, usableFormation(s)),
         formationPlans: {
           power: arrangedFormation(s, 'power'),
@@ -466,6 +544,10 @@ export class NativeStore {
         ),
         usable: usableFormation(s),
         suggestedFormation: maxFormation(s),
+        presetLoads: s.presets.map((p) => ({
+          name: p.name,
+          ...formationAvailability(s, p.formation),
+        })),
         worldInterval: WORLD_INTERVAL,
         npcCapacity: NPC_CAPACITY,
         npcProtected: NPC_PROTECTED,
@@ -487,10 +569,7 @@ export class NativeStore {
                 repair: productionQuote(s, u.unitId, 'repair'),
                 attack: Math.floor((st.attack * (st.attackBonus ?? 10000)) / 10000),
                 hp: st.hp,
-                baseInitiative: 100 + (u.tier - 1) * 6,
-                baseExtraFire: 100 + (u.tier - 1) * 5,
-                initiative: st.initiative,
-                extraFire: st.extraFire,
+
                 load: unitLoad(s, u.unitId),
                 baseLoad: Math.floor(baseUnitLoad(u.unitId)),
                 marching: s.marches.reduce(
@@ -498,10 +577,11 @@ export class NativeStore {
                     n + m.troops.reduce((a, t) => a + (t?.unitId === u.unitId ? t.count : 0), 0),
                   0,
                 ),
-                repairing:
-                  s.jobs.repair?.target === u.unitId
-                    ? s.jobs.repair.total - s.jobs.repair.completed
-                    : 0,
+                repairing: allJobs(s).reduce(
+                  (n, j) =>
+                    n + (j.kind === 'repair' && j.target === u.unitId ? j.total - j.completed : 0),
+                  0,
+                ),
               },
             ];
           }),
@@ -518,10 +598,17 @@ export class NativeStore {
       extra = {
         catalog: {
           ...content,
+          productionBatchLimit: MAX_PRODUCTION_BATCH,
           coreList,
           coreChapters,
           coreNames,
-          dungeons: dungeons.map((d) => ({ ...d, power: armyPower(dungeonArmy(d)) })),
+          dungeons: dungeons.map((d) => ({
+            ...d,
+            power: armyPower(
+              dungeonArmy(d),
+              commanderStats({ march: d.guardTech, ballistics: d.guardTech }),
+            ),
+          })),
           vipLevels,
           fieldLibrary,
           stages: content.stageNames.map((name, i) => ({
@@ -557,6 +644,10 @@ export class NativeStore {
           );
           this.commit(result.state);
           message = result.result;
+          if (r.command?.type === 'presetLoad') {
+            const p = this.state.presets[r.command.index];
+            extra.presetLoad = { name: p.name, ...formationAvailability(this.state, p.formation) };
+          }
           if (r.command?.type === 'rest')
             extra.progress = { ...progressSummary(beforeState, this.state), ...result.accounting };
           if (r.command?.type === 'battle' || r.command?.type === 'dungeon') {
@@ -728,7 +819,7 @@ export async function serve(root: string, ready: string, token: string, parent: 
     req.setEncoding('utf8');
     req.on('data', (chunk) => {
       size += Buffer.byteLength(chunk);
-      if (size > 22000000) {
+      if (size > 280000000) {
         req.destroy();
         return;
       }

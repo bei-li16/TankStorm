@@ -102,6 +102,7 @@ export interface Casualty {
   destroyed: number;
 }
 export interface BattleReport {
+  worldKind?: 'mine' | 'npc';
   target?: { type: 'battle' | 'dungeon'; stage?: number; dungeonId?: string; training?: boolean };
   marchId?: string;
   tactics?: { teams: [CombatStats, CombatStats]; firstSide: 0 | 1; chances: [number, number] };
@@ -126,6 +127,7 @@ export interface BattleReport {
   rewards: Cost;
 }
 export interface WorldSite {
+  protectionVersion?: 1;
   economyVersion?: 2 | 3;
   id: string;
   x: number;
@@ -147,6 +149,10 @@ export interface Intel {
   wallet: Wallet;
 }
 export interface March {
+  battleId?: string;
+  battleWon?: boolean;
+  casualties?: Casualty[];
+  commanderStats?: CombatStats;
   unitLoads?: Record<string, number>;
   id: string;
   targetId: string;
@@ -193,6 +199,13 @@ export interface GameState {
   };
   honors?: { id: string; at: number; reportId: string }[];
   expeditionLog?: {
+    success?: boolean;
+    mission?: 'gather' | 'raid';
+    title?: string;
+    stored?: Wallet;
+    discarded?: Wallet;
+    battleId?: string;
+    casualties?: Casualty[];
     marchId: string;
     targetId: string;
     at: number;

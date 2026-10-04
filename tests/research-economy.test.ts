@@ -271,6 +271,7 @@ describe('v09 automatic VIP completion', () => {
   });
   it('free gathering deducts finite reserve, never skips either travel leg and credits only at home', () => {
     let s = rich(40);
+    s.wallet.iron = 0;
     s.world[0].reserve = 17;
     const q = marchQuote(s, s.world[0], s.formation);
     expect(q.gatherMs).toBe(0);

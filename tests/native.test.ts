@@ -9,6 +9,41 @@ import { exportSave, parseSave } from '../src/core/storage';
 
 const roots: string[] = [];
 const stores: NativeStore[] = [];
+
+it('v31 rest returns gathered resources, exposes a receipt and persists it once', async () => {
+  const store = make();
+  store.boot();
+  const s = store.state;
+  s.buildings.hq = s.buildings.warehouse = 40;
+  s.formation = [{ unitId: 'tank_t1', count: 20 }, null, null, null, null, null];
+  await store.handle({
+    op: 'command',
+    command: { type: 'march', targetId: 'site-0', mission: 'gather' },
+  });
+  const reply = await store.handle({
+    op: 'command',
+    id: 'v31-rest-once',
+    command: { type: 'rest', minutes: 480 },
+  });
+  expect(reply.state.marches).toHaveLength(0);
+  const receipt = reply.state.expeditionLog![0];
+  expect(receipt.stored!.iron).toBe(8000);
+  expect(reply.info.archive.find((r: { receipt: boolean }) => r.receipt)).toMatchObject({
+    category: 'gather-return',
+    rewards: receipt.stored,
+    outcome: 'success',
+  });
+  expect(reply.state.wallet.iron).toBeGreaterThan(8000);
+  expect(store.read(store.state.id).expeditionLog).toEqual(reply.state.expeditionLog);
+  const count = store.state.counters.cargo;
+  await store.handle({
+    op: 'command',
+    id: 'v31-rest-once',
+    command: { type: 'rest', minutes: 480 },
+  });
+  expect(store.state.counters.cargo).toBe(count);
+  expect(store.state.expeditionLog).toHaveLength(1);
+});
 function make() {
   const root = mkdtempSync(join(tmpdir(), 'tankstorm-native-'));
   roots.push(root);

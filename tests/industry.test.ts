@@ -146,7 +146,7 @@ describe('two manufacturing plants and a refit plant', () => {
     s = act(s, { type: 'refit', unitId: 'tank_t2', count: 100 });
     expect(() =>
       act(s, { type: 'produce', unitId: 'tank_t1', count: 1, facility: 'factory2' }),
-    ).toThrow('等待位已满');
+    ).not.toThrow();
     const waiting = queueView(s).filter((j) => j.waiting);
     expect(waiting).toHaveLength(3);
     expect(waiting[0].waitMs).toBe(waiting[1].waitMs);

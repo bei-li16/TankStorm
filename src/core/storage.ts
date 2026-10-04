@@ -161,7 +161,7 @@ export async function exportSave(s: GameState) {
   return JSON.stringify({ ...payload, checksum: await digest(payload) }, null, 2);
 }
 export async function parseSave(text: string): Promise<GameState> {
-  if (text.length > 20000000) throw Error('存档文件超过 20 MB');
+  if (text.length > 256000000) throw Error('存档文件超过 256 MB');
   let doc;
   try {
     doc = JSON.parse(text);

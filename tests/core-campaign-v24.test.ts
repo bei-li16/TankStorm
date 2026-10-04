@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { coreChapters, dungeons, dungeonArmy, dungeonBlock } from '../src/core/arsenal';
-import { army, combatStats, simulate } from '../src/core/battle';
+import { army, commanderStats, simulate } from '../src/core/battle';
 import { newGame, execute, assertState } from '../src/core/engine';
 import { armyPower } from '../src/core/power';
 import { progression } from '../src/core/planning';
@@ -99,7 +99,7 @@ describe('v24 five-chapter core campaign', () => {
     expect(after.arsenal!.cleared).toHaveLength(80);
     expect(after.reports[0].growth).toEqual(d.growth);
     expect(after.reports[0].initial[1]).toEqual(dungeonArmy(d));
-    expect(combatStats(after.reports[0].initial[1]).initiative).toBe(346);
+    expect(after.reports[0].tactics!.teams[1].initiative).toBe(310);
     const snapshot = structuredClone(after.reports[0]);
     after.tech.attack = 1;
     const loaded = await parseSave(await exportSave(after));
@@ -134,7 +134,10 @@ describe('v24 five-chapter core campaign', () => {
         let wins = 0,
           permanent = 0;
         for (let seed = 1; seed <= 30; seed++) {
-          const r = simulate(own, dungeonArmy(d), seed * 7919, 'dungeon');
+          const r = simulate(own, dungeonArmy(d), seed * 7919, 'dungeon', [
+            commanderStats(tech, { initiativeSkill: skill, extraFireSkill: skill }),
+            commanderStats({ march: d.guardTech, ballistics: d.guardTech }),
+          ]);
           wins += r.winner === 0 ? 1 : 0;
           permanent += r.casualties.reduce((n, c) => n + c.destroyed, 0);
           expect(

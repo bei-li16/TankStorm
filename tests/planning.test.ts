@@ -163,7 +163,7 @@ describe('v0.13 reviewed player journeys', () => {
   it('objectives follow actual progress and old saves need no honor migration', () => {
     const s = rich();
     s.claimed = quests.map((q) => q.id);
-    s.cleared = Array.from({ length: 112 }, (_, i) => i);
+    s.cleared = Array.from({ length: 192 }, (_, i) => i);
     expect(progression(s).next.title).toBe('四车系核心补给线');
     expect(s.honors).toBeUndefined();
     s.arsenal!.cleared = ['core-0', 'core-2', 'core-4', 'core-6'];

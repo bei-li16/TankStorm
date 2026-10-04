@@ -27,7 +27,7 @@ function damage(s: GameState, id: string, n: number) {
   s.damaged[id] += n;
   s.createdUnits[id] += n;
 }
-describe('v0.15 instant recovery', () => {
+describe('batch repair compatibility after v0.26', () => {
   it('repairs mixed pending and prepaid remaining units once, preserving other queues and losses', async () => {
     let s = fixture();
     damage(s, 'tank_t1', 7);
@@ -39,17 +39,17 @@ describe('v0.15 instant recovery', () => {
     s = advance(s, s.jobs.repair!.dueAt);
     const before = structuredClone(s),
       q = repairAllQuote(s);
-    expect(q.count).toBe(12);
+    expect(q.count).toBe(8);
     expect(q.prepaid).toBe(4);
     const command = { type: 'repairAll' as const, quote: q.token };
     s = execute(s, command, s.now, 'instant-recovery').state;
     expect(s.wallet.crystal).toBe(before.wallet.crystal - q.cost.crystal!);
-    expect(s.available.tank_t1).toBe(before.available.tank_t1 + 6);
-    expect(s.available.spg_t7).toBe(6);
+    expect(s.available.tank_t1).toBe(before.available.tank_t1);
+    expect(s.available.spg_t7).toBe(0);
     expect(s.createdUnits).toEqual(before.createdUnits);
     expect(s.destroyedUnits).toEqual(before.destroyedUnits);
     expect(s.jobs.production).toEqual(before.jobs.production);
-    expect(allJobs(s).some((j) => j.kind === 'repair')).toBe(false);
+    expect(allJobs(s).filter((j) => j.kind === 'repair')).toHaveLength(3);
     expect(s.now).toBe(before.now);
     expect(execute(s, command, s.now, 'instant-recovery').state).toBe(s);
     const loaded = await parseSave(await exportSave(s));
@@ -57,7 +57,7 @@ describe('v0.15 instant recovery', () => {
     expect(execute(loaded, command, loaded.now, 'instant-recovery').state).toBe(loaded);
     const later = advance(s, s.now + 86400000);
     expect(later.available.tank_t1).toBe(
-      s.available.tank_t1 + 100 - before.jobs.production!.completed,
+      s.available.tank_t1 + 6 + 100 - before.jobs.production!.completed,
     );
     expect(later.available.spg_t7).toBe(6);
     assertState(later);
@@ -68,11 +68,14 @@ describe('v0.15 instant recovery', () => {
     s = act(s, { type: 'repair', unitId: 'tank_t7', count: 3 });
     s.wallet.crystal = 0;
     const q = repairAllQuote(s);
-    expect(q.cost.crystal).toBe(0);
+    expect(q.cost.crystal ?? 0).toBe(0);
     expect(q.shortage).toEqual([]);
-    s = act(s, { type: 'repairAll', quote: q.token });
+    expect(q.count).toBe(0);
+    expect(q.prepaid).toBe(3);
+    expect(() => act(s, { type: 'repairAll', quote: q.token })).toThrow('已送修');
+    s = advance(s, s.now + 86400000);
     expect(s.available.tank_t7).toBe(10003);
-    expect(s.wallet.crystal).toBe(0);
+    expect(s.wallet.crystal).toBeGreaterThanOrEqual(0);
     assertState(s);
   });
   it('rejects insufficient material or stale confirmation atomically, including natural completion', () => {
@@ -172,6 +175,7 @@ describe('v0.15 core operation mainline', () => {
 describe('v0.15 attribute power ledger', () => {
   it('preserves equal whiteboard scores for all four classes and keeps all base attributes visible', () => {
     const s = fixture();
+    s.commander.prestige = 0;
     for (const u of unitList) {
       const row = unitAttributes(s, u.unitId);
       expect(row.base).toBe(tierPower[u.tier - 1]);

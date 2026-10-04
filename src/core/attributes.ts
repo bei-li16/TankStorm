@@ -1,4 +1,4 @@
-import { army } from './battle';
+import { army, commanderStats } from './battle';
 import { unitList, units } from './content';
 import { powerOverview, tierPower, unitPower } from './power';
 import type { Formation, GameState } from './types';
@@ -10,7 +10,8 @@ export function unitAttributes(s: GameState, unitId: string) {
   const base = army([{ unitId, count: 1 }])[0],
     st = army([{ unitId, count: 1 }], s.tech, s.commander.attackSkill, s.commander)[0];
   const baseline = tierPower[units[unitId].tier - 1],
-    power = unitPower(st);
+    tactics = commanderStats(s.tech, s.commander),
+    power = unitPower(st, tactics);
   const hit = clamp(0.95 + st.accuracy / 10000, 0.1, 1),
     crit = clamp(0.1 + st.crit / 10000, 0, 0.75);
   const enemyHit = clamp(0.95 - st.evasion / 10000, 0.1, 1),
@@ -22,8 +23,8 @@ export function unitAttributes(s: GameState, unitId: string) {
     Math.sqrt(0.95 / enemyHit),
     Math.sqrt((1 + crit * 0.5) / 1.05),
     Math.sqrt(1.05 / (1 + enemyCrit * 0.5)),
-    1 + Math.max(0, st.initiative! - base.initiative!) / 1000,
-    (1 + clamp(0.1 + (st.extraFire! - base.extraFire!) / 1000, 0, 0.35)) / 1.1,
+    1 + Math.max(0, tactics.initiative - 100) / 1000,
+    (1 + 0.5 * clamp(0.1 + (tactics.extraFire - 100) / 1000, 0, 0.35)) / 1.05,
   ];
   const weight = factors.map(Math.log),
     sum = weight.reduce((a, b) => a + b, 0);
@@ -39,11 +40,11 @@ export function unitAttributes(s: GameState, unitId: string) {
     '闪避率',
     '暴击率',
     '装甲 / 抗暴',
-    '先手值',
-    '二次开火值',
+    '指挥官先手',
+    '指挥官二次开火',
   ];
   const ids = ['attack', 'hp', 'accuracy', 'evasion', 'crit', 'armor', 'initiative', 'extraFire'];
-  const bases = [base.attack, base.hp, 95, 0, 10, 0, base.initiative!, base.extraFire!];
+  const bases = [base.attack, base.hp, 95, 0, 10, 0, 100, 100];
   const values = [
     (st.attack * (st.attackBonus ?? 10000)) / 10000,
     st.hp,
@@ -51,12 +52,12 @@ export function unitAttributes(s: GameState, unitId: string) {
     st.evasion / 100,
     crit * 100,
     st.armor / 100,
-    st.initiative!,
-    st.extraFire!,
+    tactics.initiative,
+    tactics.extraFire,
   ];
   const sources = [
-    `攻击科技 ${s.tech.attack} / 弹道 ${s.tech.ballistics} / 战术 ${s.commander.attackSkill}`,
-    `生命科技 ${s.tech.hp} / 装甲加固 ${s.tech.armorPlating}`,
+    `攻击科技 ${s.tech.attack} / 弹道 ${s.tech.ballistics} / 战术 ${s.commander.attackSkill} / 声望军衔`,
+    `生命科技 ${s.tech.hp} / 装甲加固 ${s.tech.armorPlating} / 声望军衔`,
     '当前无额外命中加成',
     '当前无额外闪避加成',
     '团队歼击车光环不计入静态分数',
@@ -101,6 +102,6 @@ export function attributeSheet(s: GameState, formation: Formation) {
     },
     bestUnit: p.bestUnit,
     explanation:
-      '白板基准由伤害、生命等归一化得到，单列以保持同阶四系等分。乘算加成按对数权重分摊，整数尾差归并；各增量加基础分恰等于总战力。满编额外统率容量单列；条件光环、克制、载重和经济属性不重复计分。',
+      '白板基准由伤害、生命等归一化得到，单列以保持同阶四系等分。乘算加成按对数权重分摊，整数尾差归并；各增量加基础分恰等于总战力。满编额外统率容量单列；指挥官先手与二次开火是全军统一系数，此处显示分摊到战力的贡献，不是车辆自身属性。条件光环、克制、载重和经济属性不重复计分。',
   };
 }

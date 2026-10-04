@@ -106,16 +106,16 @@ describe('v19 real durations, batch limits and economy', () => {
       }
     }
   });
-  it('enforces 100 for both manufacture and refit atomically while repair keeps its own limit', () => {
+  it('enforces 500 for both manufacture and refit atomically while repair keeps its own limit', () => {
     const s = state();
-    s.available.tank_t6 = s.createdUnits.tank_t6 = 200;
+    s.available.tank_t6 = s.createdUnits.tank_t6 = 600;
     s.damaged.tank_t7 = s.createdUnits.tank_t7 = 200;
-    expect(productionQuote(s, 'tank_t7').max).toBe(100);
-    expect(productionQuote(s, 'tank_t7', 'refit').max).toBe(100);
+    expect(productionQuote(s, 'tank_t7').max).toBe(500);
+    expect(productionQuote(s, 'tank_t7', 'refit').max).toBe(500);
     expect(productionQuote(s, 'tank_t7', 'repair').max).toBe(200);
     const before = structuredClone(s);
     for (const type of ['produce', 'refit'] as const)
-      expect(() => act(s, { type, unitId: 'tank_t7', count: 101 })).toThrow('100');
+      expect(() => act(s, { type, unitId: 'tank_t7', count: 501 })).toThrow('500');
     expect(s).toEqual(before);
     s.arsenal!.cores.tank_core7 = 3;
     expect(productionQuote(s, 'tank_t7').max).toBe(3);
@@ -179,6 +179,7 @@ describe('v19 real durations, batch limits and economy', () => {
   });
   it('defers v18 resource point migration until its last expedition returns', async () => {
     let s = state(20, 0, 0);
+    s.wallet.iron = 0;
     s.formation = [{ unitId: 'tank_t1', count: 20 }, null, null, null, null, null];
     s = act(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
     s.worldRules = 'renewable-v2';

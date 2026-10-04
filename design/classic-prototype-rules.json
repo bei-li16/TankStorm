@@ -212,8 +212,37 @@
       "legacyProductionCapacityScope": "npc"
     },
     "freeCompletionPolicy": "active_whole_batch_remaining_at_or_below_vip_minutes_auto",
-    "balanceVersion": "economy-v0.20",
-    "repairCostPolicy": "ceil(0.4*sum(manufacture_material*base_crystal_rate/base_material_rate)), then materials technology discount"
+    "balanceVersion": "economy-v0.28",
+    "repairCostPolicy": "ceil(0.4*sum(manufacture_material*base_crystal_rate/base_material_rate)), then materials technology discount",
+    "vehicleMaterialPolicy": {
+      "ratios": {
+        "tank": [
+          100,
+          56,
+          52
+        ],
+        "tank_destroyer": [
+          54,
+          100,
+          58
+        ],
+        "spg": [
+          58,
+          52,
+          100
+        ],
+        "rocket": [
+          100,
+          96,
+          92,
+          88
+        ]
+      },
+      "titanium": "v28: ceil(v27 titanium * 1.5), including rocket; no budget renormalization",
+      "lightTier": "no titanium until HQ6; tiers II–VII use all four resources",
+      "budget": "v27 preserves v26 sum(cost/base_hourly_rate); v28 adds 50% Ti without renormalization; repair crystal stays at v27 budget; light tier capped at 2.5 production cycles",
+      "research": "Lv1–5 iron/oil/lead/crystal; Lv6–120 all five, v27 collection-hour budget redistributed, v28 titanium multiplied by 1.5"
+    }
   },
   "commander": {
     "leadershipLevelMin": 1,
@@ -286,9 +315,9 @@
       "hp": 160,
       "load": 10,
       "cost": {
-        "iron": 24,
-        "oil": 15,
-        "lead": 10,
+        "iron": 23,
+        "oil": 13,
+        "lead": 12,
         "titanium": 0,
         "crystal": 0
       },
@@ -314,9 +343,9 @@
       "hp": 90,
       "load": 8,
       "cost": {
-        "iron": 22,
-        "oil": 14,
-        "lead": 9,
+        "iron": 9,
+        "oil": 18,
+        "lead": 10,
         "titanium": 0,
         "crystal": 0
       },
@@ -342,15 +371,15 @@
       "hp": 80,
       "load": 8,
       "cost": {
-        "iron": 27,
-        "oil": 17,
-        "lead": 11,
+        "iron": 10,
+        "oil": 9,
+        "lead": 17,
         "titanium": 0,
         "crystal": 0
       },
       "productionSeconds": 76,
       "repairCost": {
-        "crystal": 5
+        "crystal": 4
       },
       "repairSeconds": 12,
       "unlock": {
@@ -370,15 +399,15 @@
       "hp": 70,
       "load": 8,
       "cost": {
-        "iron": 29,
-        "oil": 18,
-        "lead": 12,
+        "iron": 18,
+        "oil": 17,
+        "lead": 16,
         "titanium": 0,
         "crystal": 0
       },
       "productionSeconds": 80,
       "repairCost": {
-        "crystal": 6
+        "crystal": 5
       },
       "repairSeconds": 12,
       "unlock": {
@@ -398,15 +427,15 @@
       "hp": 320,
       "load": 15,
       "cost": {
-        "iron": 120,
-        "oil": 72,
-        "lead": 48,
-        "titanium": 0,
+        "iron": 57,
+        "oil": 32,
+        "lead": 29,
+        "titanium": 59,
         "crystal": 0
       },
       "productionSeconds": 216,
       "repairCost": {
-        "crystal": 22
+        "crystal": 21
       },
       "repairSeconds": 33,
       "unlock": {
@@ -426,15 +455,15 @@
       "hp": 180,
       "load": 12,
       "cost": {
-        "iron": 108,
-        "oil": 65,
-        "lead": 44,
-        "titanium": 0,
+        "iron": 26,
+        "oil": 48,
+        "lead": 28,
+        "titanium": 51,
         "crystal": 0
       },
       "productionSeconds": 195,
       "repairCost": {
-        "crystal": 20
+        "crystal": 19
       },
       "repairSeconds": 30,
       "unlock": {
@@ -454,10 +483,10 @@
       "hp": 160,
       "load": 12,
       "cost": {
-        "iron": 132,
-        "oil": 80,
-        "lead": 53,
-        "titanium": 0,
+        "iron": 34,
+        "oil": 30,
+        "lead": 58,
+        "titanium": 62,
         "crystal": 0
       },
       "productionSeconds": 227,
@@ -482,10 +511,10 @@
       "hp": 140,
       "load": 12,
       "cost": {
-        "iron": 144,
-        "oil": 87,
-        "lead": 58,
-        "titanium": 0,
+        "iron": 50,
+        "oil": 48,
+        "lead": 46,
+        "titanium": 66,
         "crystal": 0
       },
       "productionSeconds": 238,
@@ -510,10 +539,10 @@
       "hp": 640,
       "load": 20,
       "cost": {
-        "iron": 480,
-        "oil": 288,
-        "lead": 192,
-        "titanium": 39,
+        "iron": 255,
+        "oil": 143,
+        "lead": 133,
+        "titanium": 266,
         "crystal": 0
       },
       "productionSeconds": 432,
@@ -538,10 +567,10 @@
       "hp": 360,
       "load": 16,
       "cost": {
-        "iron": 432,
-        "oil": 260,
-        "lead": 173,
-        "titanium": 35,
+        "iron": 117,
+        "oil": 216,
+        "lead": 125,
+        "titanium": 230,
         "crystal": 0
       },
       "productionSeconds": 389,
@@ -566,10 +595,10 @@
       "hp": 320,
       "load": 16,
       "cost": {
-        "iron": 528,
-        "oil": 317,
-        "lead": 212,
-        "titanium": 43,
+        "iron": 151,
+        "oil": 136,
+        "lead": 261,
+        "titanium": 275,
         "crystal": 0
       },
       "productionSeconds": 454,
@@ -594,10 +623,10 @@
       "hp": 280,
       "load": 16,
       "cost": {
-        "iron": 576,
-        "oil": 346,
-        "lead": 231,
-        "titanium": 47,
+        "iron": 223,
+        "oil": 214,
+        "lead": 205,
+        "titanium": 294,
         "crystal": 0
       },
       "productionSeconds": 476,
@@ -622,10 +651,10 @@
       "hp": 960,
       "load": 30,
       "cost": {
-        "iron": 1500,
-        "oil": 900,
-        "lead": 600,
-        "titanium": 180,
+        "iron": 838,
+        "oil": 470,
+        "lead": 436,
+        "titanium": 872,
         "crystal": 0
       },
       "productionSeconds": 864,
@@ -655,10 +684,10 @@
       "hp": 540,
       "load": 26,
       "cost": {
-        "iron": 1350,
-        "oil": 810,
-        "lead": 540,
-        "titanium": 162,
+        "iron": 383,
+        "oil": 708,
+        "lead": 411,
+        "titanium": 752,
         "crystal": 0
       },
       "productionSeconds": 778,
@@ -688,10 +717,10 @@
       "hp": 480,
       "load": 26,
       "cost": {
-        "iron": 1651,
-        "oil": 991,
-        "lead": 661,
-        "titanium": 199,
+        "iron": 498,
+        "oil": 447,
+        "lead": 859,
+        "titanium": 902,
         "crystal": 0
       },
       "productionSeconds": 908,
@@ -721,10 +750,10 @@
       "hp": 420,
       "load": 26,
       "cost": {
-        "iron": 1800,
-        "oil": 1080,
-        "lead": 720,
-        "titanium": 216,
+        "iron": 733,
+        "oil": 703,
+        "lead": 674,
+        "titanium": 968,
         "crystal": 0
       },
       "productionSeconds": 951,
@@ -754,10 +783,10 @@
       "hp": 1440,
       "load": 40,
       "cost": {
-        "iron": 3600,
-        "oil": 2160,
-        "lead": 1440,
-        "titanium": 576,
+        "iron": 2116,
+        "oil": 1185,
+        "lead": 1100,
+        "titanium": 2201,
         "crystal": 0
       },
       "productionSeconds": 1296,
@@ -787,10 +816,10 @@
       "hp": 810,
       "load": 36,
       "cost": {
-        "iron": 3240,
-        "oil": 1944,
-        "lead": 1296,
-        "titanium": 519,
+        "iron": 966,
+        "oil": 1788,
+        "lead": 1037,
+        "titanium": 1896,
         "crystal": 0
       },
       "productionSeconds": 1167,
@@ -820,15 +849,15 @@
       "hp": 720,
       "load": 36,
       "cost": {
-        "iron": 3961,
-        "oil": 2377,
-        "lead": 1585,
-        "titanium": 634,
+        "iron": 1256,
+        "oil": 1126,
+        "lead": 2165,
+        "titanium": 2274,
         "crystal": 0
       },
       "productionSeconds": 1361,
       "repairCost": {
-        "crystal": 863
+        "crystal": 864
       },
       "repairSeconds": 205,
       "unlock": {
@@ -853,10 +882,10 @@
       "hp": 630,
       "load": 36,
       "cost": {
-        "iron": 4320,
-        "oil": 2592,
-        "lead": 1728,
-        "titanium": 692,
+        "iron": 1850,
+        "oil": 1776,
+        "lead": 1702,
+        "titanium": 2442,
         "crystal": 0
       },
       "productionSeconds": 1426,
@@ -886,10 +915,10 @@
       "hp": 2144,
       "load": 50,
       "cost": {
-        "iron": 7200,
-        "oil": 4320,
-        "lead": 2880,
-        "titanium": 1440,
+        "iron": 4439,
+        "oil": 2486,
+        "lead": 2308,
+        "titanium": 4617,
         "crystal": 0
       },
       "productionSeconds": 1728,
@@ -919,10 +948,10 @@
       "hp": 1206,
       "load": 46,
       "cost": {
-        "iron": 6480,
-        "oil": 3888,
-        "lead": 2592,
-        "titanium": 1296,
+        "iron": 2025,
+        "oil": 3751,
+        "lead": 2175,
+        "titanium": 3975,
         "crystal": 0
       },
       "productionSeconds": 1556,
@@ -952,10 +981,10 @@
       "hp": 1072,
       "load": 46,
       "cost": {
-        "iron": 7921,
-        "oil": 4753,
-        "lead": 3169,
-        "titanium": 1585,
+        "iron": 2634,
+        "oil": 2362,
+        "lead": 4542,
+        "titanium": 4769,
         "crystal": 0
       },
       "productionSeconds": 1815,
@@ -985,10 +1014,10 @@
       "hp": 938,
       "load": 46,
       "cost": {
-        "iron": 8640,
-        "oil": 5184,
-        "lead": 3456,
-        "titanium": 1728,
+        "iron": 3880,
+        "oil": 3724,
+        "lead": 3569,
+        "titanium": 5121,
         "crystal": 0
       },
       "productionSeconds": 1901,
@@ -1018,10 +1047,10 @@
       "hp": 3072,
       "load": 60,
       "cost": {
-        "iron": 12000,
-        "oil": 7200,
-        "lead": 4800,
-        "titanium": 3000,
+        "iron": 7830,
+        "oil": 4385,
+        "lead": 4072,
+        "titanium": 8144,
         "crystal": 0
       },
       "productionSeconds": 2160,
@@ -1051,10 +1080,10 @@
       "hp": 1728,
       "load": 56,
       "cost": {
-        "iron": 10800,
-        "oil": 6480,
-        "lead": 4320,
-        "titanium": 2700,
+        "iron": 3573,
+        "oil": 6616,
+        "lead": 3837,
+        "titanium": 7013,
         "crystal": 0
       },
       "productionSeconds": 1944,
@@ -1084,10 +1113,10 @@
       "hp": 1536,
       "load": 56,
       "cost": {
-        "iron": 13201,
-        "oil": 7921,
-        "lead": 5281,
-        "titanium": 3301,
+        "iron": 4646,
+        "oil": 4165,
+        "lead": 8010,
+        "titanium": 8411,
         "crystal": 0
       },
       "productionSeconds": 2268,
@@ -1117,10 +1146,10 @@
       "hp": 1344,
       "load": 56,
       "cost": {
-        "iron": 14400,
-        "oil": 8640,
-        "lead": 5760,
-        "titanium": 3600,
+        "iron": 6843,
+        "oil": 6570,
+        "lead": 6296,
+        "titanium": 9033,
         "crystal": 0
       },
       "productionSeconds": 2377,

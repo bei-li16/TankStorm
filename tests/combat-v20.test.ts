@@ -113,12 +113,14 @@ describe('class footprints and source-aligned columns', () => {
 });
 
 describe('v20 crystal repair budgets and old paid jobs', () => {
-  it('increases all 28 costs while staying near 40% of equivalent replacement materials', () => {
+  it('keeps crystal repair on the pre-v28 titanium replacement budget', () => {
     const base = { iron: 600, oil: 400, lead: 330, titanium: 150, crystal: 100 };
     const s = newGame('cost', '维修预算', 1791000000000);
     for (const u of unitList) {
       const equivalent = Object.entries(u.cost).reduce(
-        (sum, [id, n]) => sum + (n * 100) / base[id as keyof typeof base],
+        (sum, [id, n]) =>
+          sum +
+          ((id === 'titanium' ? Math.floor(n / 1.5) : n) * 100) / base[id as keyof typeof base],
         0,
       );
       expect(u.repairCost.crystal).toBe(Math.ceil(equivalent * 0.4));
@@ -161,10 +163,12 @@ describe('v20 crystal repair budgets and old paid jobs', () => {
     s = act(s, { type: 'repairAll', quote: quote.token });
     expect(s.wallet.crystal).toBe(0);
     expect(s.damaged.tank_t7).toBe(0);
+    expect(s.available.tank_t7).toBe(0);
+    s = advance(s, s.now + 86400000);
     expect(s.available.tank_t7).toBe(7);
     assertState(s);
   });
-  it('retains old prepaid costs for completion, instant completion and cancellation', () => {
+  it('retains old prepaid costs for completion, batch exclusion and cancellation', () => {
     let s = newGame('oldrepair', '旧维修', 1791000000000);
     s.damaged.tank_t7 = s.createdUnits.tank_t7 = 3;
     s.wallet.crystal = 100000;
@@ -176,9 +180,10 @@ describe('v20 crystal repair budgets and old paid jobs', () => {
       job = s.jobs.repair!;
     const done = advance(s, s.now + 3000);
     expect(done.available.tank_t7).toBe(3);
-    const all = act(s, { type: 'repairAll', quote: repairAllQuote(s).token });
-    expect(all.wallet.crystal).toBe(wallet);
-    expect(all.available.tank_t7).toBe(3);
+    expect(repairAllQuote(s).prepaid).toBe(3);
+    expect(repairAllQuote(s).count).toBe(0);
+    expect(() => act(s, { type: 'repairAll', quote: repairAllQuote(s).token })).toThrow('已送修');
+    expect(s.wallet.crystal).toBe(wallet);
     const cancelled = act(s, { type: 'cancel', kind: 'repair', seq: job.seq });
     expect(cancelled.wallet.crystal).toBe(wallet + 1200);
     expect(cancelled.damaged.tank_t7).toBe(3);

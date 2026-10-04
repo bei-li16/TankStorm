@@ -94,7 +94,8 @@ describe('atomic economy and production', () => {
     assertState(s);
   });
   it('a busy production queue rejects an order without payment', () => {
-    const s = command(game(), { type: 'produce', unitId: 'tank_t1', count: 2 });
+    let s = game();
+    for (let i = 0; i < 4; i++) s = command(s, { type: 'produce', unitId: 'tank_t1', count: 2 });
     const before = structuredClone(s);
     expect(() => command(s, { type: 'produce', unitId: 'spg_t1', count: 1 })).toThrow('队列');
     expect(s).toEqual(before);
@@ -170,7 +171,8 @@ describe('atomic economy and production', () => {
     assertState(single);
   });
   it('job speed snapshots survive later research changes', () => {
-    const s = command(game(), { type: 'produce', unitId: 'tank_t1', count: 2 });
+    let s = game();
+    for (let i = 0; i < 4; i++) s = command(s, { type: 'produce', unitId: 'tank_t1', count: 2 });
     const duration = s.jobs.production!.duration;
     s.tech.production = 20;
     expect(advance(s, T + duration).available.tank_t1).toBe(21);
@@ -214,7 +216,10 @@ describe('formation, battle and progression', () => {
     expect(s.available.tank_t1).toBe(20);
     expect(s.presets).toHaveLength(1);
     s = command(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
-    expect(() => command(s, { type: 'presetLoad', index: 0 })).toThrow('库存不足');
+    const template = structuredClone(s.presets[0]);
+    s = command(s, { type: 'presetLoad', index: 0 });
+    expect(s.formation).toEqual(Array(6).fill(null));
+    expect(s.presets[0]).toEqual(template);
   });
   it('xorshift32 matches the reference seed vector', () => {
     const rng = rng32(1);

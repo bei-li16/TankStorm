@@ -1,4 +1,6 @@
+import { stageNames } from './content';
 import { MAX_LEVEL } from './growth';
+import { REPORT_LIMIT } from './archive';
 // Structural validation runs before semantic checks. A checksum detects damaged files;
 // it is not a trust boundary and must never replace validating every persisted object.
 type Check = (v: unknown, path: string) => void;
@@ -100,7 +102,12 @@ const report = obj(
     seed: num(1, 4294967295),
     ruleset: str(100),
     target: obj(
-      { type: one(['battle', 'dungeon']), stage: num(0, 111), dungeonId: str(30), training: bool },
+      {
+        type: one(['battle', 'dungeon']),
+        stage: num(0, stageNames.length - 1),
+        dungeonId: str(30),
+        training: bool,
+      },
       ['stage', 'dungeonId', 'training'],
     ),
     winner: one([0, 1]),
@@ -110,6 +117,7 @@ const report = obj(
     mode: one(['training', 'stage', 'world', 'dungeon']),
     coreRewards: record(num(0, 1e9), 8),
     marchId: str(100),
+    worldKind: one(['mine', 'npc']),
     initial: list(army, 2, 2),
     final: list(army, 2, 2),
     tactics: obj({
@@ -170,7 +178,17 @@ const report = obj(
     rewards: cost,
     growth: obj({ xp: integer, books: integer, skillPoints: integer, prestige: integer }),
   },
-  ['growth', 'coreRewards', 'tactics', 'actions', 'marchId', 'target', 'roundLimit', 'endReason'],
+  [
+    'growth',
+    'coreRewards',
+    'tactics',
+    'actions',
+    'marchId',
+    'target',
+    'roundLimit',
+    'endReason',
+    'worldKind',
+  ],
 );
 const job = obj(
   {
@@ -191,6 +209,20 @@ const job = obj(
 );
 const march = obj(
   {
+    battleId: str(100),
+    battleWon: bool,
+    casualties: list(
+      obj({
+        unitId: unit,
+        sent: integer,
+        survived: integer,
+        lost: integer,
+        repairable: integer,
+        destroyed: integer,
+      }),
+      28,
+    ),
+    commanderStats: obj({ initiative: num(0, 1000000), extraFire: num(0, 1000000) }),
     id: str(100),
     targetId: str(100),
     phase: one(['outbound', 'gathering', 'returning']),
@@ -208,7 +240,7 @@ const march = obj(
     loadBps: num(10000, 350000),
     unitLoads: record(num(1, 1e7), 28),
   },
-  ['combatArmy', 'loadBps', 'unitLoads'],
+  ['combatArmy', 'loadBps', 'unitLoads', 'commanderStats', 'battleId', 'battleWon', 'casualties'],
 );
 const coordinate = obj({ x: num(0, 31), y: num(0, 31) });
 const schema = obj({
@@ -251,6 +283,7 @@ const schema = obj({
     obj(
       {
         economyVersion: one([2, 3]),
+        protectionVersion: one([1]),
         id: str(100),
         x: num(0, 31),
         y: num(0, 31),
@@ -264,15 +297,15 @@ const schema = obj({
         lastGrowth: time,
         conquered: bool,
       },
-      ['economyVersion'],
+      ['economyVersion', 'protectionVersion'],
     ),
     100,
     100,
   ),
   home: coordinate,
   intel: record(obj({ at: time, guards: formation, reserve: integer, wallet }), 100),
-  reports: list(report, 100),
-  cleared: list(num(0, 111), 112),
+  reports: list(report, REPORT_LIMIT),
+  cleared: list(num(0, stageNames.length - 1), stageNames.length),
   commander: obj({
     xp: integer,
     leadership: num(1, 120),
@@ -318,15 +351,35 @@ export function validateShape(value: unknown) {
   const expeditionLog = (value as { expeditionLog?: unknown }).expeditionLog;
   if (expeditionLog !== undefined)
     list(
-      obj({
-        marchId: str(100),
-        targetId: str(100),
-        at: time,
-        outcome: one(['returned', 'defeated']),
-        cargo: wallet,
-        survivors: num(0, 60000),
-      }),
-      100,
+      obj(
+        {
+          success: bool,
+          mission: one(['gather', 'raid']),
+          title: str(200),
+          stored: wallet,
+          discarded: wallet,
+          battleId: str(100),
+          casualties: list(
+            obj({
+              unitId: unit,
+              sent: integer,
+              survived: integer,
+              lost: integer,
+              repairable: integer,
+              destroyed: integer,
+            }),
+            28,
+          ),
+          marchId: str(100),
+          targetId: str(100),
+          at: time,
+          outcome: one(['returned', 'defeated']),
+          cargo: wallet,
+          survivors: num(0, 60000),
+        },
+        ['mission', 'title', 'stored', 'discarded', 'battleId', 'casualties', 'success'],
+      ),
+      REPORT_LIMIT,
     )(expeditionLog, 'save.expeditionLog');
   const researchVersion = (value as { researchVersion?: unknown }).researchVersion;
   if (researchVersion !== undefined) one([1])(researchVersion, 'save.researchVersion');
@@ -342,7 +395,7 @@ export function validateShape(value: unknown) {
       extension.vip,
       'save.vip',
     );
-  if (extension.jobBacklog !== undefined) list(job, 20)(extension.jobBacklog, 'save.jobBacklog');
+  if (extension.jobBacklog !== undefined) list(job, 23)(extension.jobBacklog, 'save.jobBacklog');
   const arsenal = (value as { arsenal?: unknown }).arsenal;
   if (arsenal !== undefined)
     obj({

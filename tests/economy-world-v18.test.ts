@@ -74,7 +74,12 @@ describe('economy-v18 progression budgets', () => {
       expect(hrs(s, upgrade)).toBeLessThan(48);
       expect(Math.max(...Object.values(upgrade))).toBeLessThan(capacity(s));
       const research = researchCost(Math.min(l, 119));
-      expect(hrs(s, research)).toBeLessThan(72);
+      // v29 deliberately raises only research titanium 50%; preserve the old
+      // 72-hour bound for every other material and apply the same factor to Ti.
+      for (const resource of resources)
+        expect((research[resource] ?? 0) / Math.max(1, rate(s, resource))).toBeLessThan(
+          resource === 'titanium' ? 72 * 1.5 : 72,
+        );
       expect(Math.max(...Object.values(research))).toBeLessThan(capacity(s));
       const u = unitList.filter((u) => u.classId === 'tank' && u.unlock.factoryLevel <= l).at(-1)!;
       const q = productionQuote(s, u.unitId);
@@ -236,6 +241,7 @@ describe('world-v18 yield, danger and snapshot safety', () => {
   });
   it('legacy in-flight travel/cargo/guards stay unchanged until return; stepped and bulk migration agree', async () => {
     let s = state(20, 0);
+    s.wallet.iron = 0;
     s.formation = [{ unitId: 'tank_t1', count: 20 }, null, null, null, null, null];
     s = act(s, { type: 'march', targetId: 'site-0', mission: 'gather' });
     const m = s.marches[0],

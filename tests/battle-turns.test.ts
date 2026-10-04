@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { army, combatStats, extraFireChance, simulate } from '../src/core/battle';
+import { army, commanderStats, combatStats, extraFireChance, simulate } from '../src/core/battle';
 import { assertState, newGame } from '../src/core/engine';
 import { exportSave, parseSave } from '../src/core/storage';
 import type { ArmyStack, BattleReport } from '../src/core/types';
@@ -73,7 +73,7 @@ describe('v0.14 major rounds and alternating exchanges', () => {
     b[0].initiative = 100;
     expect(simulate(a, b, 71).tactics!.firstSide).toBe(0);
   });
-  it('computes occupied-slot averages, not a troop-count multiplier, with tech bonuses', () => {
+  it('keeps commander tech separate from stack snapshots', () => {
     const s = newGame('tactics', 'tactics', 100000);
     s.tech.march = 3;
     s.tech.ballistics = 4;
@@ -84,9 +84,11 @@ describe('v0.14 major rounds and alternating exchanges', () => {
       ],
       s.tech,
     );
-    expect(combatStats(a)).toEqual({ initiative: 127, extraFire: 131 });
+    expect(commanderStats(s.tech)).toEqual({ initiative: 109, extraFire: 116 });
+    expect(a.every((st) => st.initiative === undefined)).toBe(true);
     a[1].count = 1;
-    expect(combatStats(a)).toEqual({ initiative: 127, extraFire: 131 });
+    expect(commanderStats(s.tech)).toEqual({ initiative: 109, extraFire: 116 });
+    expect(a.every((st) => st.initiative === undefined)).toBe(true);
     expect(combatStats([])).toEqual({ initiative: 0, extraFire: 0 });
   });
   it('opponent values suppress repeat probability and enforce 0–35% bounds', () => {
