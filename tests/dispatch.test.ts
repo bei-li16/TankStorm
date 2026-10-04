@@ -73,7 +73,7 @@ describe('base dispatch projection', () => {
     });
     for (const id of ['factory', 'factory2', 'refit', 'research']) {
       const q = station(s, id);
-      expect(q).toMatchObject({ active: 1, waiting: 2, slots: 1, waitingSlots: 5 });
+      expect(q).toMatchObject({ active: 1, waiting: 2, slots: 1, waitingSlots: 3 });
       expect(q.rows[1].waitMs).toBe(q.rows[0].remainingMs);
       expect(q.rows[2].waitMs).toBe(q.rows[1].remainingMs);
       expect(q.finishMs).toBe(q.rows[2].remainingMs);
@@ -81,7 +81,7 @@ describe('base dispatch projection', () => {
     const b = station(s, 'building');
     expect(b.finishMs).toBe(Math.max(...b.rows.map((v) => v.remainingMs)));
     expect(b.nextMs).toBe(Math.min(...b.rows.map((v) => v.remainingMs)));
-    expect(station(s, 'repair')).toMatchObject({ active: 1, damaged: 0, waitingSlots: 0 });
+    expect(station(s, 'repair')).toMatchObject({ active: 1, damaged: 0, waitingSlots: 3 });
     expect(d.stations.flatMap((v) => v.rows).map((v) => v.seq)).toEqual(
       queueView(s).map((v) => v.seq),
     );

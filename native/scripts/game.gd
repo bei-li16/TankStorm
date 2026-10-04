@@ -13,11 +13,13 @@ const RES = ["iron", "oil", "lead", "titanium", "crystal", "gold"]
 const CLASSES = ["tank", "tank_destroyer", "spg", "rocket"]
 # Match the six ignitions already recorded in rocket_fire.wav; one clip per action.
 const ROCKET_LAUNCH_OFFSETS = [0.0, 0.075, 0.16, 0.245, 0.33, 0.42]
-const NAV = [["base", "基地", "COMMAND"], ["factory", "工厂", "ARSENAL"], ["army", "编队", "FORMATION"], ["research", "科研", "RESEARCH"], ["campaign", "战役", "CAMPAIGN"], ["world", "世界", "OPERATIONS"], ["commander", "指挥官", "COMMANDER"], ["reports", "战报", "ARCHIVE"]]
+const NAV = [["base", "基地", "COMMAND"], ["army", "编队", "FORMATION"], ["campaign", "战役", "CAMPAIGN"], ["world", "世界", "OPERATIONS"], ["commander", "指挥官", "COMMANDER"], ["reports", "战报", "ARCHIVE"]]
 var s: Dictionary = {}
 var info: Dictionary = {}
 var catalog: Dictionary = {}
 var textures: Dictionary = {}
+var district_building = "hq"
+var campaign_chapter_page = 0
 var font: SystemFont
 var bold: SystemFont
 var latin: SystemFont
@@ -67,6 +69,7 @@ var battle_volley: Array = []
 var battle_shots: Array = []
 var battle_pending_impacts: Array = []
 var battle_impact_played = false
+var battle_last_destruction_sound = -10.0
 var battle_visual_end = 0.0
 var battle_craters: Array = []
 var battle_interval = 1.05
@@ -103,6 +106,11 @@ var quest_page = 0
 var queue_page = 0
 var dispatch_selected = "building"
 var base_panel = "dispatch"
+var base_build_page = 0
+var dispatch_tab = "orders"
+var prestige_page = 0
+var dispatch_repair_limit = -1
+var dispatch_repair_unit = ""
 var march_page = 0
 var battle_deaths: Dictionary = {}
 var saves: Array = []
@@ -134,6 +142,8 @@ var library_selected = "initiative"
 var library_page = 0
 var library_scroll = {}
 var library_rendered = ""
+var library_render_generation = 0
+var library_restore_pending = false
 var library_scale = 0.0
 var library_search: LineEdit
 var library_reader: RichTextLabel
@@ -162,6 +172,7 @@ var measure_frames = false
 var frame_times: Array = []
 
 func _ready():
+	get_window().title="坦克风云 · 经典归来 v"+str(ProjectSettings.get_setting("application/config/version"))+" · 构建 "+str(ProjectSettings.get_setting("application/config/build_date","未知"))
 	Engine.max_fps = 60
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	DisplayServer.window_set_min_size(Vector2i(1120, 630))
@@ -177,7 +188,7 @@ func _ready():
 	ui_theme.default_font_size = 20
 	theme = ui_theme
 	_apply_field_theme()
-	for name in ["base", "tank", "tank_destroyer", "spg", "rocket", "resources", "battlefield", "worldmap", "emblem", "tank-tiers", "tank_destroyer-tiers", "spg-tiers", "rocket-tiers", "march_ground", "combat_fx", "battle_tank", "battle_tank_destroyer", "battle_spg", "battle_rocket", "battle_terrain", "battle_edges", "destruction_fx", "battle_wrecks", "tank_core7", "tank_destroyer_core7", "spg_core7", "rocket_core7", "tank_core6", "tank_destroyer_core6", "spg_core6", "rocket_core6", "ground_industrial", "ground_oilfield", "ground_fortress", "ground_proving", "tank_core7_field", "tank_destroyer_core7_field", "spg_core7_field", "rocket_core7_field"]:
+	for name in ["district_resources", "district_industry", "district_command", "base", "tank", "tank_destroyer", "spg", "rocket", "resources", "battlefield", "worldmap", "emblem", "tank-tiers", "tank_destroyer-tiers", "spg-tiers", "rocket-tiers", "march_ground", "combat_fx", "battle_tank", "battle_tank_destroyer", "battle_spg", "battle_rocket", "battle_terrain", "battle_edges", "destruction_fx", "battle_wrecks", "tank_core7", "tank_destroyer_core7", "spg_core7", "rocket_core7", "tank_core6", "tank_destroyer_core6", "spg_core6", "rocket_core6", "ground_industrial", "ground_oilfield", "ground_fortress", "ground_proving", "tank_core7_field", "tank_destroyer_core7_field", "spg_core7_field", "rocket_core7_field"]:
 		if ResourceLoader.exists("res://assets/" + name + ".png"):
 			textures[name] = load("res://assets/" + name + ".png")
 	sprite_meta = JSON.parse_string(FileAccess.get_file_as_string("res://assets/sprites.json"))
@@ -215,7 +226,9 @@ func _ready():
 		for phase in ["fire", "impact"]:
 			var key = cls + "_" + phase
 			battle_audio[key] = load("res://assets/audio/" + key + ".wav")
-	for i in range(8):
+	battle_audio["vehicle_destroyed"] = load("res://assets/audio/vehicle_destroyed.wav")
+	# Separate pools keep a salvo launch or several wreck blasts from stealing its hit sound.
+	for i in range(16):
 		var voice = AudioStreamPlayer.new()
 		add_child(voice)
 		battle_voices.append(voice)
@@ -367,9 +380,9 @@ func _cost_text(cost, multiplier = 1):
 func _process(delta):
 	_sync_battle_audio()
 	clock += delta
-	quantity_input.visible = screen in ["factory", "repair"] and not s.is_empty() and not _modal_open()
+	quantity_input.visible = (screen in ["factory", "repair"] or (screen == "queues" and dispatch_tab == "arrange" and dispatch_selected in ["factory","factory2","refit","repair"])) and not s.is_empty() and not _modal_open()
 	_library_sync()
-	quantity_input.position = Vector2(748, 465) if screen == "factory" else Vector2(1121, 445)
+	quantity_input.position = Vector2(748, 465) if screen == "factory" else Vector2(1100, 584) if screen == "queues" else Vector2(1121, 445)
 	if measure_frames:
 		frame_times.append(delta * 1000.0)
 	if port == 0 and fatal == "":
@@ -429,6 +442,7 @@ func _response(result, _code, _headers, body):
 		info = data.info
 		if data.has("coreBudget"): _show_core_budget(data.coreBudget)
 		if screen == "repair": _validate_repair_quantity(false)
+		if screen=="queues" and dispatch_selected=="repair": _validate_dispatch_repair(false)
 		if data.has("restPreview"):
 			rest_preview = data.restPreview
 			_confirm({"type":"rest","minutes":rest_preview.minutes},_rest_preview_text())
@@ -458,7 +472,7 @@ func _response(result, _code, _headers, body):
 			base_panel = "dispatch"
 			dispatch_selected = "building"
 			queue_page = 0
-			report_rows = s.reports.duplicate(true)
+			report_rows = info.archive.duplicate(true)
 			rest_preview = {}
 			progress_report = {}
 			deployment = {}
@@ -473,6 +487,7 @@ func _response(result, _code, _headers, body):
 			map_center = Vector2(s.home.x, s.home.y)
 		if not data.get("message", "").is_empty() and not data.has("report"):
 			toast_message(data.message)
+		if data.has("presetLoad"): _show_preset_load(data.presetLoad)
 		if not data.get("recovered", "").is_empty():
 			toast_message(data.recovered)
 		if data.has("report"):
@@ -583,7 +598,7 @@ func _unhandled_key_input(event):
 	elif event.keycode == KEY_F5 and not s.is_empty() and not _command_pending():
 		_action("save")
 	elif event.keycode == KEY_ESCAPE:
-		if screen == "base" and base_panel == "facility": base_panel = "dispatch"
+		if screen == "base" and base_panel in ["facility", "construction"]: base_panel = "dispatch"
 		elif screen=="intel": _navigate("world")
 		else: _navigate(library_origin if screen == "library" else "campaign" if screen == "deployment" else "base" if screen != "base" else "settings")
 	elif event.keycode == KEY_Q and not s.is_empty():
@@ -592,7 +607,7 @@ func _unhandled_key_input(event):
 		_navigate("inventory")
 	elif event.keycode == KEY_SPACE and screen == "battle":
 		battle_paused = not battle_paused
-	elif event.keycode >= KEY_1 and event.keycode <= KEY_8:
+	elif event.keycode >= KEY_1 and event.keycode < KEY_1 + NAV.size():
 		_navigate(NAV[event.keycode - KEY_1][0])
 
 func _navigate(target):
@@ -616,6 +631,8 @@ func _navigate(target):
 	if screen == "factory": manufacture_quantity = quantity
 	var previous_screen = screen
 	screen = target
+	if target == "industry" and previous_screen == "factory": district_building = selected_factory
+	if target == "industry" and previous_screen == "repair": district_building = "repair"
 	if target == "base" and previous_screen != "base": base_panel = "dispatch"
 	if target == "queues" and previous_screen != "queues":
 		queue_page = 0
@@ -623,8 +640,10 @@ func _navigate(target):
 		elif previous_screen in ["repair", "research"]: dispatch_selected = previous_screen
 		elif previous_screen == "world": dispatch_selected = "expeditions"
 	if screen == "factory" and previous_screen != "factory": _set_quantity(manufacture_quantity)
+	if screen=="prestige" and previous_screen!="prestige": prestige_page=int((info.prestige.level-1)/10)
+	if screen == "campaign" and previous_screen != "campaign": campaign_chapter_page=int(selected_stage/96)
 	if screen == "reports":
-		report_rows = s.reports.duplicate(true)
+		report_rows = info.archive.duplicate(true)
 		report_page = 0
 	focus_id = ""
 	completion_marks.erase(target)
@@ -647,6 +666,7 @@ func _action(id, data = null):
 		return
 	_sound(false)
 	if _library_action(id, data): return
+	if _district_action(id, data): return
 	if id.begins_with("resource:"):
 		inventory_category = "materials"
 		_navigate("inventory")
@@ -657,8 +677,13 @@ func _action(id, data = null):
 		base_panel = str(data)
 	elif id.begins_with("dispatchSelect:") or id.begins_with("dispatchOpen:"):
 		dispatch_selected = str(data)
+		if dispatch_selected=="repair": _validate_dispatch_repair(true)
+		elif dispatch_selected in ["factory","factory2","refit"]: _set_quantity(clampi(manufacture_quantity,1,int(catalog.productionBatchLimit)))
 		queue_page = 0
-		if id.begins_with("dispatchOpen:"): _navigate("queues")
+		dispatch_tab = "arrange" if dispatch_selected == "building" else "orders"
+		if id.begins_with("dispatchOpen:"):
+			if screen == "base" and dispatch_selected == "building": base_panel = "construction"
+			else: _navigate("queues")
 	elif id == "dispatchDestination":
 		_dispatch_destination()
 	elif id.begins_with("dispatchProject:"):
@@ -746,7 +771,7 @@ func _action(id, data = null):
 	elif id == "qtyminus":
 		_set_quantity(maxi(1, quantity - 1))
 	elif id == "qtyplus":
-		_set_quantity(mini(100 if screen=="factory" else 10000, quantity + 1))
+		_set_quantity(mini(int(catalog.productionBatchLimit) if screen=="factory" or (screen=="queues" and dispatch_selected!="repair") else 10000, quantity + 1))
 	elif id == "produce" or id == "repair":
 		command({"type": production_mode if id == "produce" else "repair", "unitId": _unit_id(), "count": quantity, "facility": "refit" if production_mode == "refit" else selected_factory})
 	elif id == "reserveNext":
@@ -771,7 +796,8 @@ func _action(id, data = null):
 		command({"type": "research", "tech": data})
 	elif id.begins_with("slot:"):
 		selected_slot = int(data)
-		compare_unit = ""
+		# Keep the chosen reserve vehicle for repeated deployment into other slots.
+		# _draw_replacement recalculates the shared stock for the newly selected slot.
 	elif id.begins_with("assign:"):
 		_assign(data)
 	elif id == "slotclear":
@@ -813,8 +839,10 @@ func _action(id, data = null):
 			_text_prompt("preset", "新编队 " + str(s.presets.size() + 1))
 	elif id.begins_with("presetLoad:"):
 		if screen == "deployment":
-			draft = s.presets[int(data)].formation.duplicate(true)
+			var allocation = info.presetLoads[int(data)]
+			draft = allocation.formation.duplicate(true)
 			dirty = true
+			_show_preset_load(allocation)
 		elif dirty:
 			_confirm({"type": "presetLoad", "index": data}, "载入预设将替换当前未保存的编队草稿。\n车辆不会消耗；需要保留草稿时，请取消并先保存编队。")
 		else:
@@ -1022,14 +1050,27 @@ func _file_selected(path):
 		request({"op": "export"})
 	else:
 		var f = FileAccess.open(path, FileAccess.READ)
-		if not f or f.get_length() > 20000000:
-			toast_message("无法读取文件，或存档超过 20 MB")
+		if not f or f.get_length() > 256000000:
+			toast_message("无法读取文件，或存档超过 256 MB")
 			return
 		_switch_request({"op": "import", "text": f.get_as_text()})
 		f.close()
 
 func _toggle_fullscreen():
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN else DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+func _show_preset_load(allocation):
+	toast_message(allocation.message)
+	if allocation.shortage<=0: return
+	var lines=["预设「%s」：计划 %d 辆，实际加载 %d 辆。"%[allocation.name,allocation.requested,allocation.loaded],"原保存预设保持不变；仅调整本次编队。", "", "阵位 / 战车 / 原计划 → 本次可用"]
+	for row in allocation.reductions:
+		var reason=[]
+		if row.stockShortage>0: reason.append("待命库存缺 %d"%row.stockShortage)
+		if row.capShortage>0: reason.append("超过当前单格上限 %d"%row.capShortage)
+		lines.append("%d号 · %s · %d → %d（%s）"%[row.slot,catalog.units[row.unitId].name,row.requested,row.loaded,"、".join(reason)])
+	lines.append("\n按1→6号阵位依次分配，同型号共享可用库存；库存为零的阵位留空。\n出征预留、待修和维修中的车辆不计入可用数量。加载不会扣除车辆。\n补足库存后重新加载，即可恢复原预设数量；只有主动覆盖预设才改写方案。")
+	if allocation.loaded==0: lines.append("\n当前没有可出战的车辆，请先生产、维修或等待远征归队。")
+	_details("编队已按可用数量加载", "\n".join(lines))
 
 func _begin_deployment(battle_command: Dictionary):
 	if _command_pending() or not deployment.is_empty():
@@ -1095,7 +1136,7 @@ func _unit_id():
 	return CLASSES[selected_class] + "_t" + str(tier)
 
 func _set_quantity(value):
-	quantity = clampi(value, 0, 100 if screen=="factory" else 10000)
+	quantity = clampi(value, 0, int(catalog.productionBatchLimit) if screen=="factory" or (screen=="queues" and dispatch_selected!="repair") else 10000)
 	quantity_input.text = str(quantity)
 
 func _validate_repair_quantity(reset):
@@ -1182,7 +1223,7 @@ func _library_filtered():
 	return result
 
 func _library_remember():
-	if library_rendered != "":
+	if library_rendered != "" and not library_restore_pending:
 		library_scroll[library_rendered] = library_reader.get_v_scroll_bar().value
 
 func _library_choose(id):
@@ -1199,11 +1240,12 @@ func _library_filter_changed():
 	elif not rows.any(func(row): return row.id == library_selected): _library_choose(rows[0].id)
 	else: library_page = int(rows.find(_library_entry(library_selected)) / 7.0)
 
-func _library_restore(id, position_y):
+func _library_restore(id, position_y, generation):
 	await get_tree().process_frame
 	await get_tree().process_frame
-	if screen == "library" and library_rendered == id:
+	if library_rendered == id and library_render_generation == generation:
 		library_reader.get_v_scroll_bar().value = position_y
+		library_restore_pending = false
 
 func _library_sync():
 	var visible_now = screen == "library" and not s.is_empty()
@@ -1222,9 +1264,14 @@ func _library_sync():
 	var parts: Array[String] = ["[color=#d7b776]" + entry.summary + "[/color]\n"]
 	for section in entry.sections:
 		parts.append("[b][color=#d7b776]" + section.title + "[/color][/b]\n" + section.text + "\n")
+	var position_y = library_scroll.get(entry.id, 0)
+	library_render_generation += 1
+	library_restore_pending = true
 	library_reader.text = "\n".join(parts)
+	# Never display the previous article's offset while the new text lays out.
+	library_reader.get_v_scroll_bar().value = 0
 	library_rendered = entry.id
-	_library_restore(entry.id, library_scroll.get(entry.id, 0))
+	_library_restore(entry.id, position_y, library_render_generation)
 
 func _library_action(id, data):
 	id = str(id).split(":")[0]
@@ -1258,7 +1305,7 @@ func _library_action(id, data):
 
 func _draw_library():
 	_title("战地图书馆", "FIELD LIBRARY  /  游戏机制与作战手册")
-	_text("当前单机规则 · 公式 / 示例 / 相关入口", Vector2(905, 148), 19, GOLD)
+	_text("%s · %d 篇机制 · 公式 / 示例 / 入口"%[catalog.fieldLibrary.get("edition","当前单机规则"),_library_entries().size()], Vector2(905, 148), 19, GOLD)
 	_button("nav:libraryReturn", "返回上页", Rect2(691, 116, 184, 42), library_origin)
 	_text("检索机制", Vector2(55, 229), 22, TEXT, true)
 	_button("libraryClear", "清空搜索", Rect2(1384, 201, 176, 42))
@@ -1321,6 +1368,9 @@ func _draw():
 			"base": _draw_base()
 			"factory": _draw_factory()
 			"industry": _draw_industry()
+			"resources": _draw_resource_zone()
+			"command_zone": _draw_district_scene("command")
+			"prestige": _draw_prestige()
 			"inventory": _draw_inventory()
 			"attributes": _draw_attributes()
 			"library": _draw_library()
@@ -1351,11 +1401,13 @@ func _draw():
 			break
 	if hover.begins_with("resource:"):
 		var resource = hover.trim_prefix("resource:")
-		_panel(Rect2(355,87,1070,40 if resource=="gold" else 77),Color("25322b"),GOLD)
+		_panel(Rect2(355,87,1070,40 if resource=="gold" else 105),Color("25322b"),GOLD)
 		_text(catalog.resourceNames[resource] + " · 精确可用 " + QuantityFormat.exact(s.wallet[resource]),Vector2(484,114),18,TEXT)
 		if resource!="gold":
 			var ratio = float(s.wallet[resource])/maxf(1,info.capacity)
 			_text("自产容量 "+QuantityFormat.exact(info.capacity)+" · 已用 %.1f%% · "%[ratio*100]+("满仓暂停自产，已获得的奖励和归队物资保留" if ratio>=1 else "点击查看产量、订单占用与运输中物资"),Vector2(375,146),17,GOLD if ratio>=1 else TEXT)
+			var ledger=info.protection.resources[resource]
+			_fit_text("白色标尺：保护线 %.2f%% · 绿色保护 %s · 橙色可掠夺 %s（额度 %s）"%[info.protection.bps/100.0,_amount(ledger.protectedStock),_amount(ledger.lootable),_amount(ledger.limit)],Vector2(375,176),1030,17,GOLD)
 	if toast_until > clock and toast != "":
 		# The gap below the resource bar stays clear of page actions and base dispatch tabs.
 		var w = minf(800, maxf(360, font.get_string_size(toast, HORIZONTAL_ALIGNMENT_LEFT, -1, int(14*ui_scale)).x + 40))
@@ -1446,8 +1498,19 @@ func _icon(index: int, r: Rect2):
 		draw_circle(r.get_center(), r.size.x * 0.25, GOLD)
 
 func _bar(r: Rect2, value: float, color = GREEN):
-	draw_rect(r, Color("080e0e"))
+	draw_rect(r.grow(1), Color("76857e"))
+	draw_rect(r, Color("394b48"))
 	draw_rect(Rect2(r.position, Vector2(r.size.x * clampf(value, 0, 1), r.size.y)), color)
+
+func _stock_bar(r: Rect2, value: float):
+	var threshold = float(info.protection.bps) / 10000.0
+	var filled = clampf(value, 0, 1)
+	_bar(r, minf(filled, threshold), GREEN)
+	if filled > threshold:
+		draw_rect(Rect2(r.position + Vector2(r.size.x * threshold, 0), Vector2(r.size.x * (filled-threshold), r.size.y)), Color("d99b60"))
+	var marker = r.position + Vector2(r.size.x * threshold, 0)
+	draw_line(marker-Vector2(0,3),marker+Vector2(0,r.size.y+3),Color("142321"),4)
+	draw_line(marker-Vector2(0,3),marker+Vector2(0,r.size.y+3),TEXT,2)
 
 func _amount(value):
 	return QuantityFormat.compact(value)
@@ -1459,14 +1522,17 @@ func _time(ms):
 		return "%d天 %02d:%02d" % [int(minutes/1440.0),int(minutes/60.0)%24,minutes%60]
 	return "%02d:%02d:%02d" % [int(seconds / 3600.0), int(seconds / 60.0) % 60, seconds % 60] if seconds >= 3600 else "%02d:%02d" % [int(seconds / 60.0), seconds % 60]
 
-func _cost(cost, pos: Vector2, multiplier = 1):
+func _resource_color(resource, value, spending = true):
+	return RED if spending and s.wallet[resource] < value else TEXT
+
+func _cost(cost, pos: Vector2, multiplier = 1, spending = true):
 	var x = pos.x
 	for i in range(6):
 		var value = int(cost.get(RES[i], 0)) * multiplier
 		if value <= 0:
 			continue
 		_icon(i, Rect2(x, pos.y - 21, 32, 32))
-		_text(_amount(value), Vector2(x + 35, pos.y + 2), 16, TEXT if s.wallet[RES[i]] >= value else RED)
+		_text(_amount(value), Vector2(x + 35, pos.y + 2), 16, _resource_color(RES[i],value,spending))
 		x += 100 if value < 10000 else 120
 
 func _title(title, subtitle, compact = false):
@@ -1488,8 +1554,9 @@ func _loading():
 
 func _header():
 	_panel(Rect2(0, 0, 1600, 82), Color("111a1b"), Color("4a5044"))
-	_text("坦克风云", Vector2(28, 34), 25, GOLD, true)
-	_button("nav:inventory", "资源一览  I", Rect2(28, 42, 159, 29), "inventory", screen == "inventory")
+	_text("构建 "+str(ProjectSettings.get_setting("application/config/build_date","未知")),Vector2(28,43),12,MUTED)
+	_text("坦克风云 v"+str(ProjectSettings.get_setting("application/config/version")), Vector2(28, 25), 18, GOLD, true)
+	_button("nav:inventory", "资源一览  I", Rect2(28, 51, 159, 26), "inventory", screen == "inventory")
 	draw_line(Vector2(203, 16), Vector2(203, 65), LINE)
 	for i in range(6):
 		var x = 222 + i * 172
@@ -1499,7 +1566,7 @@ func _header():
 		_small(_amount(s.wallet[RES[i]]), Vector2(x + 57, 55), 24, GOLD if i == 5 else TEXT)
 		if i<5:
 			var fullness=float(s.wallet[RES[i]])/maxf(1,info.capacity)
-			_bar(Rect2(x+57,61,107,6),fullness,GOLD if fullness>=1 else GREEN)
+			_stock_bar(Rect2(x+57,61,107,6),fullness)
 			_small(("超仓 " if fullness>1 else "满仓 " if fullness==1 else "")+"/ "+_amount(info.capacity),Vector2(x+57,79),11,GOLD if fullness>=1 else MUTED)
 	_button("nav:settings", "存档 / 设置", Rect2(1395, 20, 172, 43), "settings", screen == "settings")
 	_small("LV.%02d" % int(info.level), Vector2(1282, 36), 21, GOLD)
@@ -1507,19 +1574,19 @@ func _header():
 
 func _navbar():
 	_panel(Rect2(0, 836, 1600, 64), Color("10191a"), Color("596052"))
-	for i in range(8):
-		var x = 32 + i * 180
-		var active = screen == NAV[i][0]
+	for i in range(NAV.size()):
+		var x = 32 + i * 238
+		var active = screen == NAV[i][0] or (i==0 and screen in ["resources","industry","command_zone","factory","repair","research"])
 		if active:
-			draw_rect(Rect2(x, 837, 164, 62), Color("32372b"))
-			draw_rect(Rect2(x, 837, 164, 3), GOLD)
+			draw_rect(Rect2(x, 837, 218, 62), Color("32372b"))
+			draw_rect(Rect2(x, 837, 218, 3), GOLD)
 		elif hover == "nav:" + NAV[i][0]:
-			draw_rect(Rect2(x, 837, 164, 62), Color("202b29"))
+			draw_rect(Rect2(x, 837, 218, 62), Color("202b29"))
 		_small("0" + str(i + 1), Vector2(x + 13, 868), 18, GOLD if active else MUTED)
 		_text(NAV[i][1], Vector2(x + 49, 865), 19, TEXT if active else MUTED, active)
-		if completion_marks.has(NAV[i][0]): draw_circle(Vector2(x+142,852),4,GOLD)
+		if completion_marks.has(NAV[i][0]) or (i==0 and ["factory","research","repair"].any(func(p):return completion_marks.has(p))): draw_circle(Vector2(x+196,852),4,GOLD)
 		_small(NAV[i][2], Vector2(x + 49, 884), 9, MUTED)
-		_hit("nav:" + NAV[i][0], Rect2(x, 836, 164, 64), NAV[i][0])
+		_hit("nav:" + NAV[i][0], Rect2(x, 836, 218, 64), NAV[i][0])
 	_small("F11", Vector2(1503, 866), 13, GOLD)
 	_text("全屏", Vector2(1503, 887), 12, MUTED)
 	_hit("fullscreen", Rect2(1485, 837, 100, 60))
@@ -1536,34 +1603,17 @@ func _draw_base():
 	_panel(Rect2(24, 667, 770, 49), Color(0.045, 0.075, 0.07, 0.96), LINE)
 	_text("下一目标  " + goal.substr(0,42), Vector2(39, 697), 16, GOLD)
 	_hit("nav:objective", Rect2(24, 667, 770, 49), destination)
-	if not progress_report.is_empty(): _button("lastProgress","上次休整结算",Rect2(30,485,290,39))
+	if not progress_report.is_empty(): _button("lastProgress","上次休整结算",Rect2(30,617,290,39))
 	_button("rest:60", "休整 1 小时", Rect2(812, 675, 155, 40), 60)
 	_button("rest:480", "休整 8 小时", Rect2(982, 675, 155, 40), 480)
 	_button("nav:industry", "工业区 · 制造 / 改装", Rect2(350, 617, 225, 39), "industry")
 	_button("nav:repair", "维修车间 · 待修 %d" % info.repairSummary.damaged, Rect2(590, 617, 225, 39), "repair", info.repairSummary.damaged > 0)
 	_button("nav:objectives","成长目标 / 挑战荣誉",Rect2(800,102,337,44),"objectives")
 	_button("nav:library","战地图书馆  F1",Rect2(480,102,300,44),"library")
-	var hot = [["hq", Vector2(585, 219)], ["lab", Vector2(262, 330)], ["factory", Vector2(944, 344)], ["warehouse", Vector2(611, 532)], ["oil", Vector2(256, 573)], ["iron", Vector2(916, 565)], ["lead", Vector2(1030, 603)], ["titanium", Vector2(855, 175)], ["crystal", Vector2(170, 196)]]
-	for pair in hot:
-		var id = pair[0]
-		var p = pair[1]
-		var active = selected_building == id
-		var hovered = hover == "building:" + id
-		draw_arc(p, 23 + sin(clock * 2) * 2 if active else 12, 0, TAU, 32, GOLD if active else Color(0.9, 0.83, 0.63, 0.5), 2)
-		draw_circle(p, 4, GOLD)
-		draw_line(p + Vector2(0, 17), p + Vector2(0, 34), GOLD)
-		var r = Rect2(p.x - 86, p.y + 32, 172, 33)
-		_panel(r, Color(0.07, 0.1, 0.1, 0.95), GOLD if active or hovered else LINE)
-		_text(catalog.buildingNames[id], r.position + Vector2(12, 23), 16, GOLD if active else TEXT)
-		_small("%02d" % int(s.buildings[id]), r.position + Vector2(142, 22), 17, GOLD)
-		_hit("building:" + id, Rect2(p.x - 88, p.y - 40, 176, 108), id)
-		if id in ["hq", "lab", "factory"]:
-			var station_id = {"hq":"building", "lab":"research", "factory":"factory"}[id]
-			var station = _dispatch_station(station_id)
-			var badge = Rect2(p.x - 105, p.y + 72, 210, 29)
-			_panel(badge, Color("15241e"), GREEN if station.active > 0 else LINE)
-			_dispatch_text(("建造" if id == "hq" else "科研" if id == "lab" else "制造") + (" · " + _time(station.nextMs) if station.active > 0 else " · 待命") + "  ›", badge.position + Vector2(9, 21), 192, 15, GREEN if station.active > 0 else MUTED)
-			_hit("dispatchOpen:"+station_id, badge, station_id)
+	_scene_pin("district:hq", "指挥中心", Vector2(590,245), "建设 / 统筹", "hq", false)
+	_scene_pin("district:research", "科研中心", Vector2(267,350), "科技 / 指挥学院", "research", false)
+	_scene_pin("district:industry", "工业区", Vector2(942,367), "制造 / 改装 / 维修", "industry", false)
+	_scene_pin("district:resources", "资源区", Vector2(305,485), "五类资源 / 仓储", "resources", false)
 	# Warm atmospheric motes and a scanning radar ring.
 	for i in range(16):
 		var x = fmod(i * 91.7 + clock * (3 + i % 4), 1120) + 30
@@ -1576,11 +1626,14 @@ func _draw_base():
 		var x = 226 + i * 178
 		_icon(i, Rect2(x, 745, 44, 44))
 		_text("+%s / 时" % _amount(info.rates[RES[i]]), Vector2(x + 49, 772), 16)
-		_bar(Rect2(x + 49, 784, 90, 3), s.wallet[RES[i]] / info.capacity, GOLD)
+		_stock_bar(Rect2(x + 49, 784, 90, 3), s.wallet[RES[i]] / info.capacity)
 		_small("满仓·自产暂停" if s.wallet[RES[i]] >= info.capacity else "容量 " + _amount(info.capacity), Vector2(x + 49, 805), 11, GOLD if s.wallet[RES[i]] >= info.capacity else MUTED)
 	_panel(Rect2(1190, 82, 410, 754), Color("111b1c"), LINE)
 	_button("basePanel:dispatch", "作业调度", Rect2(1206, 96, 180, 38), "dispatch", base_panel == "dispatch")
 	_button("basePanel:facility", "设施详情", Rect2(1396, 96, 188, 38), "facility", base_panel == "facility")
+	if base_panel == "construction":
+		_draw_base_construction()
+		return
 	if base_panel == "dispatch":
 		_draw_base_dispatch()
 		return
@@ -1672,28 +1725,29 @@ func _draw_queues():
 	_text("工作 %d/%d · %s" % [station.active, station.slots, _dispatch_wait_label(station)], Vector2(427, 276), 18, GOLD)
 	var finish = "尚未安排任务" if station.finishMs == null else ("全部预计归队 " if station.id == "expeditions" else "全部完成还需 ") + _time(station.finishMs)
 	_dispatch_text(finish, Vector2(873, 236), 667, 18, GREEN)
-	_button("dispatchDestination", "前往" + ("工业区解锁" if station.block != "" else "安排建设" if station.id == "building" else station.name), Rect2(1170, 258, 365, 39), null, true)
-	var rows = station.rows
-	var pages = maxi(1, ceili(rows.size()/4.0))
-	queue_page = clampi(queue_page, 0, pages-1)
+	_button("dispatchDestination", "前往" + ("工业区解锁" if station.block != "" else "设施详情" if station.id == "building" else station.name), Rect2(1170, 258, 365, 39), null, true)
+	_button("dispatchTab:orders","工作与等待订单",Rect2(406,326,292,36),"orders",dispatch_tab=="orders")
+	if station.id!="expeditions": _button("dispatchTab:arrange","直接安排 / 升级",Rect2(714,326,302,36),"arrange",dispatch_tab=="arrange")
+	if dispatch_tab=="arrange" and station.id!="expeditions":
+		_draw_dispatch_arrange(station)
+		return
+	var rows=station.rows
+	var pages=maxi(1,ceili(rows.size()/4.0))
+	queue_page=clampi(queue_page,0,pages-1)
 	if rows.is_empty():
-		_panel(Rect2(406, 328, 1156, 405))
-		_text(station.status, Vector2(441, 393), 32, GOLD, true)
-		var explanation = station.block if station.block != "" else "没有执行中的远征，可安排采集或突袭据点。" if station.id == "expeditions" else "待修 %d 辆，前往维修车间安排维修。" % station.damaged if station.damaged > 0 else "当前工位空闲，点击右上方入口安排新作业。"
-		_dispatch_text(explanation, Vector2(441, 444), 1070, 21, TEXT)
-		_dispatch_text("自动资源生产仍在基地下方显示；满仓时暂停自产。", Vector2(441, 502), 1070, 18, MUTED)
-		if station.id == "expeditions": _button("expeditionHistory", "查看归队与入库记录", Rect2(441, 557, 377, 44))
-	for i in range(mini(4, rows.size()-queue_page*4)):
-		var row = rows[queue_page*4+i]
-		var rect = Rect2(406, 328+i*108, 1156, 99)
-		if station.id == "expeditions": _draw_dispatch_march(row, rect)
-		else: _draw_dispatch_job(row, rect, queue_page*4+i+1-int(station.active))
-	var note = "前往阶段按满载估算；战损、矿量和占用可能改变归队时间。" if station.id == "expeditions" else "进度条 = 整批交付；等待任务按提交顺序开工，时间已计 VIP 免费完成。"
-	_dispatch_text(note, Vector2(427, 779), 1110, 16, MUTED)
-	_button("queuePrev", "上一页", Rect2(1243, 789, 130, 35), null, false, queue_page > 0)
-	_button("queueNext", "%d/%d 下一页" % [queue_page+1, pages], Rect2(1387, 789, 174, 35), null, false, queue_page < pages-1)
-	if station.id == "expeditions": _button("expeditionHistory", "归队记录", Rect2(406, 789, 204, 35))
-	else: _text("当前工位 %d 项 · 待修车辆不计入等待订单" % rows.size(), Vector2(427, 814), 16, MUTED)
+		_panel(Rect2(406,375,1156,378))
+		_text("当前没有订单",Vector2(441,445),30,TEXT,true)
+		_fit_text(station.block if station.block!="" else "使用“直接安排”就地提交，也可前往目标页面查看完整详情。",Vector2(441,492),1070,21,GOLD)
+		_fit_text("等待位是已经扣料、尚未开工的订单；与待修库存不是同一个数量。",Vector2(441,537),1070,18,MUTED)
+	for i in range(mini(4,rows.size()-queue_page*4)):
+		var row=rows[queue_page*4+i]
+		var rect=Rect2(406,375+i*98,1156,91)
+		if station.id=="expeditions": _draw_dispatch_march(row,rect)
+		else: _draw_dispatch_job(row,rect,queue_page*4+i+1-int(station.active))
+	_fit_text("整批交付进度 · 旧档超额等待单保留，降至3单以下可继续提交" if station.id!="expeditions" else "前往阶段按满载估算；战损、矿量和占用会改变归队时间。",Vector2(427,791),790,16,MUTED)
+	_button("queuePrev","上一页",Rect2(1243,791,130,35),null,false,queue_page>0)
+	_button("queueNext","%d/%d 下一页"%[queue_page+1,pages],Rect2(1387,791,174,35),null,false,queue_page<pages-1)
+	if station.id=="expeditions": _button("expeditionHistory","归队记录",Rect2(406,797,204,30))
 
 func _dispatch_groups():
 	return info.dispatch.stations + [info.dispatch.expeditions]
@@ -1739,7 +1793,7 @@ func _draw_dispatch_station(station, rect: Rect2, on_base):
 	if station.id == "expeditions": queue_label = "采集 / 突袭 · 点击查看各队阶段"
 	elif station.block != "": queue_label = "点击查看解锁与建设入口"
 	elif station.waiting > 0: queue_label += " · 下项 " + station.rows[station.active].name
-	elif station.id == "repair": queue_label = "待修 %d 辆 · 独立维修线" % station.damaged
+	elif station.id == "repair": queue_label += " · 待修 %d 辆" % station.damaged
 	elif station.id == "building": queue_label = "%d 个并行施工位 · 点击展开" % station.slots
 	_dispatch_text(queue_label, p+Vector2(0, 65), rect.size.x-24, 14, GOLD if station.waiting > 0 else MUTED)
 	_hit(id, rect, station.id)
@@ -1811,10 +1865,10 @@ func _draw_vip():
 	_text("已达到最高特权" if v.nextThreshold == null else "距离 VIP %d 还需 %d 金币" % [v.level + 1, v.nextThreshold - v.paidGold], Vector2(229, 265), 16, MUTED)
 	_panel(Rect2(40, 292, 981, 469))
 	var xs = [57, 137, 291, 417, 557, 701, 845]
-	var labels = ["等级", "累计金币", "建筑并行", "生产 / 科研", "行军上限", "免费完成", "每日金币"]
+	var labels = ["等级", "累计金币", "建筑并行", "工作 / 等待", "行军上限", "免费完成", "每日金币"]
 	for i in range(xs.size()):
 		_text(labels[i], Vector2(xs[i], 324), 16, GOLD)
-	_text("每座工厂 / 科研分别计算", Vector2(405, 346), 11, MUTED)
+	_fit_text("各厂 / 科研 / 维修", Vector2(407, 346), 143, 12, MUTED)
 	for i in range(catalog.vipLevels.size()):
 		var row = catalog.vipLevels[i]
 		var y = 371 + i * 34
@@ -1844,7 +1898,7 @@ func _draw_vip():
 	else:
 		_text("本机管理入口位于设置 → 高级。",Vector2(1070,530),19,MUTED)
 		_text("免费时长不抵扣往返行军。",Vector2(1070,583),20,GOLD)
-	_text("参考官网 VIP 1–10：本单机版直接赠送建造位。V10 门槛与每日金币为单机设计。", Vector2(43, 797), 15, MUTED)
+	_text("VIP 保留建造位与加速福利；各厂、科研、维修固定 1 工作 + 3 等待，不随 VIP 变化。", Vector2(43, 797), 15, MUTED)
 	_button("nav:queues", "查看作业队列", Rect2(1275, 781, 284, 37), "queues")
 
 func _draw_sprite_polygon(meta, origin: Vector2, pivot: Vector2, scale_value: float, color = Color.WHITE):
@@ -1859,13 +1913,29 @@ func _draw_sprite_polygon(meta, origin: Vector2, pivot: Vector2, scale_value: fl
 	draw_colored_polygon(silhouette, color, uv, textures[meta.atlas])
 	draw_set_transform(Vector2.ZERO)
 
+func _unit_recipe(quote, title, pos: Vector2, width=575):
+	_panel(Rect2(pos,Vector2(width,69)),Color("111b1b"),LINE)
+	_fit_text(title+" · 单辆 "+_time(quote.duration),pos+Vector2(10,23),width-20,16,GOLD)
+	if quote.sourceUnitId == "" and title.begins_with("改装"):
+		_text("I 阶无原型车，无法改装",pos+Vector2(10,53),15,MUTED)
+		return
+	var index=0
+	for resource in RES:
+		if quote.unitCost.get(resource,0)<=0: continue
+		var x=pos.x+9+index*94
+		_icon(RES.find(resource),Rect2(x,pos.y+35,25,25))
+		_fit_text(_amount(quote.unitCost[resource]),Vector2(x+27,pos.y+55),65,15,TEXT)
+		index+=1
+	if quote.has("coreCost"):
+		_core_icon(quote.coreCost.id,Rect2(pos.x+width-108,pos.y+34,28,28))
+		_text("×1",pos+Vector2(width-76,55),15,GOLD)
+
 func _draw_factory():
-	_title("装甲军械库", "ARSENAL  /  SEVEN GENERATIONS")
-	for i in range(3):
-		var id = ["factory", "factory2", "refit"][i]
-		var f = info.facilities[id]
-		_button("facility:" + id, f.name + " · " + ("Lv.%d" % f.level if f.level > 0 else "未建"), Rect2(670 + i * 226, 111, 213, 47), id, ("refit" if production_mode == "refit" else selected_factory) == id)
-	_button("nav:industry", "工业区", Rect2(1360, 111, 202, 47), "industry")
+	var facility = "refit" if production_mode=="refit" else selected_factory
+	var factory = info.facilities[facility]
+	_title(factory.name+" · Lv.%d"%factory.level, "BASE / INDUSTRY / WORKSHOP")
+	_fit_text("独立车间 · 1个工作位 + 3个等待位",Vector2(829,147),493,18,GOLD)
+	_button("nav:industry", "返回工业区", Rect2(1360, 111, 202, 47), "industry")
 	for i in range(4):
 		_button("class:" + str(i), catalog.classNames[CLASSES[i]], Rect2(40 + i * 284, 200, 269, 60), i, selected_class == i)
 	for t in range(1, 8):
@@ -1875,68 +1945,73 @@ func _draw_factory():
 	var effective = info.unitStats[u.unitId]
 	var quote = _factory_quote()
 	_panel(Rect2(40, 339, 615, 434), Color("162020"), LINE)
-	_text("第 %d 阶 · %s工厂 %d 级解锁" % [tier,"改装及制造" if production_mode=="refit" else "本",u.unlock.factoryLevel], Vector2(65, 370), 17, GOLD)
-	_text(u.name, Vector2(65, 410), 30, TEXT, true)
-	for i in range(8):
-		draw_line(Vector2(50 + i * 84, 716), Vector2(350 + (i - 4) * 20, 475), Color(0.6, 0.68, 0.6, 0.06))
+	_text("第 %d 阶 · %s工厂 %d 级解锁" % [tier,"改装及制造" if production_mode=="refit" else "本",u.unlock.factoryLevel], Vector2(60, 365), 16, GOLD)
+	_text(u.name, Vector2(60, 400), 27, TEXT, true)
 	if production_mode=="refit" and quote.sourceUnitId!="":
 		for side in range(2):
 			var id=quote.sourceUnitId if side==0 else u.unitId
 			var st=info.unitStats[id]
-			var p=Vector2(60+side*293,434)
-			_panel(Rect2(p,Vector2(280,259)),Color("111c1b"),LINE if side==0 else GOLD.darkened(0.4))
-			_image(id,Rect2(p+Vector2(7,20),Vector2(266,145)))
-			_text(catalog.units[id].name,p+Vector2(12,187),18,TEXT,true)
-			_text("攻击 %d · 生命 %d"%[st.attack,st.hp],p+Vector2(12,215),16,GOLD)
-			_text(("消耗 %d 辆原车" if side==0 else "产出 %d 辆新车")%quantity,p+Vector2(12,241),17,MUTED)
+			var p=Vector2(60+side*293,412)
+			_image(id,Rect2(p,Vector2(270,121)))
+			_fit_text(catalog.units[id].name+" · "+("消耗原车" if side==0 else "产出新车")+" ×%d"%quantity,p+Vector2(0,144),278,15,TEXT)
+			_fit_text("攻 %d / 生命 %d"%[st.attack,st.hp],p+Vector2(0,166),278,15,GOLD)
 	else:
-		_image(u.unitId, Rect2(63, 417, 568, 284))
-	_text("攻击 %d    生命 %d    载重 %d" % [effective.attack, effective.hp, effective.load], Vector2(65, 726), 18, GOLD)
-	_text(catalog.classDescriptions[u.classId], Vector2(65, 757), 16, MUTED)
+		_image(u.unitId, Rect2(105, 406, 488, 173))
+	_fit_text("攻击 %s · 生命 %s · 载重 %s" % [_amount(effective.attack),_amount(effective.hp),_amount(effective.load)], Vector2(60, 600), 575,18,GOLD)
+	var manufacture_facility=selected_factory if selected_factory!="refit" else "factory2" if info.facilities.factory2.level>info.facilities.factory.level else "factory"
+	var manufacture_quote=effective.produce2 if manufacture_facility=="factory2" else effective.produce
+	_unit_recipe(manufacture_quote,"制造 / %s Lv.%d"%["二厂" if manufacture_facility=="factory2" else "一厂",info.facilities[manufacture_facility].level],Vector2(60,615))
+	_unit_recipe(effective.refit,"改装 / 改装厂 Lv.%d / 原车×1"%info.facilities.refit.level,Vector2(60,694))
 	_panel(Rect2(677, 339, 496, 434), Color("101a1b"), LINE)
-	_button("productionMode:produce", "制造新车", Rect2(696, 355, 217, 39), "produce", production_mode == "produce")
-	_button("productionMode:refit", "低阶改装", Rect2(926, 355, 227, 39), "refit", production_mode == "refit")
-	_text("待命 %d   出征 %d   待修 %d" % [s.available[u.unitId], effective.marching, s.damaged[u.unitId]], Vector2(696, 420), 16, GOLD)
-	_text(("每辆消耗原车 ×1 · 单批最多100辆") if quote.sourceUnitId != "" else "生产数量（可直接输入 1–100）", Vector2(696, 447), 16, MUTED)
-	_button("qtyminus", "−", Rect2(696, 465, 40, 42))
-	_button("qtyplus", "+", Rect2(872, 465, 40, 42))
-	_text("当前最多 %d 辆" % quote.max, Vector2(935, 492), 16, GOLD)
+	_text("低阶改装订单" if production_mode=="refit" else "新车制造订单",Vector2(696,378),23,TEXT,true)
+	_fit_text("本厂等级、科技和VIP共同决定单辆工时",Vector2(696,403),457,15,MUTED)
+	_text("待命 %d   出征 %d   待修 %d" % [s.available[u.unitId], effective.marching, s.damaged[u.unitId]], Vector2(696,430),16,GOLD)
+	_text("本单数量（1—%d辆）"%catalog.productionBatchLimit,Vector2(696,454),15,MUTED)
+	_button("qtyminus", "−", Rect2(696,465,40,42))
+	_button("qtyplus", "+", Rect2(872,465,40,42))
+	_text("当前最多 %d 辆"%quote.max,Vector2(935,492),16,GOLD)
 	for i in range(3):
-		_button("quantity:" + str(i), str([20, 50, 100][i]), Rect2(696 + i * 116, 520, 105, 39), [20, 50, 100][i])
-	_button("quantityMax", "MAX", Rect2(1044, 520, 109, 39))
-	var no_refit = production_mode=="refit" and quote.sourceUnitId==""
-	_fit_text("轻型车没有低阶原型" if no_refit else ("解锁后预计 " if quote.block!="" else "预计完成 ")+_eta(quote.waitMs+_effective_time(quote.duration*quantity)),Vector2(696,590),457,21,TEXT,true)
-	_fit_text("选择 II 阶及以上车辆，查看改装计划" if no_refit else "单辆 " + _time(quote.duration) + " · 等待 " + _time(quote.waitMs) + " · VIP 免 %d 分钟" % info.vip.freeMinutes if quantity > 0 else "请输入 1–100 的整数数量", Vector2(696, 615),457,15,MUTED)
-	if not no_refit:
-		_cost({"iron": quote.unitCost.get("iron", 0), "oil": quote.unitCost.get("oil", 0), "lead": quote.unitCost.get("lead", 0)}, Vector2(696, 650), quantity)
-		_cost({"titanium": quote.unitCost.get("titanium", 0), "crystal": quote.unitCost.get("crystal", 0)}, Vector2(696, 687), quantity)
+		_button("quantity:"+str(i),str([50,100,500][i]),Rect2(696+i*116,520,105,39),[50,100,500][i])
+	_button("quantityMax","MAX",Rect2(1044,520,109,39))
+	var no_refit=production_mode=="refit" and quote.sourceUnitId==""
+	if no_refit:
+		_text("I阶无低阶原型，请选择II阶以上车辆",Vector2(696,589),17,MUTED)
+	else:
+		_fit_text("整批工时 %s · %d辆"%[_time(quote.duration*quantity),quantity],Vector2(696,585),457,20,TEXT,true)
+		_fit_text("等待 %s · VIP减免后工时 %s"%[_time(quote.waitMs),_eta(_effective_time(quote.duration*quantity))],Vector2(696,610),457,15,MUTED)
+		_fit_text("预计全部交付 "+_eta(quote.waitMs+_effective_time(quote.duration*quantity)),Vector2(696,634),457,17,GREEN)
+		_cost({"iron":quote.unitCost.get("iron",0),"oil":quote.unitCost.get("oil",0),"lead":quote.unitCost.get("lead",0)},Vector2(696,662),quantity)
+		_cost({"titanium":quote.unitCost.get("titanium",0),"crystal":quote.unitCost.get("crystal",0)},Vector2(696,695),quantity)
 	if quote.has("coreCost"):
-		var core_id = quote.coreCost.id
-		_core_icon(core_id, Rect2(949, 661, 33, 33))
-		_text("核心 %s / %s" % [_amount(s.arsenal.cores[core_id]), _amount(quantity)], Vector2(986, 686), 16, GOLD if s.arsenal.cores[core_id] >= quantity else RED)
-	var label = quote.block.split("（")[0] if quote.block != "" else "等待位已满" if quote.busy else "加入等待队列" if quote.waitMs > 0 else ("开始改装" if production_mode == "refit" else "投入生产")
-	_button("produce", label, Rect2(696, 713, 272, 43), null, true, quote.block == "" and quantity > 0 and quantity <= quote.max and not quote.busy and not _command_pending())
-	_button("repairOpen", "维修车间", Rect2(981, 713, 172, 43))
-	_panel(Rect2(1202, 199, 360, 574), Color("121c1d"), LINE)
-	_text("后勤调度", Vector2(1224, 237), 22, TEXT, true)
-	_facility_job("refit" if production_mode == "refit" else selected_factory, Vector2(1218, 259), 327)
-	_job("repair", Vector2(1218, 400), 327)
-	_text("核心储备 · 查看全部 →", Vector2(1224, 529), 18, GOLD)
-	_hit("inventoryCategory", Rect2(1220, 506, 329, 34), "cores")
+		var core_id=quote.coreCost.id
+		_core_icon(core_id,Rect2(949,672,28,28))
+		_fit_text("需 %s / 有 %s"%[_amount(quantity),_amount(s.arsenal.cores[core_id])],Vector2(985,696),168,15,GOLD if s.arsenal.cores[core_id]>=quantity else RED)
+	var label=quote.block.split("（")[0] if quote.block!="" else "等待位已满" if quote.busy else "加入等待队列" if quote.waitMs>0 else ("开始改装" if production_mode=="refit" else "投入生产")
+	_button("produce",label,Rect2(696,717,272,39),null,true,quote.block=="" and quantity>0 and quantity<=quote.max and not quote.busy and not _command_pending())
+	_button("repairOpen","维修车间",Rect2(981,717,172,39))
+	_panel(Rect2(1202,199,360,574),Color("121c1d"),LINE)
+	_text("本厂作业",Vector2(1224,237),22,TEXT,true)
+	_facility_job(facility,Vector2(1218,259),327)
+	var waiting=info.jobs.filter(func(j):return j.kind=="production" and j.get("facility","factory")==facility and j.waiting)
+	for i in range(waiting.size()):
+		var job=waiting[i]
+		_fit_text("等待%d · %s ×%d"%[i+1,catalog.units[job.target].name,job.total],Vector2(1224,411+i*48),318,15,TEXT)
+		_fit_text("预计交付 "+_time(job.remainingMs),Vector2(1232,435+i*48),307,14,MUTED)
+	_text("核心储备 · 查看全部 →",Vector2(1224,559),18,GOLD)
+	_hit("inventoryCategory",Rect2(1220,535,329,34),"cores")
 	for i in range(2):
-		var core_id = u.classId + "_core" + str(i + 6)
-		_core_icon(core_id, Rect2(1224, 545 + i * 52, 42, 42))
-		_text(catalog.coreNames[core_id], Vector2(1276, 567 + i * 52), 16, TEXT)
-		_small("×" + _amount(s.arsenal.cores[core_id]), Vector2(1494, 568 + i * 52), 18, GOLD)
-	_text("取消：退回未完成的资源、核心与原车。", Vector2(1224, 678), 14, MUTED)
-	var repair_count = mini(quantity,int(effective.repair.max))
-	_fit_text("本车型暂无待修车辆" if s.damaged[u.unitId]<=0 else "维修车间工作中 · 查看维修队列" if effective.repair.busy else "当前可修 %d 辆 · %s"%[repair_count,_eta(_effective_time(effective.repair.duration*repair_count))],Vector2(1224,713),316,15,GOLD)
-	if s.damaged[u.unitId]>0 and repair_count>0: _cost(effective.repair.unitCost, Vector2(1220, 747), repair_count)
-	_button("nav:queues", "查看全部作业队列", Rect2(310, 786, 270, 33), "queues")
-	_button("coreDungeons", "核心副本", Rect2(40, 786, 125, 33))
-	_button("budget", "成本计划", Rect2(176,786,120,33),null,false,tier>=6)
-	if production_mode == "refit": _button("refitCompare","原车 → 目标 · 对比计划",Rect2(602,786,570,33))
-	_button("unitGuide", "兵种图鉴 / 克制 / 实际属性", Rect2(1202, 786, 360, 33))
+		var core_id=u.classId+"_core"+str(i+6)
+		_core_icon(core_id,Rect2(1224,572+i*55,42,42))
+		_fit_text(catalog.coreNames[core_id],Vector2(1276,595+i*55),204,15,TEXT)
+		_fit_text("×"+_amount(s.arsenal.cores[core_id]),Vector2(1476,595+i*55), 70,17,GOLD)
+	_fit_text("进度条：本批已交付 / 本批总量",Vector2(1224,690),316,15,MUTED)
+	_fit_text("取消仅退未交付部分的材料、核心与原车",Vector2(1224,718),316,14,MUTED)
+	_fit_text("其他车间：返回工业区选择对应建筑",Vector2(1224,747),316,15,GOLD)
+	_button("nav:queues","全部作业调度",Rect2(310,786,270,33),"queues")
+	_button("coreDungeons","核心副本",Rect2(40,786,125,33))
+	_button("budget","成本计划",Rect2(176,786,120,33),null,false,tier>=6)
+	if production_mode=="refit": _button("refitCompare","原车 → 目标 · 详细比较",Rect2(602,786,570,33))
+	_button("unitGuide","兵种图鉴 / 克制 / 实际属性",Rect2(1202,786,360,33))
 
 func _factory_quote():
 	return info.unitStats[_unit_id()]["refit" if production_mode == "refit" else "produce2" if selected_factory == "factory2" else "produce"]
@@ -1959,40 +2034,7 @@ func _facility_job(id, pos: Vector2, width):
 	_text(next_text, pos + Vector2(4,123), 14, MUTED)
 
 func _draw_industry():
-	_title("基地工业区", "INDUSTRY  /  MANUFACTURE · REFIT · RECOVERY")
-	_text("指挥中心 Lv.%d" % s.buildings.hq, Vector2(1350, 148), 21, GOLD)
-	var ids = ["factory", "factory2", "refit", "repair"]
-	for i in range(4):
-		var id = ids[i]
-		var p = Vector2(40 + (i % 2) * 775, 201 + int(i / 2.0) * 289)
-		var repair = id == "repair"
-		var f = {"name": "维修车间", "level": 1, "block": ""} if repair else info.facilities[id]
-		_panel(Rect2(p, Vector2(746, 268)), Color("14201e"), GOLD.darkened(0.5) if f.level > 0 else LINE)
-		_small("0%d / %s" % [i + 1, "RECOVERY" if repair else "REFIT" if id == "refit" else "MANUFACTURING"], p + Vector2(22, 26), 13, GOLD)
-		_text(f.name, p + Vector2(22, 66), 29, TEXT, true)
-		_text("开局开放" if repair else "Lv.%02d" % f.level if f.level > 0 else "待建设 · 指挥中心 13 级开放", p + Vector2(267, 64), 19, GOLD if f.block == "" else MUTED)
-		var description = "集中接收可维修战损，修复完成逐辆返回待命库存。" if repair else "消耗低一阶原车，升级为更高阶战车；独立工作。" if id == "refit" else "制造四类战车；由本厂等级决定可生产的阶级。"
-		_text(description, p + Vector2(22, 99), 16, MUTED)
-		if repair:
-			_text("待修 %d 辆    维修中 %d 辆    永久损失 %d 辆" % [info.repairSummary.damaged, info.repairSummary.repairing, info.repairSummary.destroyed], p + Vector2(22, 141), 20, GOLD)
-			_text("独立 1 条维修线 · 不占制造、改装或科研队列", p + Vector2(22, 174), 17, TEXT)
-			_button("nav:repair", "进入维修车间", Rect2(p + Vector2(22, 211), Vector2(700, 39)), "repair", true)
-		else:
-			_text("工作 %d / %d    VIP 等待 %d / %d" % [f.active, 1 if f.level > 0 else 0, f.waiting, f.waitingSlots], p + Vector2(22, 136), 18, GOLD)
-			var q = f.upgrade
-			var full = f.level >= int(catalog.MAX_LEVEL)
-			if not full:
-				_cost(q.unitCost, p + Vector2(22, 173))
-			else:
-				_text("七阶已开放 · 本厂效率 +%d%%"%q.speedPercent,p+Vector2(22,173),17,GOLD)
-			var timing = "已达最高等级" if full else ("施工剩余 " + _eta(q.booked.remainingMs)) if q.booked != null else "预计完成 " + _eta(q.waitMs + _effective_time(q.duration))
-			_text(timing, p + Vector2(477, 173), 16, GREEN)
-			var block = q.block
-			if block == "" and not _affordable(q.unitCost):
-				block = "资源不足"
-			_button("facilityUpgrade:" + id, block if block != "" else "升级本厂" if f.level > 0 else "建设本厂", Rect2(p + Vector2(22, 211), Vector2(337, 39)), id, false, block == "" and not _command_pending())
-			_button("facility:" + id, "进入车间", Rect2(p + Vector2(375, 211), Vector2(347, 39)), id, true, f.level > 0)
-	_text("两座制造工厂 + 一座改装工厂 = 最多 3 条同时工作的装甲生产线；VIP 为每条线分别增加等待位。", Vector2(42, 811), 17, MUTED)
+	_draw_district_scene("industry")
 
 func _draw_repair():
 	_title("装甲维修车间", "RECOVERY  /  RETURN TO THE FRONT")
@@ -2039,7 +2081,7 @@ func _draw_repair():
 	var u = catalog.units[repair_unit]
 	var quote = info.unitStats[repair_unit].repair
 	_text(u.name, Vector2(1025, 239), 27, TEXT, true)
-	_image(u.unitId, Rect2(1190, 246, 310, 173))
+	_image(u.unitId, Rect2(1220, 246, 280, 133))
 	_text("待修 %d 辆" % s.damaged[repair_unit], Vector2(1025, 288), 21, GOLD)
 	_text("当前可修 %d" % quote.max, Vector2(1025, 323), 17, GREEN)
 	_text("修复后回到待命库存", Vector2(1025, 354), 14, MUTED)
@@ -2047,32 +2089,30 @@ func _draw_repair():
 	_button("qtyminus", "−", Rect2(1025, 445, 75, 42))
 	_button("qtyplus", "+", Rect2(1252, 445, 75, 42))
 	_button("repairMax", "全部可修 MAX", Rect2(1347, 445, 189, 42))
-	_text("暂无可维修车辆" if s.damaged[repair_unit]<=0 else "预计耗时 " + _eta(_effective_time(quote.duration * quantity)), Vector2(1025, 518), 23, TEXT, true)
-	_text("VIP 免 %d 分钟 · 按整批剩余时间判断" % info.vip.freeMinutes, Vector2(1025, 544), 15, MUTED)
+	_text("暂无可维修车辆" if s.damaged[repair_unit]<=0 else "预计完成 " + _eta(quote.waitMs+_effective_time(quote.duration * quantity)), Vector2(1025, 518), 23, TEXT, true)
+	_fit_text("单辆 %s · 整批 %s · 等待 %s"%[_time(quote.duration),_time(quote.duration*quantity),_time(quote.waitMs)],Vector2(1025,544),511,15,MUTED)
+	_fit_text("单辆材料："+_cost_text(quote.unitCost),Vector2(1025,395),511,15,GOLD)
 	if s.damaged[repair_unit]>0: _cost(quote.unitCost, Vector2(1025, 578), quantity)
-	_button("repairStart", "维修线正在工作" if quote.busy else "暂无待修车辆" if s.damaged[repair_unit] == 0 else "开始修复 %d 辆" % quantity, Rect2(1025, 605, 511, 43), null, true, not quote.busy and quantity > 0 and quantity <= quote.max and not _command_pending())
+	_button("repairStart", "维修等待队列已满" if quote.busy else "暂无待修车辆" if s.damaged[repair_unit] == 0 else "开始修复 %d 辆" % quantity, Rect2(1025, 605, 511, 43), null, true, not quote.busy and quantity > 0 and quantity <= quote.max and not _command_pending())
 	if s.damaged[repair_unit]>0 and (quote.busy or quantity<=0 or quantity>quote.max): _text(_disabled_reason("repairStart",null),Vector2(1025,666),15,RED)
 	_job("repair", Vector2(1025, 671), 511)
 	_text("正式战损：同型号合计 ×80% 向上取整可维修；其余永久损失。演习不消耗战车。", Vector2(43, 818), 16, MUTED)
 
-func _formation_tactics(formation, player_side):
-	var initiative = 0
-	var extra = 0
-	var occupied = 0
-	for st in formation:
-		if st == null or st.count <= 0:
-			continue
-		var stats = info.unitStats[st.unitId]
-		var guard_tech = deployment.get("guardTech",0) if not player_side else 0
-		initiative += stats.initiative if player_side else stats.baseInitiative + guard_tech*3
-		extra += stats.extraFire if player_side else stats.baseExtraFire + guard_tech*4
-		occupied += 1
-	return {"initiative": int(floor(float(initiative) / maxi(1, occupied))), "extraFire": int(floor(float(extra) / maxi(1, occupied)))}
+func _formation_tactics(_formation, player_side):
+	if player_side: return info.commanderStats
+	var guard_tech = deployment.get("guardTech",0)
+	return {"initiative":100+guard_tech*3,"extraFire":100+guard_tech*4}
 
 func _draw_army():
 	var deploying = screen == "deployment" and not deployment.is_empty()
 	_title("战前编队 · " + deployment.title if deploying else "作战编队", "PRE-BATTLE DEPLOYMENT  /  REVIEW · ADJUST · CONFIRM" if deploying else "BATTLE GROUP  /  SIX POSITION DOCTRINE",true)
-	_text("单格上限  %d 辆" % int(info.leadership), Vector2(1360, 148), 19, GOLD)
+	if deploying and deployment.command.type=="march":
+		var transport_load=0
+		for slot in draft:
+			if slot!=null: transport_load+=slot.count*info.unitStats[slot.unitId].load
+		_button("departurePlan","本次总运力 %s · 行动计划"%_amount(transport_load),Rect2(1090,112,470,38),null,true)
+	else:
+		_text("单格上限  %d 辆" % int(info.leadership), Vector2(1360, 148), 19, GOLD)
 	var own_stats = _formation_tactics(draft, true)
 	_button("tacticRules","先手 / 二次开火规则",Rect2(1080,155,480,25))
 	_button("powerDetails","战力 %s / 满编上限 %s"%[_amount(_formation_power(draft,true)),_amount(info.power.ceiling)],Rect2(535,201,321,28))
@@ -2081,11 +2121,11 @@ func _draw_army():
 	if deploying:
 		var enemy_stats = _formation_tactics(deployment.enemy, false)
 		var chance = clampf(10 + (own_stats.extraFire - enemy_stats.extraFire) * 0.1, 0, 35)
-		if deployment.get("unknown",false): _text("我方先手 %d · 二次开火 %d；敌情未知，出征可能遭遇战损。"%[own_stats.initiative,own_stats.extraFire],Vector2(43,175),17,GOLD)
+		if deployment.get("unknown",false): _text("我方指挥官先手 %d · 二次开火 %d；敌情未知，出征可能遭遇战损。"%[own_stats.initiative,own_stats.extraFire],Vector2(43,175),17,GOLD)
 		else:
-			_text("我方先手 %d / 敌方 %d  ·  %s   |   二次开火 %d / %d  ·  我方 %.1f%%" % [own_stats.initiative, enemy_stats.initiative, "我方先攻" if own_stats.initiative >= enemy_stats.initiative else "敌方先攻", own_stats.extraFire, enemy_stats.extraFire, chance], Vector2(43, 175), 16, GOLD)
+			_text("我方指挥官先手 %d / 敌方 %d  ·  %s   |   二次开火 %d / %d  ·  我方 %.1f%%" % [own_stats.initiative, enemy_stats.initiative, "我方先攻" if own_stats.initiative >= enemy_stats.initiative else "敌方先攻", own_stats.extraFire, enemy_stats.extraFire, chance], Vector2(43, 175), 16, GOLD)
 	else:
-		_text("当前编队：先手 %d · 二次开火 %d（实际概率取决于对手）" % [own_stats.initiative, own_stats.extraFire], Vector2(43, 175), 13, GOLD)
+		_text("指挥官：先手 %d · 二次开火 %d（实际概率取决于对手）" % [own_stats.initiative, own_stats.extraFire], Vector2(43, 175), 13, GOLD)
 	_text("前排  /  FRONT LINE", Vector2(47, 219), 16, GOLD)
 	for i in range(6):
 		var p = Vector2(40 + (i % 3) * 279, 236 + int(i / 3.0) * 243)
@@ -2100,8 +2140,8 @@ func _draw_army():
 			_image(unit.unitId, Rect2(p + Vector2(10, 28), Vector2(162, 86)))
 			_text("×%d" % st.count, p+Vector2(187,77),24,GOLD,true)
 			_text(unit.name, p+Vector2(14,127),19,TEXT,true)
-			_text("攻击 %d · 单车生命 %d" % [actual.attack,actual.hp],p+Vector2(14,153),15,GOLD)
-			_text("总生命 %s · 载重 %s" % [_amount(actual.hp*st.count),_amount(actual.load*st.count)],p+Vector2(14,179),15,TEXT)
+			_fit_text("攻击 %d · 单车生命 %d" % [actual.attack,actual.hp],p+Vector2(14,153),238,15,GOLD)
+			_fit_text("总生命 %s · 载重 %s" % [_amount(actual.hp*st.count),_amount(actual.load*st.count)],p+Vector2(14,179),238,15,TEXT)
 			_fit_text({"tank":"逐列1–3发","tank_destroyer":"对列单体","spg":"对列1–2发","rocket":"固定6发"}[unit.classId]+" · 对"+{"tank":"火箭","tank_destroyer":"坦克","spg":"歼击","rocket":"火炮"}[unit.classId]+" +25%",p+Vector2(14,204),238,14,MUTED)
 		else:
 			_small("+", p + Vector2(112, 117), 44, LINE.lightened(0.3))
@@ -2184,7 +2224,7 @@ func _draw_army():
 		var load=0
 		for slot in draft:
 			if slot!=null: load+=slot.count*info.unitStats[slot.unitId].load
-		_button("departurePlan","出征 %d 辆 · 空位 %d · 运力 %s / 行动计划"%[total,6-occupied,_amount(load)],Rect2(925,784,618,36))
+		_button("departurePlan","出征 %d 辆 · 空位 %d · 单格上限 %d / 行动计划"%[total,6-occupied,info.leadership],Rect2(925,784,618,36))
 
 func _affordable(cost):
 	for id in cost:
@@ -2285,6 +2325,8 @@ func _inventory_details(id):
 			lines.append("可用 %d / 订单占用 %d / 运输中 %d。" % [item.quantity, item.reserved, item.incoming])
 			lines.append("订单占用已从钱包扣除；运输中物资回城才可使用。两者不重复计入可用库存。")
 			if item.id != "gold":
+				var protection=info.protection.resources[item.id]
+				lines.append("仓储保护 %.2f%% · 保护额度 %s\n当前受保护 %s / 可被掠夺 %s。金币与道具不在掠夺范围。"%[protection.bps/100.0,_amount(protection.limit),_amount(protection.protectedStock),_amount(protection.lootable)])
 				lines.append("每小时自产 %d，仓储上限 %d。奖励可超过自产仓储上限；满仓时暂停自产。" % [info.rates[item.id], info.capacity])
 				lines.append("资源统筹 +%.1f%% / 本资源专精 +%.1f%%，两项相加；仓储科技 +%.1f%%。"%[info.researchQuotes.resourceOutput.effectCurrent,info.researchQuotes[item.id+"Output"].effectCurrent,info.researchQuotes.storage.effectCurrent])
 				lines.append("空仓至满仓约 %.1f 小时；1—120级统一增长曲线，详情见图书馆。"%(float(info.capacity)/maxf(1,info.rates[item.id])))
@@ -2370,11 +2412,11 @@ func _draw_settlement():
 	_text("演习损失 %d 辆 · 实际扣除 0 辆" % summary.teams[0].lost if report.mode == "training" else "我方损失 %d 辆  ·  可维修 %d 辆  ·  永久损失 %d 辆" % [summary.teams[0].lost, summary.repairable, summary.destroyed], Vector2(61, 748), 22, GOLD, true)
 	var hints=summary.get("feedback",[])
 	_fit_text(hints[0] if not hints.is_empty() else "历史回放不会再次发奖。",Vector2(62,779),763,17,MUTED)
-	_fit_text("当前可修 %d 辆 · %s"%[info.repairAll.count,_repair_material_text()] if info.repairAll.count>0 else "当前暂无待修车辆",Vector2(850,786),690,15,GOLD)
+	_fit_text("本次可送修 %d / 待修 %d 辆 · %s"%[info.repairAll.count,info.repairSummary.damaged,_repair_material_text()] if info.repairSummary.damaged>0 else "当前暂无待修车辆",Vector2(850,786),690,15,GOLD)
 	_button("battleAdvice","战术建议",Rect2(1210,731,142,42))
 	_button("battleAdvanced","高级详情",Rect2(1370,731,171,42))
 	var next=_next_battle_target()
-	var actions=[["battleDetails","详细战报",null],["battleReplay","回放",null],["nav:army","补兵 / 编队","army"],["nav:repair","维修车间","repair"],["repairAll","全部修复",null],["rematch","再次挑战",null],["nav:campaign","返回世界" if report.mode=="world" else "返回战役","world" if report.mode=="world" else "campaign"],["battleNext","下一关 · 备战",next] if not next.is_empty() else ["nav:objectives","成长目标","objectives"]]
+	var actions=[["battleDetails","详细战报",null],["battleReplay","回放",null],["nav:army","补兵 / 编队","army"],["nav:repair","维修车间","repair"],["repairAll","批量送修",null],["rematch","再次挑战",null],["nav:campaign","返回世界" if report.mode=="world" else "返回战役","world" if report.mode=="world" else "campaign"],["battleNext","下一关 · 备战",next] if not next.is_empty() else ["nav:objectives","成长目标","objectives"]]
 	for i in range(actions.size()): _button(actions[i][0],actions[i][1],Rect2(40+i*192,818,176,49),actions[i][2],i==7,_repair_all_ready() if actions[i][0]=="repairAll" else not _command_pending() if actions[i][0] in ["rematch","battleNext"] else true)
 
 func _next_battle_target():
@@ -2481,10 +2523,12 @@ func _draw_research():
 		_text("科技已满级 · 当前效果持续生效",Vector2(1147,557),19,GOLD)
 		_text("可前往编队查看实际属性与战力。",Vector2(1147,601),17,MUTED)
 	else:
-		_cost(q.booked.unitCost if q.booked != null else q.unitCost, Vector2(1146, 541))
-		_text("预计完成  " + _eta(q.booked.remainingMs if q.booked != null else q.waitMs + q.duration), Vector2(1147, 578), 21, TEXT, true)
-		_text("原时长 " + _time(q.booked.rawRemainingMs if q.booked != null else q.rawDuration) + " · VIP 免 " + str(int(info.vip.freeMinutes)) + " 分钟", Vector2(1147, 604), 15, MUTED)
-		_text("等待 " + _time(q.booked.waitMs if q.booked != null else q.waitMs) + " · 效果从完成时生效", Vector2(1147, 632), 15, MUTED)
+		var research_cost = q.booked.unitCost if q.booked != null else q.unitCost
+		_cost({"iron":research_cost.get("iron",0),"oil":research_cost.get("oil",0),"lead":research_cost.get("lead",0)}, Vector2(1146, 534))
+		_cost({"titanium":research_cost.get("titanium",0),"crystal":research_cost.get("crystal",0)}, Vector2(1146, 567))
+		_text("预计完成  " + _eta(q.booked.remainingMs if q.booked != null else q.waitMs + q.duration), Vector2(1147, 605), 21, TEXT, true)
+		_text("原时长 " + _time(q.booked.rawRemainingMs if q.booked != null else q.rawDuration) + " · VIP 免 " + str(int(info.vip.freeMinutes)) + " 分钟", Vector2(1147, 632), 15, MUTED)
+		_text("等待 " + _time(q.booked.waitMs if q.booked != null else q.waitMs) + " · 效果从完成时生效", Vector2(1147, 656), 15, MUTED)
 	_button("research:" + selected_tech, "已在队列中" if q.duplicate else "已达 120 级" if level>=int(catalog.MAX_LEVEL) else "前置条件未满足" if q.block != "" else "队列已满" if info.queues.research.full else "立即研究" if q.duration == 0 and q.waitMs == 0 else "加入研究计划", Rect2(1145, 671, 393, 49), selected_tech, true, not info.queues.research.full and not q.duplicate and q.block == "" and _affordable(q.unitCost) and not _command_pending())
 	_hit("nav:lab",Rect2(1144,418,395,31),"base")
 	_text("连线表示前置依赖；科技等级越高，所需前置等级也会提高。", Vector2(42, 782), 17, MUTED)
@@ -2496,10 +2540,14 @@ func _draw_campaign():
 		_draw_dungeons()
 		return
 	var chapter=int(selected_stage/16)
-	_title("钢铁远征 · "+catalog.chapters[chapter].name, "CAMPAIGN / SEVEN CHAPTERS")
-	_text("战役进度  %d / 112" % s.cleared.size(), Vector2(1300, 148), 20, GOLD)
-	for c in range(7):
-		_button("chapter:"+str(c),"%d  %s"%[c+1,catalog.chapters[c].name],Rect2(40+c*218,198,205,39),c,c==chapter)
+	_title("钢铁远征 · "+catalog.chapters[chapter].name, "CAMPAIGN / CHAPTERS")
+	_text("战役进度  %d / %d" % [s.cleared.size(),catalog.stages.size()], Vector2(1300, 148), 20, GOLD)
+	campaign_chapter_page=clampi(campaign_chapter_page,0,ceili(catalog.chapters.size()/6.0)-1)
+	for n in range(6):
+		var c=campaign_chapter_page*6+n
+		if c>=catalog.chapters.size(): break
+		_button("chapter:"+str(c),"%d  %s"%[c+1,catalog.chapters[c].name],Rect2(40+n*217,198,205,39),c,c==chapter)
+	_button("chapterPage","7—12章 →" if campaign_chapter_page==0 else "← 1—6章",Rect2(1345,198,215,39),1-campaign_chapter_page)
 	for n in range(16):
 		var i=chapter*16+n
 		var p = Vector2(40 + (n % 4) * 214, 253 + int(n / 4.0) * 130)
@@ -2530,14 +2578,15 @@ func _draw_campaign():
 	var cleared=info.stageStatus[selected_stage].cleared
 	var rewards=stage.repeatReward if cleared else stage.reward
 	var growth=stage.repeatGrowth if cleared else stage.growth
-	_text(("重复挑战" if cleared else "首次占领")+" · 统率书 +%d / 声望 +%d"%[growth.books,growth.prestige],Vector2(932,618),17,GOLD)
-	_cost({"iron":rewards.iron,"oil":rewards.oil,"lead":rewards.lead},Vector2(929,660))
-	_cost({"titanium":rewards.get("titanium",0),"crystal":rewards.crystal,"gold":rewards.gold},Vector2(929,701))
+	_fit_text("重复挑战 · 声望 +%d（首通一半） · 基础经验 +%d"%[growth.prestige,growth.xp] if cleared else "首通 · 技能点 +%d / 统率书 +%d / 声望 +%d"%[growth.skillPoints,growth.books,growth.prestige],Vector2(932,611),602,17,GOLD)
+	_fit_text("仅资源与声望，经验正常获得" if cleared else "基础经验 +%d · 下列资源与金币一并结算"%growth.xp,Vector2(932,637),602,15,MUTED)
+	_cost({"iron":rewards.iron,"oil":rewards.oil,"lead":rewards.lead},Vector2(929,660),1,false)
+	_cost({"titanium":rewards.get("titanium",0),"crystal":rewards.crystal,"gold":rewards.gold},Vector2(929,701),1,false)
 	_button("training", "战术演习 · 无战损", Rect2(929, 749, 270, 43), null, false, not _command_pending())
 	var unlocked = info.stageStatus[selected_stage].unlocked
 	_button("attack", "发起进攻", Rect2(1215, 749, 319, 43), null, true, unlocked and not _command_pending())
 	_button("campaignMode:dungeon", "核心副本 →", Rect2(40, 788, 230, 36), "dungeon")
-	_text("七章架空行动 · 演习无掉落；正式胜利推进关卡。",Vector2(300,814),15,MUTED)
+	_text("十二章架空行动 · 演习无掉落；正式胜利推进关卡。",Vector2(300,814),15,MUTED)
 
 func _draw_dungeons():
 	_title("核心行动", "CORE OPERATIONS")
@@ -2698,13 +2747,13 @@ func _draw_world():
 			if st != null:
 				guards += int(st.count)
 	_text("%s · 守军 %d 辆 · %s 前" % ["情报过期" if s.now-intel.at>=info.worldInterval else "已侦察",guards, _time(s.now - intel.at)] if intel != null else "守军未知 · 建议先侦察", Vector2(1063, 374), 16, TEXT)
-	_fit_text(("计划 %s · 运力 %s · %s/时" % [_amount(mq.amount),_amount(mq.load),_amount(mq.gatherRate)] if mq.load>0 else "矿点采速 %s/时 · 配置部队后计算收益"%_amount(mq.gatherRate)) if site.kind=="mine" else "突袭无采集等待，到达后战斗并返航",Vector2(1063,403),473,16,MUTED)
+	_fit_text(("总运力 %s · 计划 %s · %s/时" % [_amount(mq.load),_amount(mq.amount),_amount(mq.gatherRate)] if mq.load>0 else "矿点采速 %s/时 · 配置部队后计算收益"%_amount(mq.gatherRate)) if site.kind=="mine" else "突袭无采集等待，到达后战斗并返航",Vector2(1063,403),473,19,GOLD)
 	if site.kind == "mine":
 		var supply="作业中暂停补给" if s.marches.any(func(m):return m.targetId==site.id) else "补给 "+_time(site.lastGrowth+info.worldInterval-s.now)
 		_text("矿储 %s/%s · %s" % [_amount(site.reserve), _amount(info.mineCaps[site.id]), supply], Vector2(1063, 430), 16, MUTED)
 	elif intel != null:
 		_text("情报物资 " + _cost_text(intel.wallet), Vector2(1063, 430), 11, MUTED)
-	_fit_text("当前远征队的实际进度见下方" if mq.load<=0 else "含往返毛收益 %.1f×自产 · 未扣战损"%mq.tripMultiple if site.kind=="mine" and mq.localRate>0 else "往返计时；新据点保护10%储备",Vector2(1063,557),473,15,GOLD)
+	_fit_text("当前远征队的实际进度见下方" if mq.load<=0 else "含往返毛收益 %.1f×自产 · 未扣战损"%mq.tripMultiple if site.kind=="mine" and mq.localRate>0 else "往返计时；保护20%—40%，详见侦察档案",Vector2(1063,557),473,15,GOLD)
 	_button("scout", ("重新侦察" if intel!=null else "侦察")+" · %s 水晶"%_amount(mq.scoutCost), Rect2(1062, 445, 259, 37), null, false, s.wallet.crystal>=mq.scoutCost and not _command_pending())
 	_button("scoutDetails","守军阵位详情",Rect2(1334,445,200,37))
 	_button("gather" if site.kind == "mine" else "raid", "出征采集" if site.kind == "mine" else "突袭据点", Rect2(1062, 496, 473, 43), null, true, s.marches.size() < info.vip.marches and mq.load > 0 and not _command_pending())
@@ -2738,9 +2787,9 @@ func _draw_commander():
 	_panel(Rect2(40, 205, 460, 560), Color("172220"), LINE)
 	_image("emblem", Rect2(154, 220, 232, 190))
 	_text(s.nickname, Vector2(76, 439), 34, TEXT, true)
-	_text(info.rank + "    Lv." + str(int(info.level)), Vector2(78, 479), 21, GOLD)
+	_text("经验等级 %d / 120"%info.level, Vector2(78,479),21,GOLD)
 	_text("作战经验  %d" % int(s.commander.xp), Vector2(78, 524), 18, MUTED)
-	_text("声望 Lv.%d · %d" % [info.prestigeLevel,s.commander.prestige], Vector2(78, 560), 18, MUTED)
+	_button("nav:prestige","%s · 声望 Lv.%d → 军衔表"%[info.rank,info.prestige.level],Rect2(75,537,389,32),"prestige",true)
 	_button("nav:attributes","战力 %s / 属性一览"%_amount(info.power.ceiling),Rect2(75,574,389,29),"attributes")
 	var daily_ready = int(floor((s.now + 28800000) / 86400000.0)) > s.lastDaily
 	_button("daily", ("每日补给 · 含1技能点" if s.buildings.hq>20 else "领取每日补给") if daily_ready else "今日补给已领取", Rect2(75, 610, 389, 47), null, true, daily_ready and not _command_pending())
@@ -2749,9 +2798,9 @@ func _draw_commander():
 	_text("统率能力", Vector2(553, 242), 23, TEXT, true)
 	_text("等级 %d   每格 %d 辆   统率书 %d" % [s.commander.leadership, info.leadership, s.commander.books], Vector2(553, 279), 18, MUTED)
 	_button("nav:commandTraining", "统率 / 技能 / 购买统率书 →", Rect2(552, 299, 448, 36), "commandTraining", true)
-	_text("进攻技能", Vector2(1070, 242), 23, TEXT, true)
-	_text("攻击 +%d%%   技能点 %d" % [s.commander.attackSkill * 2, s.commander.skillPoints], Vector2(1070, 279), 18, MUTED)
-	_button("skill", "提升攻击 · 1 点", Rect2(1070, 299, 268, 36), null, true, s.commander.skillPoints > 0 and s.commander.attackSkill < int(catalog.MAX_LEVEL) and not _command_pending())
+	_text("战术指挥 · Lv.%d / 120"%s.commander.attackSkill, Vector2(1070, 242), 23, TEXT, true)
+	_text("攻击 +%d%% → +%d%% · %d点" % [s.commander.attackSkill*2,mini(120,s.commander.attackSkill+1)*2,s.commander.skillPoints], Vector2(1070, 279), 18, MUTED)
+	_button("skill", "已满级 · 全队攻击+240%" if s.commander.attackSkill>=120 else "提升战术指挥 · 1 技能点", Rect2(1070, 299, 465, 36), null, true, s.commander.skillPoints > 0 and s.commander.attackSkill < int(catalog.MAX_LEVEL) and not _command_pending())
 	_text("战地任务", Vector2(533, 395), 25, TEXT, true)
 	_button("questNext", "切换任务页  %d / 2" % (quest_page + 1), Rect2(1345, 365, 214, 39))
 	for i in range(5):
@@ -2762,16 +2811,16 @@ func _draw_commander():
 		_panel(Rect2(p, Vector2(1030, 64)), Color("152020"), LINE)
 		_text(q.name, p + Vector2(17, 28), 18, TEXT, true)
 		_text(q.description, p + Vector2(17, 52), 14, MUTED)
-		_cost(q.reward, p + Vector2(410, 36))
+		_cost(q.reward, p + Vector2(410, 36),1,false)
 		_button("claim:" + q.id, "已领取" if done else "领取" if count >= q.target else "%d / %d" % [count, q.target], Rect2(p.x + 886, p.y + 14, 125, 36), q.id, not done and count >= q.target, not done and count >= q.target and not _command_pending())
 
 func _draw_reports():
 	_title("战地档案", "AFTER ACTION REPORTS  /  TACTICAL REPLAY")
-	_text("保留最近 100 场 · 列表手动接入新记录", Vector2(1190, 148), 16, MUTED)
-	_button("reportType",{"all":"全部类型","stage":"战役","dungeon":"核心副本","world":"世界行动","training":"演习"}[report_type],Rect2(40,197,220,36))
-	_button("reportResult",{"all":"全部结果","win":"胜利","loss":"失败"}[report_result],Rect2(278,197,220,36))
+	_text("最近 400 条 · 新记录点击刷新", Vector2(1220, 148), 16, MUTED)
+	_button("reportType",_archive_type_label(report_type),Rect2(40,197,220,36))
+	_button("reportResult",{"all":"全部结果","win":"成功 / 胜利","loss":"失败 / 失利"}[report_result],Rect2(278,197,220,36))
 	var unseen=0
-	for r in s.reports:
+	for r in info.archive:
 		if not report_rows.any(func(v):return v.id==r.id): unseen+=1
 	_button("reportRefresh","刷新 · %d 条新战报"%unseen if unseen>0 else "刷新列表",Rect2(1240,197,320,36),null,unseen>0)
 	var rows=_filtered_reports()
@@ -2785,10 +2834,11 @@ func _draw_reports():
 		var r = rows[index]
 		var p = Vector2(40, 249 + i * 104)
 		_panel(Rect2(p, Vector2(1520, 95)), Color("162221"), LINE)
-		_text("胜利" if r.winner == 0 else "失利", p + Vector2(18, 48), 23, GREEN if r.winner == 0 else RED, true)
-		_text(r.title.substr(0,20), p + Vector2(103, 30), 20, TEXT, true)
+		_text(("归队" if r.receipt else "胜利") if r.winner == 0 else "失败", p + Vector2(18, 48), 23, GREEN if r.winner == 0 else RED, true)
+		draw_rect(Rect2(p,Vector2(4,95)),GREEN if r.winner==0 else RED)
+		_fit_text(r.title,p+Vector2(103,30),310,20,TEXT)
 		_text(Time.get_datetime_string_from_unix_time(int(r.at/1000)+28800,true).substr(0,16),p+Vector2(103,57),15,MUTED)
-		_text({"stage":"战役","dungeon":"核心副本","world":"世界行动","training":"演习 · 实际未扣兵"}[r.mode]+" · %d 回合"%r.rounds,p+Vector2(103,81),14,MUTED)
+		_text(_archive_type_label(r.category)+( " · 已结算" if r.receipt else " · %d 回合"%r.rounds),p+Vector2(103,81),15,GOLD)
 		var loss=0
 		var repair=0
 		for v in r.casualties:
@@ -2798,7 +2848,7 @@ func _draw_reports():
 		var reward_items = []
 		for key in r.get("coreRewards", {}):
 			if r.coreRewards[key] > 0: reward_items.append({"id":key,"count":r.coreRewards[key]})
-		var shown_rewards = r.get("transport",{}).get("cargo",r.rewards) if r.mode=="world" else r.rewards
+		var shown_rewards = r.rewards # Attack loot is the original record; returns carry the credited receipt.
 		for key in RES:
 			if shown_rewards.get(key, 0) > 0: reward_items.append({"id":key,"count":shown_rewards[key]})
 		for key in ["xp","books","prestige","skillPoints"]:
@@ -2807,10 +2857,16 @@ func _draw_reports():
 			var at=p+Vector2(650+(j%4)*116,5+int(j/4.0)*40)
 			_reward_icon(reward_items[j].id, Rect2(at, Vector2(32,32)))
 			_text(_amount(reward_items[j].count), at+Vector2(35,24), 16, GOLD)
-		if reward_items.is_empty(): _text("无物资奖励",p+Vector2(660,46),16,MUTED)
-		if r.mode == "world": _text(r.get("transport", {}).get("label", "历史记录").substr(0,16), p + Vector2(435,68), 14, MUTED)
-		_button("reportSummary:" + r.id, "结算 / 全部 %d 项奖励"%reward_items.size(), Rect2(p.x + 1139, p.y + 10, 355, 33), r.id)
-		_button("report:" + r.id, "播放原始战斗", Rect2(p.x + 1139, p.y + 51, 355, 33), r.id, true)
+		if reward_items.is_empty(): _text("本次入库 0" if r.receipt else "无物资奖励",p+Vector2(660,46),16,MUTED)
+		if r.mode == "world": _text("采集入库另见归队记录" if r.category=="mine" else "装运物资 · 归队另记", p + Vector2(435,68), 14, MUTED)
+		if r.receipt:
+			_fit_text("生还 %d · 丢弃 %s"%[r.survivors,_amount(_wallet_total(r.discarded))],p+Vector2(435,68),203,14,GOLD if _wallet_total(r.discarded)>0 else MUTED)
+		if r.receipt:
+			_button("returnReceipt:"+r.id,"归队收据 / 实际入库",Rect2(p.x+1139,p.y+10,355,33),r.id,true)
+			_button("reportSummary:"+r.battleId,"查看关联战斗",Rect2(p.x+1139,p.y+51,355,33),r.battleId,false,s.reports.any(func(b):return b.id==r.battleId))
+		else:
+			_button("reportSummary:" + r.id, "结算 / 全部 %d 项奖励"%reward_items.size(), Rect2(p.x + 1139, p.y + 10, 355, 33), r.id)
+			_button("report:" + r.id, "播放原始战斗", Rect2(p.x + 1139, p.y + 51, 355, 33), r.id, true)
 	_button("reportsPrev", "上一页", Rect2(1170, 786, 122, 35),null,false,report_page>0)
 	_text("%d / %d" % [report_page + 1, maxi(1, ceili(rows.size()/5.0))], Vector2(1318, 811), 19, GOLD)
 	_button("reportsNext", "下一页", Rect2(1415, 786, 144, 35),null,false,(report_page+1)*5<rows.size())
@@ -2859,7 +2915,7 @@ func _draw_settings():
 		_text(item.nickname, Vector2(854, y + 24), 18, TEXT, true)
 		_small("#" + item.id.substr(0, 8), Vector2(1185, y + 23), 13, GOLD)
 		var timestamp = Time.get_datetime_string_from_unix_time(int(item.get("savedAt", item.at) / 1000) + 28800, true)
-		_small(timestamp + "  ·  指挥部 %d 级  ·  关卡 %d/112" % [item.get("hq", 1), item.get("cleared", 0)], Vector2(854, y + 46), 12, MUTED)
+		_small(timestamp + "  ·  指挥部 %d 级  ·  关卡 %d/192" % [item.get("hq", 1), item.get("cleared", 0)], Vector2(854, y + 46), 12, MUTED)
 		if item.get("recoverable", false):
 			_small("可恢复", Vector2(1295, y + 24), 13, GOLD)
 		_button("load:" + item.id, "当前" if item.id == s.id else "载入", Rect2(1391, y + 9, 125, 38), item.id, item.id == s.id, item.id != s.id and not _command_pending())
@@ -2886,6 +2942,7 @@ func open_report(value, summary = {}):
 	battle_pending_impacts = []
 	battle_impact_played = false
 	battle_visual_end = 0.0
+	battle_last_destruction_sound = -10.0
 	battle_craters = []
 	battle_interval = 1.05
 	pending_hit = false
@@ -2910,7 +2967,7 @@ func _battle_step(delta):
 		if battle_time >= battle_interval and battle_index < report.events.size():
 			battle_time -= battle_interval
 			_play_hit()
-			battle_interval = 0.52 if _next_same_action() else 1.05
+			battle_interval = _next_fire_interval()
 	if _battle_done():
 		battle_clock = _battle_end_time()
 
@@ -2951,6 +3008,19 @@ func _same_battle_action(a, b):
 func _next_same_action():
 	return battle_index < report.events.size() and _same_battle_action(report.events[battle_index], last_hit)
 
+func _next_fire_interval():
+	if _next_same_action(): return 0.52
+	if battle_index >= report.events.size() or report.events[battle_index].side == last_hit.side: return 1.05
+	# Increase only the post-impact handoff pause; preserve all six rocket offsets.
+	var impact_delay = 0.32
+	for impact in battle_pending_impacts: impact_delay = maxf(impact_delay,impact.at-hit_time)
+	return impact_delay + maxf(0,1.05-impact_delay)*1.5
+
+func _hit_number_style(e):
+	if e.miss: return {"label":"闪避","size":22,"color":Color("b6d6ce")}
+	if e.critical: return {"label":"暴击 −"+_amount(e.damage),"size":32,"color":Color("ff9261")}
+	return {"label":"−"+_amount(e.damage),"size":26,"color":Color("f0efdd")}
+
 func _apply_hit():
 	while not battle_pending_impacts.is_empty() and battle_pending_impacts[0].at<=battle_clock+0.000001:
 		var impact=battle_pending_impacts.pop_front()
@@ -2965,6 +3035,9 @@ func _apply_hit():
 		for st in battle_armies[1 - int(e.side)]:
 			if st.slot == e.to:
 				if st.totalHp > 0 and e.hp <= 0:
+					if battle_clock-battle_last_destruction_sound>=0.12:
+						_battle_sound("vehicle", "destroyed")
+						battle_last_destruction_sound=battle_clock
 					var side = 1 - int(e.side)
 					var at = impact.at
 					battle_deaths["%d:%d" % [side, int(e.to)]] = {"at": at, "side": side, "slot": int(e.to), "unitId": st.unitId, "position": _alive_position(side, int(e.to), at)}
@@ -3044,13 +3117,15 @@ func _battle_sound(cls: String, phase: String):
 		return
 	if test_mode:
 		battle_audio_events.append({"key": key, "at": battle_clock})
-	var voice: AudioStreamPlayer = battle_voices[0]
-	for candidate in battle_voices:
+	var pool_start = 0 if phase=="fire" else 4 if phase=="impact" else 12
+	var pool_end = 4 if phase=="fire" else 12 if phase=="impact" else 16
+	var voice: AudioStreamPlayer = battle_voices[pool_start]
+	for candidate in battle_voices.slice(pool_start,pool_end):
 		if not candidate.playing:
 			voice = candidate
 			break
 	voice.stream = battle_audio[key]
-	voice.volume_db = -8.0 if phase == "fire" else -11.0
+	voice.volume_db = -8.0 if phase == "fire" else -5.0 if cls=="rocket" else -10.0 if phase=="destroyed" else -11.0
 	voice.pitch_scale = 1.0 + (battle_speed - 1.0) * 0.045
 	voice.play()
 	voice.stream_paused = battle_paused
@@ -3324,19 +3399,21 @@ func _draw_shot(shot):
 			if e.get("ground",false):
 				_text("空位着弹",target+Vector2(-28,-26-burst*15),14,Color(0.83,0.76,0.6,1-burst))
 				continue
-			var label = "闪避" if e.miss else "−" + _amount(e.damage)
-			var label_size = 22 if e.miss else 32 if e.critical else 28
+			var style = _hit_number_style(e)
+			var label = style.label
+			var label_size = style.size
 			var w = bold.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size).x
 			var text_pos = target + Vector2(-w * 0.5, -35 - burst * 35)
 			text_pos.y = clampf(text_pos.y,125,780)
 			text_pos.x = clampf(text_pos.x,22,1578-w)
 			var alpha = minf(1, (1 - burst) * 3)
 			draw_string_outline(bold, text_pos + Vector2(2, 3), label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size, 6, Color(0.09, 0.06, 0.025, alpha))
-			draw_string_outline(bold, text_pos, label, HORIZONTAL_ALIGNMENT_LEFT, -1, label_size, 2, Color(0.9, 0.18, 0.04, alpha))
-			_text(label, text_pos, label_size, Color(1, 0.80, 0.22, alpha) if not e.miss else Color(0.85, 0.92, 0.83, alpha), true)
-			var feedback="暴击" if e.critical else ""
+			var ink = style.color
+			ink.a = alpha
+			draw_string(bold,text_pos,label,HORIZONTAL_ALIGNMENT_LEFT,-1,label_size,ink)
+			var feedback=""
 			if e.remaining==0 and not e.miss: feedback+=" 击毁"
-			elif not e.miss and report.ruleset in ["classic-combat-v0.10","classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3"]:
+			elif not e.miss and report.ruleset in ["classic-combat-v0.10","classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26"]:
 				var attacker=""
 				var defender=""
 				for st in report.initial[int(e.side)]:
@@ -3425,7 +3502,7 @@ func _draw_battle():
 			_text("演习不解锁关卡 · 无战损", Vector2(191, 877), 17, MUTED)
 		else:
 			_text("装运记录" if report.mode == "world" else "缴获", Vector2(192, 875), 15, GOLD)
-			_cost(report.rewards, Vector2(242, 869))
+			_cost(report.rewards, Vector2(242, 869),1,false)
 			if not report.get("coreRewards", {}).is_empty():
 					_text("含核心奖励 · 详见战报", Vector2(780, 877), 13, GOLD)
 		_button("battleSettlement", "战后结算", Rect2(1010, 850, 150, 39))
@@ -3450,8 +3527,8 @@ func _unit_guide():
 	var u = catalog.units[_unit_id()]
 	var effective = info.unitStats[u.unitId]
 	var lines: Array[String] = [u.name, catalog.classDescriptions[u.classId], "",
-		"基础攻击 %d → 科技与技能加成后 %d（实际伤害另受数量、克制、光环、命中与暴击影响）" % [u.attack, effective.attack],
-		"基础生命 %d → 科技加成后 %d；每辆载重 %d" % [u.hp, effective.hp, info.unitStats[u.unitId].load],
+		"基础攻击 %d → 科技、技能与声望加成后 %d（实际伤害另受数量、克制、光环、命中与暴击影响）" % [u.attack, effective.attack],
+		"基础生命 %d → 科技与声望加成后 %d；每辆载重 %d" % [u.hp, effective.hp, info.unitStats[u.unitId].load],
 		"生产每辆：" + _cost_text(effective.produce.unitCost) + "，原时长 " + _time(effective.produce.duration),
 		"维修每辆：" + _cost_text(info.unitStats[u.unitId].repair.unitCost) + "（含材料科技），耗时 " + _time(info.unitStats[u.unitId].repair.duration),
 		"制造：本厂 %d 级；改装：改装厂与任一制造工厂均需 %d 级。" % [u.unlock.factoryLevel,u.unlock.factoryLevel], "VI / VII 阶还需对应副本核心；改装消耗低一阶待命战车。已有车辆仍可使用和维修。", "", "【攻击模式】"]
@@ -3464,7 +3541,7 @@ func _unit_guide():
 	for m in catalog.rules.matchup:
 		if m.attackerClass == u.classId:
 			lines.append("对 " + catalog.classNames[m.defenderClass] + "：%.2f 倍" % (m.multiplierBps / 10000.0))
-	lines.append("\n【先手与二次开火】\n双方属性取出战阵位的整数平均值，不按数量叠加。\n先手 = 100 +（阶级 − 1）×6 + 机动推进等级×3 + 战场预判等级×3。\n二次开火 = 100 +（阶级 − 1）×5 + 精密弹道等级×4 + 连击指挥等级×4。\n追加概率 = 10% + 双方二次开火值差×0.1%，限制在 0%–35%。\n每个大回合各阵位行动一次，少阵位一方等候；连击归属当前小回合，不连锁。\n以上为本作单机规则。")
+	lines.append("\n【先手与二次开火】\n双方属性由各自指挥官统一提供，不与车型、兵阶、数量或阵位绑定。\n先手 = 100 + 机动推进等级×3 + 战场预判等级×3。\n二次开火 = 100 + 精密弹道等级×4 + 连击指挥等级×4。\n追加概率 = 10% + 双方二次开火值差×0.1%，限制在 0%–35%。\n每个大回合各阵位行动一次，少阵位一方等候；连击归属当前小回合，攻击力50%，独立判定命中/暴击，不连锁。\n以上为本作单机规则。")
 	lines.append("\n【六格与战损】\n前排 1 / 2 / 3，后排 4 / 5 / 6，同列为 1—4、2—5、3—6。\n每格受统率上限约束，同型跨格共用库存；出征中的部队不可重复部署。\n正式战斗损失按同型号汇总，80% 向上取整进入待修，其余永久损失。\n演习不改变兵力、不发奖励；正式战役可重复挑战，首通奖励只发一次。")
 	_details("兵种图鉴 / " + u.name, "\n".join(lines))
 
@@ -3485,8 +3562,9 @@ func _report_details():
 		for side in range(2):
 			var stats = report.tactics.teams[side]
 			lines.append("%s：先手 %d，二次开火 %d，本场追加概率 %.1f%%" % ["我方" if side == 0 else "敌方", stats.initiative, stats.extraFire, report.tactics.chances[side] / 100.0])
-		lines.append("每个大回合存活阵位各行动一次，双方交替；少阵位一方等待。连击归属当前小回合。" if report.ruleset in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3"] else "历史规则：每回合双方各行动一次，各自按存活阵位循环；先手同值时进攻方先行。")
+		lines.append("每个大回合存活阵位各行动一次，双方交替；少阵位一方等待。连击归属当前小回合。" if report.ruleset in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26"] else "历史规则：每回合双方各行动一次，各自按存活阵位循环；先手同值时进攻方先行。")
 		lines.append("二次开火最多追加一次完整攻击，不连锁；击毁目标不奖励额外行动。")
+		lines.append("本记录连击攻击力50%，再独立判定命中、暴击和克制。" if report.ruleset=="classic-combat-v0.26" else "旧版连击伤害保留原始记录，不按新规则重算。")
 		for action in report.get("actions", []):
 			if action.get("extraTriggered", false):
 				lines.append("行动 %d：%s阵位 %d 触发二次开火。" % [action.id, "我方" if action.side == 0 else "敌方", action.from])
@@ -3531,6 +3609,41 @@ func _smoke_test():
 		if arg.begins_with("--qa-output="):
 			out = arg.trim_prefix("--qa-output=")
 	DirAccess.make_dir_recursive_absolute(out)
+	if "--expeditions31-only" in OS.get_cmdline_user_args():
+		var passed = await _expeditions31_qa(out)
+		print("V31_EXPEDITIONS_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 74)
+		return
+	if "--workshops30-only" in OS.get_cmdline_user_args():
+		var passed = await _workshops30_qa(out)
+		print("V30_WORKSHOPS_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 73)
+		return
+	if "--library29-only" in OS.get_cmdline_user_args():
+		var passed = await _library29_qa(out)
+		print("V29_LIBRARY_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 72)
+		return
+	if "--districts28-only" in OS.get_cmdline_user_args():
+		var passed = await _districts28_qa(out)
+		print("V28_DISTRICTS_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 71)
+		return
+	if "--presets271-only" in OS.get_cmdline_user_args():
+		var passed = await _presets271_qa(out)
+		print("V271_PRESETS_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 70)
+		return
+	if "--materials27-only" in OS.get_cmdline_user_args():
+		var passed = await _materials27_qa(out)
+		print("V27_MATERIALS_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 69)
+		return
+	if "--workstations26-only" in OS.get_cmdline_user_args():
+		var passed = await _workstations26_qa(out)
+		print("V26_WORKSTATIONS_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 68)
+		return
 	if "--experience25-only" in OS.get_cmdline_user_args():
 		var passed = await _experience25_qa(out)
 		print("V25_EXPERIENCE_QA: ",passed)
@@ -4090,7 +4203,7 @@ func _v07_qa(out):
 		return false
 	var original_mute = muted
 	muted = false
-	if battle_audio.size() != 8:
+	if battle_audio.size() != 9:
 		return false
 	for key in battle_audio:
 		if not battle_audio[key] is AudioStreamWAV or battle_audio[key].get_length() < 0.5:
@@ -4184,11 +4297,11 @@ func _v07_qa(out):
 	FileAccess.open(out.path_join("v07-regression.json"), FileAccess.WRITE).store_string(JSON.stringify({"audio_assets":8,"class_fire_impact_timing":"pass","miss_without_impact":"pass","audio_pause_resume_mute_skip":"pass","wreck_ground_uv_lock_both_sides":"pass","wreck_speed_1_2_4_skip_replay":"pass","new_class_views":28,"battle_rules":"classic-combat-v0.7"}, "  "))
 	return true
 
-func _dispatch_qa_click(id):
+func _dispatch_qa_click(id, include_disabled=false):
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	for b in buttons:
-		if b.id == id and b.enabled:
+		if b.id == id and (b.enabled or include_disabled):
 			var event = InputEventMouseButton.new()
 			event.position = b.rect.get_center()
 			event.button_index = MOUSE_BUTTON_LEFT
@@ -5060,7 +5173,11 @@ func _experience_action(id, data):
 		map_intel="all"
 	elif id=="repairAll":
 		var q=info.repairAll
-		_confirm({"type":"repairAll","quote":q.token},"立即修复当前存档全部 %d 辆可维修车辆？\n需追加材料：%s\n其中 %d 辆正在维修，已付材料不重复扣除。\n\n确认后立即返回待命库存，不推进时间、不收金币。\n永久损失不恢复；此操作与历史战报的原始损耗分开。"%[q.count,_repair_material_text(),q.prepaid])
+		var lines: Array[String]=["批量送修 %d 辆 / %d 种车型？"%[q.count,q.rows.size()],"材料："+_repair_material_text(),"1 个工作位 + 3 个等待位；每种车型一单，按下列顺序。"]
+		for row in q.rows: lines.append(catalog.units[row.unitId].name+" ×%d · 等待 %s · 距完成 %s"%[row.count,_time(row.waitMs),_eta(row.finishMs)])
+		lines.append("尚有 %d 辆未排入，保留待修；已付订单不重复扣费。"%q.remainingCount)
+		lines.append("逐辆返回待命库存，仅剩余时长满足VIP免费条件时即时交付。")
+		_confirm({"type":"repairAll","quote":q.token},"\n\n".join(lines))
 	elif id.begins_with("attributeScope:"): attribute_scope=str(data)
 	elif id.begins_with("attributeClass:"): selected_class=int(data)
 	elif id.begins_with("attributeTier:"): tier=int(data)
@@ -5097,7 +5214,7 @@ func _experience_action(id, data):
 	elif id=="leadRules":
 		_details("统率、声望与独立概率","统率上限 120，且不能超过声望等级。声望等级 = 1 + floor(sqrt(声望 / 40))，最高 120；旧档保留已有统率所需的最低声望等级，不增加声望点。\n\n升至 2—10 级为 100%；11 级 90%，之后按指数曲线降低，120 级为 0.1%。每次独立判定，失败不降级、不累积保底；相同失败次数不会改变下一次概率。\n\n每次尝试一本统率书，或直接 19 金币。最多 10 / 100 次是独立尝试的批次，成功立即停止，不保证成功。1/p 是平均次数，不是保证次数，连续 200 次失败也可能发生。\n\n战役每胜 1 本；核心第一至第五章每胜分别 1 / 2 / 3 / 4 / 5 本。每日补给、既有任务和 19 金币购书仍可使用。战役和核心胜利都获得声望。")
 	elif id == "reportType":
-		var options=["all","stage","dungeon","world","training"]
+		var options=["all","stage","dungeon","mine","raid","gather-return","raid-return","world","training"]
 		report_type=options[(options.find(report_type)+1)%options.size()]
 		report_page=0
 	elif id == "reportResult":
@@ -5105,7 +5222,7 @@ func _experience_action(id, data):
 		report_result=options[(options.find(report_result)+1)%3]
 		report_page=0
 	elif id == "reportRefresh":
-		report_rows=s.reports.duplicate(true)
+		report_rows=info.archive.duplicate(true)
 		report_page=0
 	elif id == "budget" or id == "fullBudget":
 		var plan={"op":"coreBudget","classId":CLASSES[selected_class],"tier":tier if id=="budget" else 7,"count":maxi(1,quantity) if id=="budget" else int(info.leadership)*6}
@@ -5122,7 +5239,7 @@ func _experience_action(id, data):
 	elif id == "presetReplace" or id == "presetDelete":
 		if id=="presetReplace" and dirty: toast_message("请先保存编队；覆盖使用当前已保存编队")
 		else: _confirm({"type":id,"index":int(data)},("覆盖" if id=="presetReplace" else "删除")+"预设「"+s.presets[int(data)].name+"」？\n仅修改此预设，不影响战车库存或其他预设。")
-	elif id == "tacticRules": _details("大回合、先手与连击", "每个大回合双方存活阵位各行动一次，按阵位顺序交替开火。一个小回合各取双方下一组；少阵位一方用尽后等待，另一方打完再开始下个大回合。已被击毁的待行动阵位跳过，不会额外获得行动。\n\n先手较高者先攻，同值我方先攻。连击紧接当前组，归属同一个小回合，不消耗或增加后续阵位的轮次。\n\n连击概率 = 10% +（我方二次开火值 − 敌方值）×0.1%，范围 0%—35%，最多追加一次。坦克逐列优先前排，整列为空则跳过；火炮按列内存活目标打一至两发，火箭固定六发；这些均是一次攻击内的连续射击。\n\n第50个大回合双方全部行动（含连击）结束后，若双方仍有部队，判先手方失败，不进入第51回合。\n\n团队数值取出战阵位平均，不随阵亡改变。旧战报继续使用原快照与旧轮转。")
+	elif id == "tacticRules": _details("大回合、先手与连击", "每个大回合双方存活阵位各行动一次，按阵位顺序交替开火。一个小回合各取双方下一组；少阵位一方用尽后等待，另一方打完再开始下个大回合。已被击毁的待行动阵位跳过，不会额外获得行动。\n\n先手较高者先攻，同值我方先攻。连击紧接当前组，归属同一个小回合，不消耗或增加后续阵位的轮次。\n\n连击概率 = 10% +（我方二次开火值 − 敌方值）×0.1%，范围 0%—35%，最多追加一次。坦克逐列优先前排，整列为空则跳过；火炮按列内存活目标打一至两发，火箭固定六发；这些均是一次攻击内的连续射击。\n\n第50个大回合双方全部行动（含连击）结束后，若双方仍有部队，判先手方失败，不进入第51回合。\n\n先手 = 100 + 机动科技×3 + 战场预判×3；二次开火 = 100 + 精密弹道×4 + 连击指挥×4。均为指挥官全军属性，不随换车、空位或阵亡改变。旧战报继续使用原快照与旧轮转。")
 	elif id == "scoutDetails": _navigate("intel")
 	elif id == "intelText": _scout_details()
 	elif id == "departurePlan":
@@ -5146,7 +5263,7 @@ func _experience_action(id, data):
 		ui_scale = 1.1 if ui_scale < 1.05 else 1.2 if ui_scale < 1.15 else 1.0
 		_save_preferences()
 	elif id == "controls":
-		_details("操作说明", "鼠标点击按钮；编队阵位可以拖动交换。\n\nTab / Shift+Tab：依次选择按钮；Enter：执行。\n1—8：主要页面；I：资源一览；F5：保存；F11：全屏。\n战斗空格：暂停 / 继续；N：查看下一次完整攻击。\n世界地图滚轮缩放、右键拖动；选择目标后可侦察与出征。\n\n休整推进整个世界时间，期间会发生战斗和损失。\nVIP 免费时长使非行军任务进入免费区间时自动完成。\n金币加速只完成选定订单，不推进世界时间。\n\n编队为待命库存的分配方案，不额外扣车。\n正式出征才预留部队；回城后幸存战车返回待命。")
+		_details("操作说明", "鼠标点击按钮；编队阵位可以拖动交换。\n\nTab / Shift+Tab：依次选择按钮；Enter：执行。\n1—6：底部页面；工厂与科研由基地建筑进入；I：资源一览；F5：保存；F11：全屏。\n战斗空格：暂停 / 继续；N：查看下一次完整攻击。\n世界地图滚轮缩放、右键拖动；选择目标后可侦察与出征。\n\n休整推进整个世界时间，期间会发生战斗和损失。\nVIP 免费时长使非行军任务进入免费区间时自动完成。\n金币加速只完成选定订单，不推进世界时间。\n\n编队为待命库存的分配方案，不额外扣车。\n正式出征才预留部队；回城后幸存战车返回待命。")
 	elif id == "battleStep": _step_action()
 	elif id == "battleAdvanced": _details("高级战斗详情", "规则版本：" + report.ruleset + "\n随机种子：" + str(int(report.seed)) + "\n战报编号：" + report.id + "\n回放仅消费本场快照和事件，不重新模拟战斗。")
 	elif id == "battleAdvice": _battle_advice()
@@ -5174,7 +5291,8 @@ func _experience_action(id, data):
 	elif id == "mapIntel":
 		var choices = ["all","known","unknown","guarded"]
 		map_intel = choices[(choices.find(map_intel) + 1) % 4]
-	elif id == "expeditionHistory": _expedition_history()
+	elif id == "expeditionHistory": _navigate("reports"); report_type="all"
+	elif id.begins_with("returnReceipt:"): _return_receipt(data)
 	elif id == "worldPreset":
 		if s.presets.is_empty():
 			_navigate("army")
@@ -5217,20 +5335,29 @@ func _missing_resources(cost, count = 1):
 
 func _disabled_reason(id, data):
 	if _command_pending(): return "操作正在提交，请稍候"
-	if id=="repairAll": return "没有可维修车辆；永久损失不能恢复" if info.repairAll.count==0 else _missing_resources(info.repairAll.cost)
+	if id.begins_with("constructUpgrade:"):
+		for row in info.construction:
+			if row.id==data: return _construction_block(row)
+	if id=="dispatchSubmit": return _dispatch_submit_block()
+	if id.begins_with("dispatchResearch:"):
+		var q=info.researchQuotes[data]
+		return q.block if q.block!="" else "该项目已排队" if q.duplicate else "科研工作和等待位已满" if info.queues.research.full else _missing_resources(q.unitCost)
+	if id=="repairAll": return info.repairAll.block if info.repairAll.block!="" else _missing_resources(info.repairAll.cost)
 	if id=="dungeonAttack": return info.dungeonStatus[selected_dungeon].block
 	if id in ["trainBooks","trainGold"]:
 		if info.leadershipQuote.block!="": return info.leadershipQuote.block
 		return "统率书缺少 %d 本；可用金币购买或挑战战役 / 核心副本"%maxi(0,leadership_attempts-int(s.commander.books)) if id=="trainBooks" else "金币还缺 %d"%maxi(0,leadership_attempts*19-int(s.wallet.gold))
 	if id=="buyBooks": return "购买 %d 本书需 %d 金币，还缺 %d"%[leadership_attempts,leadership_attempts*19,maxi(0,leadership_attempts*19-int(s.wallet.gold))]
-	if id in ["skill","initiativeSkill","extraFireSkill"]: return "技能上限120级；技能点来自战役首通，指挥中心21级起每日补给另加1点"
+	if id in ["skill","initiativeSkill","extraFireSkill"]:
+		var key={"skill":"attackSkill","initiativeSkill":"initiativeSkill","extraFireSkill":"extraFireSkill"}[id]
+		return "此技能已达120级上限" if s.commander[key]>=120 else "技能点不足：需要1点，当前%d点。战役首通可得，指挥中心21级起每日补给另加1点。"%s.commander.skillPoints
 	if id=="budget": return "选择 VI 或 VII 阶战车可查看核心成本计划"
 	if id == "produce":
 		var q = _factory_quote()
 		if q.block != "": return q.block
 		if q.busy: return "本厂作业与等待位已满，请到调度中心查看"
-		if quantity <= 0: return "请输入 1—100 的整数数量"
-		if quantity > 100: return "制造或改装单批最多100辆，请分批提交"
+		if quantity <= 0: return "请输入 1—%d 的整数数量" % catalog.productionBatchLimit
+		if quantity > catalog.productionBatchLimit: return "制造或改装单批最多%d辆，请分批提交" % catalog.productionBatchLimit
 		var missing = _missing_resources(q.unitCost, quantity)
 		if missing != "": return missing
 		if q.has("coreCost") and s.arsenal.cores[q.coreCost.id] < quantity:
@@ -5249,7 +5376,7 @@ func _disabled_reason(id, data):
 		return q.block if q.block != "" else _missing_resources(q.unitCost)
 	elif id == "repairStart":
 		var q = info.unitStats[repair_unit].repair
-		if q.busy: return "维修车间正在工作，请查看队列"
+		if q.busy: return "维修工作位和3个等待位已满，请到调度中心查看"
 		if quantity<=0: return "暂无可修车辆" if s.damaged[repair_unit]==0 else "维修数量需为 1—%d 的整数"%s.damaged[repair_unit]
 		if quantity>s.damaged[repair_unit]: return "待修仅 %d 辆，超出 %d；可点全部维修"%[s.damaged[repair_unit],quantity-s.damaged[repair_unit]]
 		return _missing_resources(q.unitCost,quantity)
@@ -5262,6 +5389,9 @@ func _disabled_reason(id, data):
 func _disabled_help(id, data):
 	var reason = _disabled_reason(id,data)
 	toast_message(reason)
+	# A help sentence mentioning HQ is not a building prerequisite. Keep rapid clicks,
+	# capped skills and insufficient points on the current training page.
+	if id in ["skill","initiativeSkill","extraFireSkill"] or _command_pending(): return
 	if "科研中心" in reason or "指挥" in reason or "工厂" in reason and "队列" not in reason:
 		selected_building = "lab" if "科研中心" in reason else "hq" if "指挥" in reason else "factory"
 		_navigate("base")
@@ -5280,6 +5410,7 @@ func _notify_progress(before, after):
 		completion_marks["inventory"] = true
 		completion_marks["factory"] = true
 	if not after.reports.is_empty() and (before.reports.is_empty() or after.reports[0].id!=before.reports[0].id): completion_marks["reports"] = true
+	if not after.get("expeditionLog",[]).is_empty() and (before.get("expeditionLog",[]).is_empty() or after.expeditionLog[0].marchId!=before.expeditionLog[0].marchId): completion_marks["reports"] = true
 
 func _draw_rest_report():
 	_title("休整结算", "BASE OPERATIONS / AFTER REST")
@@ -5308,15 +5439,15 @@ func _draw_rest_report():
 		_text("这次没有建筑或科技升级完成",Vector2(834,333),19,MUTED)
 		_text("生产交付见左侧；未完成作业继续计时。",Vector2(834,369),17,MUTED)
 	if rows.size()>4: _text("另有 %d 项完成 · 查看完整记录"%(rows.size()-4),Vector2(834,448),16,GOLD)
-	_text("远征结束 %d 队 · 新战报 %d 场" % [progress_report.returns.size(),progress_report.battles.size()],Vector2(834,483),22,GOLD)
+	_text("归队记录 %d 条 · 新交战 %d 场" % [progress_report.returns.size(),progress_report.battles.size()],Vector2(834,483),22,GOLD)
 	for i in range(mini(2,progress_report.returns.size())):
 		var entry=progress_report.returns[i]
 		var p=Vector2(832,498+i*61)
 		_panel(Rect2(p,Vector2(704,56)),Color("192721"),LINE)
 		_fit_text(entry.get("title",entry.targetId)+" · "+("已入库" if entry.outcome=="returned" else "部队全损")+" · 生还 %d"%entry.survivors,p+Vector2(12,23),680,17,TEXT)
 		var losses=entry.get("losses")
-		_fit_text(_cost_text(entry.cargo)+(" · 本次待修 %d / 永久损失 %d"%[losses.repairable,losses.destroyed] if losses!=null else " · 战损详见对应战报"),p+Vector2(12,46),680,15,GOLD)
-		_hit("expeditionHistory",Rect2(p,Vector2(704,56)))
+		_fit_text("入库 "+_cost_text(entry.get("stored",entry.cargo))+" · 丢弃 "+_amount(_wallet_total(entry.get("discarded",{})))+(" · 本次待修 %d / 永久损失 %d"%[losses.repairable,losses.destroyed] if losses!=null else " · 战损详见对应战报"),p+Vector2(12,46),680,15,GOLD)
+		_hit("returnReceipt:return:"+entry.marchId,Rect2(p,Vector2(704,56)),"return:"+entry.marchId)
 	if progress_report.returns.is_empty(): _text("本次休整没有远征归队",Vector2(834,530),18,MUTED)
 	for i in range(mini(2,progress_report.battles.size())):
 		var b = progress_report.battles[i]
@@ -5329,7 +5460,7 @@ func _draw_rest_report():
 	_button("nav:base","返回基地",Rect2(1160,755,400,48),"base",true)
 
 func _expedition_history():
-	var lines: Array[String] = ["实际归队记录（新版本起保留最近 100 队）", ""]
+	var lines: Array[String] = ["实际归队记录（新版本起保留最近 400 条档案）", ""]
 	for entry in s.get("expeditionLog",[]):
 		var site = {}
 		for v in s.world:
@@ -5365,6 +5496,7 @@ func _upgrade_benefits(id):
 	elif id == "warehouse":
 		var q=info.buildingBenefits[id]
 		lines.append("每种资源自产容量 %s → %s，已计入科技与VIP。奖励和归队物资允许超过自产容量。" % [_amount(q.capacity),_amount(q.nextCapacity)])
+		lines.append("仓储保护比例 %.2f%% → %.2f%%；每项保护额度 %s → %s。"%[info.protection.bps/100.0,info.protection.nextBps/100.0,_amount(info.protection.limit),_amount(floor(q.nextCapacity*info.protection.nextBps/10000))])
 	elif id == "lab": lines.append("允许科技研究至科研中心等级，最高120；所有前置依赖仍须满足。")
 	else:
 		var q=info.buildingBenefits[id]
@@ -5401,7 +5533,7 @@ func _step_action():
 	battle_speed = speed
 
 func _same_turn(a,b):
-	if report.get("ruleset","") in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3"] and a.has("exchange") and b.has("exchange"):
+	if report.get("ruleset","") in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26"] and a.has("exchange") and b.has("exchange"):
 		return a.round==b.round and a.exchange==b.exchange and a.side==b.side and a.from==b.from
 	return _same_battle_action(a,b)
 
@@ -5436,7 +5568,7 @@ func _draw_replacement(rect):
 	_fit_text("总生命 "+_amount(old_hp)+" · 火力 "+_amount(old_attack) if selecting else "总生命 %s → %s (%s%s)"%[_amount(old_hp),_amount(st.hp*n),"+" if st.hp*n>=old_hp else "",_amount(st.hp*n-old_hp)],rect.position+Vector2(16,94),580,18,GREEN)
 	_fit_text("选中候选车后预览变化；部署后仍可调整数量。" if selecting else "当前加成火力 %s → %s · 载重 %s"%[_amount(old_attack),_amount(st.attack*n),_amount(st.load*n)],rect.position+Vector2(16,121),580,18,GOLD)
 	_fit_text(_pattern_name(catalog.units[candidate].classId)+" · "+_counter_label(catalog.units[candidate].classId)+(" · 承伤" if catalog.units[candidate].classId=="tank" else " · 后排保护火力"),rect.position+Vector2(16,149),580,15,MUTED)
-	_button("assign:"+candidate,"请先选择车辆" if selecting and a==null else "部署 %d 辆"%n,Rect2(rect.position+Vector2(16,161),Vector2(180,34)),candidate,true,n>0 and (not selecting or a!=null))
+	_button("assign:"+candidate,"请先选择车辆" if selecting and a==null else "无可分配库存" if n==0 else "部署 %d 辆"%n,Rect2(rect.position+Vector2(16,161),Vector2(180,34)),candidate,true,n>0 and (not selecting or a!=null))
 	_button("formationCompare","属性与库存",Rect2(rect.position+Vector2(207,161),Vector2(182,34)),candidate)
 	_button("nav:doctrine","攻击图解",Rect2(rect.position+Vector2(401,161),Vector2(198,34)),"doctrine")
 
@@ -5445,7 +5577,7 @@ func _compare_details(id):
 	var st=info.unitStats[id]
 	var base=catalog.units[id]
 	lines.append("基础：攻击 %d / 生命 %d / 单机运输载重 %d"%[base.attack,base.hp,st.baseLoad])
-	lines.append("当前加成：攻击科技 +%d%%，指挥官攻击 +%d%%；生命 +%d%%；运输科技 ×%.2f"%[s.tech.attack*5,s.commander.attackSkill*2,s.tech.hp*5+s.tech.armorPlating*3,st.load/float(st.baseLoad)])
+	lines.append("当前加成：火控/弹道攻击 +%d%%，战术指挥攻击 +%d%%；装甲科技生命 +%d%%；声望另加攻击/生命各 +%.1f%%；运输科技 ×%.2f"%[s.tech.attack*5+s.tech.ballistics*2,s.commander.attackSkill*2,s.tech.hp*5+s.tech.armorPlating*3,info.prestige.bonusBps/100.0,st.load/float(st.baseLoad)])
 	lines.append("历史属性只在对应战报快照内查看；本页为当前有效属性。")
 	lines.append("前排适配：%s；后排适配：保护主炮输出，仍受纵列 / 全体攻击"%["高生命承伤" if base.classId=="tank" else "注意较低生命与敌方克制"])
 	lines.append("单车攻击 %d / 生命 %d / 载重 %d\n先手 %d / 二次开火 %d"%[st.attack,st.hp,st.load,st.initiative,st.extraFire])
@@ -5675,7 +5807,7 @@ func _progress_details():
 	lines.append("\n制造 %d / 改装 %d / 修复 %d"%[progress_report.produced,progress_report.refitted,progress_report.repaired])
 	for item in progress_report.buildings: lines.append(catalog.buildingNames.get(item.id,info.facilities.get(item.id,{}).get("name",item.id))+" %d → %d"%[item.from,item.to])
 	for item in progress_report.research: lines.append(catalog.techNames[item.id]+" %d → %d"%[item.from,item.to])
-	for entry in progress_report.returns: lines.append("\n"+entry.marchId+" · 生还 %d · "%entry.survivors+_cost_text(entry.cargo))
+	for entry in progress_report.returns: lines.append("\n"+entry.marchId+" · 生还 %d · "%entry.survivors+"入库 "+_cost_text(entry.get("stored",entry.cargo))+" / 丢弃 "+_cost_text(entry.get("discarded",{})))
 	lines.append("\n实际自产入库："+_cost_text(progress_report.get("generated",{})))
 	for b in progress_report.battles: lines.append(("胜利 · " if b.winner==0 else "失利 · ")+b.title+" · 待修 %d / 永损 %d"%[b.get("repairable",0),b.get("destroyed",0)])
 	_details("完整休整记录","\n".join(lines))
@@ -5684,11 +5816,11 @@ func _filtered_reports():
 	var rows=[]
 	for saved in report_rows:
 		var r=saved
-		for current in s.reports:
+		for current in info.archive:
 			if current.id==saved.id:
 				r=current
 				break
-		if report_type!="all" and r.mode!=report_type: continue
+		if report_type!="all" and r.category!=report_type: continue
 		if report_result=="win" and r.winner!=0: continue
 		if report_result=="loss" and r.winner==0: continue
 		rows.append(r)
@@ -5752,7 +5884,7 @@ func _draw_presets():
 			if st!=null:
 				count+=st.count
 				occupied+=1
-		_text("%d 辆 · %d / 6 阵位；加载时校验当前库存"%[count,occupied],p+Vector2(20,67),17,MUTED)
+		_text("原方案 %d 辆 · 当前可用 %d 辆 · %d / 6 阵位"%[count,info.presetLoads[i].loaded,occupied],p+Vector2(20,67),17,GOLD if info.presetLoads[i].shortage>0 else MUTED)
 		for j in range(4):
 			_button("presetLoad:"+str(i) if j==0 else ["","presetRename","presetReplace","presetDelete"][j],["加载","重命名","覆盖","删除"][j],Rect2(p+Vector2(730+j*194,24),Vector2(180,43)),i,j==0)
 	_button("presetSave","新建预设",Rect2(40,783,380,42))
@@ -5809,6 +5941,13 @@ func _scout_details():
 		lines.append("阵位 %d：%s"%[i+1,"空阵位" if st==null else catalog.units[st.unitId].name+" ×%d"%st.count])
 		for actual in info.knownGuardStats.get(selected_site,[]):
 			if actual.slot==i+1: lines.append("攻击 %s · 单车生命 %s · 先手 %d · 二次开火 %d"%[QuantityFormat.exact(int(actual.attack*actual.attackBonus/10000)),QuantityFormat.exact(actual.hp),actual.initiative,actual.extraFire])
+	if _site().kind=="npc":
+		lines.append("仓储保护：只可掠夺保护额度以上的库存，并受本队实际载重限制；库存为侦察时快照。")
+		for r in RES:
+			if r=="gold": continue
+			var protected_limit=info.siteProtection[selected_site][r].limit
+			var held=intel.wallet.get(r,0)
+			lines.append("%s：保护额度 %s / 侦察库存 %s / 可掠夺 %s"%[catalog.resourceNames[r],_amount(protected_limit),_amount(held),_amount(maxf(0,held-protected_limit))])
 	_details("守军侦察档案","\n\n".join(lines))
 
 func _formation_power(f, player_side):
@@ -5855,13 +5994,17 @@ func _draw_command_training():
 	_text("技能点 %d · 首通 / 指挥中心21级起每日补给"%s.commander.skillPoints,Vector2(836,284),17,GOLD)
 	var ids=["skill","initiativeSkill","extraFireSkill"]
 	var keys=["attackSkill","initiativeSkill","extraFireSkill"]
-	var names=["战术指挥 · 每级攻击 +2%","战场预判 · 每级先手 +3","连击指挥 · 每级二次开火 +4"]
+	var names=["战术指挥 / 全队火力","战场预判 / 争取先攻","连击指挥 / 追加半威力攻击"]
+	var values=[2,3,4]
+	var units=["% 攻击"," 先手"," 二次开火"]
 	for i in range(3):
 		var level=s.commander.get(keys[i],0)
-		var y=325+i*87
-		_text(names[i],Vector2(837,y),21,TEXT)
-		_text("Lv.%d / 120"%level,Vector2(837,y+30),17,MUTED)
-		_button(ids[i],"已达120级" if level>=int(catalog.MAX_LEVEL) else "提升 · 1 技能点",Rect2(1303,y-21,228,46),null,false,level<int(catalog.MAX_LEVEL) and s.commander.skillPoints>0 and not _command_pending())
+		var y=301+i*94
+		_panel(Rect2(828,y,714,86),Color("20302a"),LINE)
+		_fit_text(names[i]+" · %d / 120"%level,Vector2(840,y+24),467,19,TEXT,true)
+		_fit_text("当前 +%d%s → 下级 +%d%s"%[level*values[i],units[i],mini(120,level+1)*values[i],units[i]],Vector2(840,y+51),467,16,GOLD)
+		_bar(Rect2(840,y+64,427,5),level/120.0,GREEN)
+		_button(ids[i],"已满级" if level>=120 else "提升 · 1点",Rect2(1320,y+22,204,42),null,true,level<120 and s.commander.skillPoints>0 and not _command_pending())
 	_text("统率书军需 · 19 金币 / 本",Vector2(837,601),23,GOLD)
 	_button("buyBooks","购买 %d 本 · %d 金币"%[leadership_attempts,leadership_attempts*19],Rect2(836,636,695,53),null,true,s.wallet.gold>=leadership_attempts*19 and not _command_pending())
 	_text("购书数量随左侧尝试数量切换。",Vector2(837,722),17,MUTED)
@@ -5872,7 +6015,7 @@ func _repair_all_ready():
 	return info.repairAll.count>0 and info.repairAll.shortage.is_empty() and not _command_pending()
 
 func _repair_all_button(rect):
-	_button("repairAll","全部修复 %d 辆 · %s"%[info.repairAll.count,_repair_material_text()] if info.repairAll.count>0 else "全部修复 · 暂无战损",rect,null,true,_repair_all_ready())
+	_button("repairAll","批量送修 %d 辆 · %s"%[info.repairAll.count,_repair_material_text()] if info.repairAll.count>0 else "批量送修 · 队列已满" if info.repairSummary.damaged>0 else "批量送修 · 暂无战损",rect,null,true,_repair_all_ready())
 
 func _repair_material_text():
 	var label=_cost_text(info.repairAll.cost)
@@ -6095,7 +6238,10 @@ func _experience25_qa(out):
 	var q=info.repairAll
 	command({"type":"repairAll","quote":q.token})
 	await _settled()
-	if s.damaged.spg_t7!=0 or s.available.spg_t7!=available+6: return false
+	if s.damaged.spg_t7!=0 or s.available.spg_t7!=available: return false
+	command({"type":"rest","minutes":480})
+	await _settled()
+	if s.available.spg_t7!=available+6: return false
 	await _qa_capture(out,"repair-complete")
 	command({"type":"rest","minutes":60})
 	await _settled()
@@ -6468,14 +6614,14 @@ func _v19_qa(out):
 	_navigate("factory")
 	_action("quantityMax")
 	var quote=_factory_quote().duplicate(true)
-	if quantity!=100 or quote.max!=100: return false
+	if quantity!=500 or quote.max!=500: return false
 	var batch_hours=_effective_time(quote.duration*100)/3600000.0
 	if batch_hours<39 or batch_hours>64: return false
-	quantity_input.text="101"
-	quantity_input.text_changed.emit("101")
+	quantity_input.text="501"
+	quantity_input.text_changed.emit("501")
 	hover="produce"
 	await _qa_capture(out,"v19-batch-limit")
-	if quantity!=101 or not "100" in _disabled_reason("produce",null): return false
+	if quantity!=501 or not "500" in _disabled_reason("produce",null): return false
 	for entry in buttons:
 		if entry.id=="produce" and entry.enabled: return false
 	hover=""
@@ -6767,7 +6913,7 @@ func _v16_qa(out):
 	await _qa_capture(out,"v16-base-entry")
 	_action("nav:library","library")
 	await _qa_capture(out,"v16-library-initiative")
-	if catalog.fieldLibrary.entries.size()!=26 or library_reader.text.find("118")<0: return false
+	if catalog.fieldLibrary.entries.size()!=39 or library_reader.text.find("118")<0: return false
 	for category in catalog.fieldLibrary.categories:
 		_action("libraryCategory:"+category.id,category.id)
 		if not _library_filtered().all(func(row): return row.category==category.id): return false
@@ -6989,7 +7135,7 @@ func _v15_qa(out):
 func _v14_qa(out):
 	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("v14-save.json"))})
 	await _settled()
-	if catalog.stages.size()!=112 or catalog.chapters.size()!=7: return false
+	if catalog.stages.size()!=192 or catalog.chapters.size()!=12: return false
 	_navigate("campaign")
 	_action("campaignMode:stage","stage")
 	_action("chapter:6",6)
@@ -7231,4 +7377,1091 @@ func _v13_qa(out):
 	_toggle_fullscreen()
 	get_window().size=original_size
 	FileAccess.open(out.path_join("v13-regression.json"),FileAccess.WRITE).store_string(JSON.stringify({"repair_7_then_6":"pass","manual_overlimit_reason":"pass","rest_preview_and_completion":"pass","archive_anchor_and_filters":"pass","preset_rename":"pass","budget":"pass","intel_details":"pass","fullscreen":"pass","captures":captures},"  "))
+	return true
+func _district_action(id, data):
+	if id.begins_with("district:"):
+		district_building={"hq":"hq","research":"lab","industry":"factory","resources":"iron"}.get(str(data),"hq")
+		_navigate("command_zone" if data in ["hq","research"] else str(data))
+	elif id.begins_with("sceneBuilding:"):
+		district_building=str(data)
+	elif id=="sceneFunction":
+		if district_building in ["factory","factory2","refit"]:
+			selected_factory=district_building
+			production_mode="refit" if district_building=="refit" else "produce"
+		_navigate(str(data))
+	elif id=="warehouseProtection": _protection_details()
+	elif id=="chapterPage": campaign_chapter_page=int(data)
+	elif id=="baseBuildPrev": base_build_page=maxi(0,base_build_page-1)
+	elif id=="baseBuildNext": base_build_page+=1
+	elif id.begins_with("constructUpgrade:"):
+		for row in info.construction:
+			if row.id==data:
+				var action={"type":"upgrade","building":data} if catalog.buildingNames.has(data) else {"type":"facilityUpgrade","facility":data}
+				_confirm(action,"%s：Lv.%d → Lv.%d\n材料：%s\n预计 %s\n确认后直接在当前页面开始施工。"%[row.name,row.level,row.level+1,_cost_text(row.cost),_eta(row.duration)])
+	elif id.begins_with("constructView:"):
+		district_building=str(data)
+		_navigate("industry" if data in ["factory","factory2","refit"] else "command_zone" if data in ["hq","lab"] else "resources")
+	elif id.begins_with("dispatchTab:"):
+		dispatch_tab=str(data)
+		queue_page=0
+	elif id.begins_with("dispatchResearch:"):
+		var q=info.researchQuotes[data]
+		_confirm({"type":"research","tech":data},"%s 升至 %d 级\n材料：%s\n等待 %s · 研究 %s\n按科研队列顺序开工。"%[catalog.techNames[data],s.tech[data]+1,_cost_text(q.unitCost),_time(q.waitMs),_eta(q.duration)])
+	elif id.begins_with("dispatchTechView:"):
+		_dispatch_project({"kind":"research","target":data})
+	elif id.begins_with("dispatchClass:"):
+		selected_class=int(data)
+		if dispatch_selected=="repair": _validate_dispatch_repair(true)
+	elif id.begins_with("dispatchTier:"):
+		tier=int(data)
+		if dispatch_selected=="repair": _validate_dispatch_repair(true)
+	elif id=="dispatchMax": _set_quantity(int(_dispatch_quote().max))
+	elif id=="dispatchSubmit":
+		var mode="repair" if dispatch_selected=="repair" else "refit" if dispatch_selected=="refit" else "produce"
+		var q=_dispatch_quote()
+		var action={"type":mode,"unitId":_unit_id(),"count":quantity}
+		if mode!="repair": action.facility=dispatch_selected
+		_confirm(action,"%s ×%d\n材料：%s\n%s\n等待 %s · 本单 %s\n1个工作位 + 3个等待位，按顺序交付。"%[catalog.units[_unit_id()].name,quantity,_cost_text(q.unitCost,quantity),"原车："+catalog.units[q.sourceUnitId].name+" ×%d"%quantity if q.sourceUnitId!="" else "核心："+catalog.coreNames[q.coreCost.id]+" ×%d"%quantity if q.has("coreCost") else "无需原车或核心",_time(q.waitMs),_eta(_effective_time(q.duration*quantity))])
+	elif id=="prestigePrev": prestige_page=maxi(0,prestige_page-1)
+	elif id=="prestigeNext": prestige_page=mini(11,prestige_page+1)
+	elif id=="prestigeCurrent": prestige_page=int((info.prestige.level-1)/10)
+	else: return false
+	return true
+
+func _construction_block(row):
+	return row.block if row.block!="" else _missing_resources(row.cost)
+
+func _construction_card(row, rect: Rect2, compact=false):
+	_panel(rect,Color("172522"),GREEN if row.booked!=null else LINE)
+	var p=rect.position+Vector2(12,0)
+	var maxed=row.level>=int(catalog.MAX_LEVEL)
+	_fit_text(row.name+" · Lv.%d%s"%[row.level," / 满级" if maxed else ""],p+Vector2(0,24),rect.size.x-24,19,TEXT,true)
+	var status="已满级 · 可查看设施收益" if maxed else "施工中 · 剩余 "+_time(row.booked.remainingMs) if row.booked!=null else "升级 %s · %s"%[_eta(row.duration),_cost_text(row.cost)]
+	_fit_text(status,p+Vector2(0,50 if compact else 53),rect.size.x-24,15,GOLD)
+	var block=_construction_block(row)
+	if compact:
+		_fit_text(block if block!="" else "可直接升级，也可查看设施",p+Vector2(0,72),rect.size.x-24,14,RED if block!="" and not maxed else MUTED)
+		_button("constructUpgrade:"+row.id,"施工中" if row.booked!=null else "已满级" if maxed else "直接升级",Rect2(p.x,rect.position.y+83,164,31),row.id,true,block=="" and not _command_pending())
+		_button("constructView:"+row.id,"设施详情 →",Rect2(p.x+175,rect.position.y+83,164,31),row.id)
+	else:
+		_fit_text(block if block!="" else "升级后立即刷新当前设施与调度信息",p+Vector2(0,79),680,15,RED if block!="" and not maxed else MUTED)
+		_button("constructUpgrade:"+row.id,"施工中" if row.booked!=null else "已满级" if maxed else "直接升级",Rect2(rect.end.x-396,rect.position.y+48,180,35),row.id,true,block=="" and not _command_pending())
+		_button("constructView:"+row.id,"设施详情 →",Rect2(rect.end.x-202,rect.position.y+48,185,35),row.id)
+
+func _draw_base_construction():
+	_text("基地建设 · 设施清单",Vector2(1210,175),25,TEXT,true)
+	_fit_text("工作 %d / %d · 升级无需离开基地"%[info.queues.building.active,info.queues.building.slots],Vector2(1210,201),375,16,GOLD)
+	var pages=ceili(info.construction.size()/4.0)
+	base_build_page=clampi(base_build_page,0,pages-1)
+	for i in range(mini(4,info.construction.size()-base_build_page*4)):
+		_construction_card(info.construction[base_build_page*4+i],Rect2(1207,215+i*129,377,121),true)
+	_button("baseBuildPrev","上一页",Rect2(1207,739,112,33),null,false,base_build_page>0)
+	_button("baseBuildNext","%d/%d 下一页"%[base_build_page+1,pages],Rect2(1330,739,254,33),null,false,base_build_page<pages-1)
+	_button("basePanel:dispatch","返回全部作业",Rect2(1207,787,377,35),"dispatch")
+
+func _draw_resource_zone():
+	_draw_district_scene("resources")
+
+func _dispatch_quote():
+	var stats=info.unitStats[_unit_id()]
+	return stats.repair if dispatch_selected=="repair" else stats.refit if dispatch_selected=="refit" else stats.produce2 if dispatch_selected=="factory2" else stats.produce
+
+func _validate_dispatch_repair(reset):
+	var maximum=int(_dispatch_quote().max)
+	if reset or dispatch_repair_unit!=_unit_id(): _set_quantity(mini(10,maximum))
+	elif maximum!=dispatch_repair_limit: _set_quantity(clampi(quantity,1,maximum) if maximum>0 else 0)
+	dispatch_repair_limit=maximum
+	dispatch_repair_unit=_unit_id()
+
+func _dispatch_submit_block():
+	var q=_dispatch_quote()
+	if q.block!="": return q.block
+	if q.busy: return "1个工作位与3个等待位已满；先等待交付或取消订单"
+	if quantity<1: return "请输入至少1辆"
+	if quantity>q.max:
+		var missing=_missing_resources(q.unitCost,quantity)
+		if missing!="": return missing
+		if q.has("coreCost") and s.arsenal.cores[q.coreCost.id]<quantity: return "%s缺%d个 → 核心行动"%[catalog.coreNames[q.coreCost.id],quantity-s.arsenal.cores[q.coreCost.id]]
+		if q.sourceUnitId!="" and s.available[q.sourceUnitId]<quantity: return "原型车缺%d辆 → 制造工厂"%(quantity-s.available[q.sourceUnitId])
+		return "数量超限，当前最多%d辆"%q.max
+	return ""
+
+func _draw_dispatch_arrange(station):
+	if station.id in ["building","research"]:
+		var rows=info.construction if station.id=="building" else catalog.researchTree
+		var pages=maxi(1,ceili(rows.size()/4.0))
+		queue_page=clampi(queue_page,0,pages-1)
+		for i in range(mini(4,rows.size()-queue_page*4)):
+			var row=rows[queue_page*4+i]
+			var rect=Rect2(406,375+i*98,1156,91)
+			if station.id=="building": _construction_card(row,rect)
+			else:
+				var q=info.researchQuotes[row.id]
+				var block=q.block if q.block!="" else "该科技已在队列" if q.duplicate else "科研等待队列已满" if info.queues.research.full else _missing_resources(q.unitCost)
+				_panel(rect)
+				_fit_text(catalog.techNames[row.id]+" · Lv.%d / 120"%s.tech[row.id],rect.position+Vector2(15,25),710,20,TEXT,true)
+				_fit_text("收益 %.1f%% → %.1f%% · %s"%[q.effectCurrent,q.effectNext,_eta(q.duration)],rect.position+Vector2(15,52),710,16,GOLD)
+				_fit_text(block if block!="" else _cost_text(q.unitCost),rect.position+Vector2(15,77),710,15,RED if block!="" else MUTED)
+				_button("dispatchResearch:"+row.id,"直接研究",Rect2(1172,rect.position.y+43,173,36),row.id,true,block=="" and not _command_pending())
+				_button("dispatchTechView:"+row.id,"科技树 →",Rect2(1359,rect.position.y+43,185,36),row.id)
+		_button("queuePrev","上一页",Rect2(1243,791,130,35),null,false,queue_page>0)
+		_button("queueNext","%d/%d 下一页"%[queue_page+1,pages],Rect2(1387,791,174,35),null,false,queue_page<pages-1)
+		return
+	if station.id=="expeditions": return
+	for i in range(4): _button("dispatchClass:"+str(i),catalog.classNames[CLASSES[i]],Rect2(425+i*282,384,270,40),i,selected_class==i)
+	for i in range(7): _button("dispatchTier:"+str(i+1),"%d阶"%(i+1),Rect2(425+i*161,438,147,35),i+1,tier==i+1)
+	var q=_dispatch_quote()
+	var u=catalog.units[_unit_id()]
+	var st=info.unitStats[u.unitId]
+	_image(u.unitId,Rect2(447,490,395,244))
+	_text(u.name,Vector2(449,767),25,TEXT,true)
+	_fit_text("攻击 %s · 生命 %s · 待命 %d · 待修 %d"%[_amount(st.attack),_amount(st.hp),s.available[u.unitId],s.damaged[u.unitId]],Vector2(449,803),1090,17,GOLD)
+	_fit_text(_cost_text(q.unitCost,quantity),Vector2(903,517),633,18,GOLD)
+	_fit_text("单辆 %s · 整批 %s"%[_time(q.duration),_time(q.duration*quantity)],Vector2(903,544),633,17,TEXT)
+	_fit_text("等待 %s · 减免后工时 %s · 交付 %s"%[_time(q.waitMs),_eta(_effective_time(q.duration*quantity)),_eta(q.waitMs+_effective_time(q.duration*quantity))],Vector2(903,569),633,15,MUTED)
+	_button("qtyminus","−",Rect2(1010,584,62,42),-1)
+	_button("qtyplus","+",Rect2(1280,584,62,42),1)
+	_button("dispatchMax","MAX %d"%q.max,Rect2(1360,584,173,42))
+	_fit_text("原车："+catalog.units[q.sourceUnitId].name+" ×%d"%quantity if q.sourceUnitId!="" else "每种车型一单 · 订单创建时扣料",Vector2(903,659),633,17,MUTED)
+	if q.has("coreCost"): _fit_text(catalog.coreNames[q.coreCost.id]+" %d / %d"%[s.arsenal.cores[q.coreCost.id],quantity],Vector2(903,690),633,17,GOLD)
+	var block=_dispatch_submit_block()
+	_fit_text(block if block!="" else "确认后加入当前工位，不离开调度界面",Vector2(903,719),633,16,RED if block!="" else GREEN)
+	_button("dispatchSubmit","确认送修" if station.id=="repair" else "确认改装" if station.id=="refit" else "确认生产",Rect2(903,735,632,39),null,true,block=="" and not _command_pending())
+
+func _draw_prestige():
+	_title("军衔与声望","OFFICER / HONOR PROGRESSION")
+	_button("nav:commander","返回指挥官",Rect2(1300,110,260,47),"commander")
+	var h=info.prestige
+	_panel(Rect2(40,205,495,590),Color("182820"),GOLD.darkened(0.5))
+	_image("emblem",Rect2(175,225,220,182))
+	_text(h.rank+" · 声望 Lv.%d / 120"%h.level,Vector2(66,446),26,TEXT,true)
+	_fit_text("累计声望 "+QuantityFormat.exact(h.total),Vector2(66,490),440,21,GOLD)
+	_fit_text("已满级" if h.next==null else "升级需累计 %s · 还差 %s"%[QuantityFormat.exact(h.next),QuantityFormat.exact(h.remaining)],Vector2(66,530),440,18,TEXT)
+	_bar(Rect2(66,550,440,8),1.0 if h.next==null else clampf((h.total-h.floor)/maxf(1,h.next-h.floor),0,1),GREEN)
+	_text("全队攻击 +%.1f%% · 生命 +%.1f%%"%[h.bonusBps/100.0,h.bonusBps/100.0],Vector2(66,599),20,GREEN)
+	_fit_text("统率培养上限 %d · 当前统率 %d"%[h.trainingCap,s.commander.leadership],Vector2(66,638),440,19,TEXT)
+	_fit_text("每升1级，攻/生命 +0.1%；最高各 +11.9%。",Vector2(66,684),440,16,MUTED)
+	_fit_text("旧档统率资格保留，不补发声望或军衔属性。",Vector2(66,717),440,16,MUTED)
+	_fit_text("来源：战役、核心行动、世界行动、每日补给。",Vector2(66,754),440,16,GOLD)
+	var labels=["声望级 / 军衔","累计门槛","升下级还需*","攻/生命加成","统率满编/格"]
+	var xs=[578,872,1050,1232,1417]
+	for i in range(labels.size()): _text(labels[i],Vector2(xs[i],240),16,GOLD)
+	for i in range(10):
+		var row=h.levels[prestige_page*10+i]
+		var y=279+i*44
+		_panel(Rect2(557,y-26,1003,41),Color("344132") if row.level==h.level else PANEL,LINE)
+		var vals=["%d · %s"%[row.level,row.rank],QuantityFormat.exact(row.required),"满级" if row.next==null else QuantityFormat.exact(row.next-row.required),"+%.1f%%"%(row.bonusBps/100.0),str(int(row.cap))]
+		for c in range(vals.size()): _fit_text(vals[c],Vector2(xs[c],y),278 if c==0 else 169,18,TEXT)
+	_fit_text("* 从该级起点升到下一级的声望；统率容量需实际培养后获得。",Vector2(574,741),964,16,MUTED)
+	_button("prestigeCurrent","定位当前等级",Rect2(574,763,285,39))
+	_button("prestigePrev","上一页",Rect2(1125,763,180,39),null,false,prestige_page>0)
+	_button("prestigeNext","%d / 12 下一页"%(prestige_page+1),Rect2(1320,763,240,39),null,false,prestige_page<11)
+
+func _workstations26_qa(out):
+	if "smoke" not in save_root:
+		print("V26_FAILED: \"smoke\" not in save_root")
+		return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	if s.is_empty() or info.queues.repair.waitingSlots!=3:
+		print("V26_FAILED: s.is_empty() or info.queues.repair.waitingSlots!=3")
+		return false
+	print("V26: imported")
+	_navigate("base")
+	if not await _dispatch_qa_click("dispatchOpen:building"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchOpen:building\")")
+		return false
+	if screen!="base" or base_panel!="construction":
+		print("V26_FAILED: screen!=\"base\" or base_panel!=\"construction\"")
+		return false
+	await _qa_capture(out,"construction-before")
+	if not await _dispatch_qa_click("constructUpgrade:hq"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"constructUpgrade:hq\")")
+		return false
+	await _qa_capture(out,"construction-confirm")
+	if not confirm_dialog.visible:
+		print("V26_FAILED: not confirm_dialog.visible")
+		return false
+	_confirm_action()
+	confirm_dialog.hide()
+	await _settled()
+	if screen!="base" or not s.jobs.has("building"):
+		print("V26_FAILED: screen!=\"base\" or not s.jobs.has(\"building\")")
+		return false
+	if not await _dispatch_qa_click("district:resources"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"district:resources\")")
+		return false
+	if screen!="resources":
+		print("V26_FAILED: screen!=\"resources\"")
+		return false
+	await _qa_capture(out,"resources")
+	if not await _dispatch_qa_click("constructView:iron"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"constructView:iron\")")
+		return false
+	if screen!="base" or selected_building!="iron":
+		print("V26_FAILED: screen!=\"base\" or selected_building!=\"iron\"")
+		return false
+	if not await _dispatch_qa_click("district:industry"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"district:industry\")")
+		return false
+	if screen!="industry":
+		print("V26_FAILED: screen!=\"industry\"")
+		return false
+	print("V26: districts and direct building")
+	_navigate("base")
+	if not await _dispatch_qa_click("dispatchOpen:factory"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchOpen:factory\")")
+		return false
+	if not await _dispatch_qa_click("dispatchTab:arrange"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchTab:arrange\")")
+		return false
+	selected_class=0
+	tier=5
+	_set_quantity(100)
+	await _qa_capture(out,"production-direct")
+	for i in range(4):
+		if not await _dispatch_qa_click("dispatchSubmit"):
+			print("V26_FAILED: not await _dispatch_qa_click(\"dispatchSubmit\")")
+			return false
+		if not confirm_dialog.visible:
+			print("V26_FAILED: not confirm_dialog.visible")
+			return false
+		_confirm_action()
+		confirm_dialog.hide()
+		await _settled()
+	if _dispatch_station("factory").waiting!=3 or _dispatch_submit_block()=="":
+		print("V26_FAILED: _dispatch_station(\"factory\").waiting!=3 or _dispatch_submit_block()==\"\"")
+		return false
+	if not await _dispatch_qa_click("dispatchDestination"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchDestination\")")
+		return false
+	if screen!="factory" or selected_factory!="factory":
+		print("V26_FAILED: screen!=\"factory\" or selected_factory!=\"factory\"")
+		return false
+	_navigate("queues")
+	if not await _dispatch_qa_click("dispatchSelect:research"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchSelect:research\")")
+		return false
+	if not await _dispatch_qa_click("dispatchTab:arrange"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchTab:arrange\")")
+		return false
+	if not await _dispatch_qa_click("dispatchResearch:resourceOutput"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchResearch:resourceOutput\")")
+		return false
+	_confirm_action()
+	confirm_dialog.hide()
+	await _settled()
+	if not s.jobs.has("research"):
+		print("V26_FAILED: not s.jobs.has(\"research\")")
+		return false
+	print("V26: direct production and research")
+	request({"op":"report","id":s.reports[0].id,"summaryOnly":true})
+	await _settled()
+	_action("battleSkip")
+	var historical=JSON.stringify(report)
+	var q=info.repairAll.duplicate(true)
+	var stock=JSON.stringify(s.available)
+	var crystal=s.wallet.crystal
+	var quoted_at=s.now
+	if q.rows.size()!=4 or q.remainingCount<=0:
+		print("V26_FAILED: q.rows.size()!=4 or q.remainingCount<=0")
+		return false
+	if not await _dispatch_qa_click("repairAll"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"repairAll\")")
+		return false
+	await _qa_capture(out,"settlement-repair-confirm")
+	if not confirm_dialog.dialog_text.contains("按下列顺序"):
+		print("V26_FAILED: not confirm_dialog.dialog_text.contains(\"按下列顺序\")")
+		return false
+	_confirm_action()
+	confirm_dialog.hide()
+	await _settled()
+	if JSON.stringify(s.available)!=stock or absf(s.wallet.crystal-(crystal-q.cost.crystal+info.rates.crystal*(s.now-quoted_at)/3600000.0))>2:
+		print("V26_FAILED: JSON.stringify(s.available)!=stock or absf(s.wallet.crystal-(crystal-q.cost.crystal+info.rates.crystal*(s.now-quoted_at)/3600000.0))>2")
+		return false
+	if info.queues.repair.active!=1 or info.queues.repair.waiting!=3:
+		print("V26_FAILED: info.queues.repair.active!=1 or info.queues.repair.waiting!=3")
+		return false
+	if JSON.stringify(report)!=historical:
+		print("V26_FAILED: JSON.stringify(report)!=historical")
+		return false
+	_navigate("repair")
+	await _qa_capture(out,"repair-full")
+	if _repair_all_ready() or not _disabled_reason("repairAll",null).contains("已满"):
+		print("V26_FAILED: _repair_all_ready() or not _disabled_reason(\"repairAll\",null).contains(\"已满\")")
+		return false
+	_navigate("queues")
+	if not await _dispatch_qa_click("dispatchSelect:repair"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"dispatchSelect:repair\")")
+		return false
+	var cancelled=_dispatch_station("repair").rows[2]
+	if not await _dispatch_qa_click("cancel:"+str(int(cancelled.seq))):
+		print("V26_FAILED: not await _dispatch_qa_click(\"cancel:\"+str(int(cancelled.seq)))")
+		return false
+	_confirm_action()
+	confirm_dialog.hide()
+	await _settled()
+	if info.queues.repair.waiting!=2 or s.damaged[cancelled.target]!=cancelled.total:
+		print("V26_FAILED: info.queues.repair.waiting!=2 or s.damaged[cancelled.target]!=cancelled.total")
+		return false
+	_navigate("repair")
+	if not await _dispatch_qa_click("repairAll"):
+		print("V26_FAILED: not await _dispatch_qa_click(\"repairAll\")")
+		return false
+	_confirm_action()
+	confirm_dialog.hide()
+	await _settled()
+	if info.queues.repair.waiting!=3:
+		print("V26_FAILED: info.queues.repair.waiting!=3")
+		return false
+	print("V26: settlement and workshop queue same repairs")
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			var suffix="-%dx%d-%d"%[window_size.x,window_size.y,roundi(scale_value*100)]
+			for page in ["base","resources","industry","commander","commandTraining","prestige","vip"]:
+				_navigate(page)
+				if page=="prestige": _action("prestigeCurrent")
+				await _qa_capture(out,page+suffix)
+				captures.append(page+suffix)
+			_navigate("base")
+			_action("dispatchOpen:building","building")
+			await _qa_capture(out,"construction"+suffix)
+			_navigate("queues")
+			_action("dispatchSelect:repair","repair")
+			await _qa_capture(out,"repair-queue"+suffix)
+			_action("dispatchSelect:research","research")
+			_action("dispatchTab:arrange","arrange")
+			await _qa_capture(out,"research-direct"+suffix)
+			_action("dispatchSelect:factory2","factory2")
+			_action("dispatchTab:arrange","arrange")
+			await _qa_capture(out,"factory-direct"+suffix)
+	command({"type":"rest","minutes":480})
+	await _settled()
+	if info.queues.repair.active!=0 or info.queues.repair.waiting!=0:
+		print("V26_FAILED: info.queues.repair.active!=0 or info.queues.repair.waiting!=0")
+		return false
+	for row in q.rows:
+		if s.available[row.unitId]<row.count:
+			print("V26_FAILED: s.available[row.unitId]<row.count")
+			return false
+	var saved=JSON.stringify(s.available)
+	request({"op":"load","id":s.id})
+	await _settled()
+	if JSON.stringify(s.available)!=saved:
+		print("V26_FAILED: JSON.stringify(s.available)!=saved")
+		return false
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("base")
+	_toggle_fullscreen()
+	await _qa_capture(out,"fullscreen")
+	_toggle_fullscreen()
+	get_window().size=Vector2i(1280,720)
+	FileAccess.open(out.path_join("workstations26-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"districts":4,"direct_build_on_base":true,"production_one_plus_three":true,"direct_research":true,"settlement_repair_timed":true,"batch_cancel_refund":true,"history_unchanged":true,"repair_rest_reload":true,"resolutions":4,"scales":[100,120],"fullscreen":true,"save_root":save_root,"captures":captures},"  "))
+	return true
+
+func _materials27_fail(message):
+	print("V27_FAILED: ",message)
+	return false
+
+func _materials27_qa(out):
+	if "smoke" not in save_root: return _materials27_fail("save isolation")
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	if s.is_empty(): return _materials27_fail("import")
+	_navigate("commandTraining")
+	for id in ["skill","initiativeSkill","extraFireSkill"]:
+		if not await _dispatch_qa_click(id): return _materials27_fail("enabled "+id)
+		# Simulate another press before the asynchronous command response.
+		_disabled_help(id,null)
+		if screen!="commandTraining": return _materials27_fail("pending navigation")
+		await _settled()
+	if s.commander.skillPoints!=0 or s.commander.attackSkill!=80: return _materials27_fail("skill state")
+	for page in ["commandTraining","commander"]:
+		_navigate(page)
+		for i in range(6):
+			if not await _dispatch_qa_click("skill",true): return _materials27_fail("disabled skill")
+			await _settled()
+			if screen!=page: return _materials27_fail("disabled navigation")
+	# Force a low visible balance on the isolated display model, after live commands.
+	# No persisted profile is edited; this reproduces reward > wallet regardless of offline accrual.
+	poll=-10000
+	s.wallet.crystal=1
+	var original_wallet=s.wallet.duplicate(true)
+	if _resource_color("crystal",1520,false)==RED or _resource_color("crystal",1520,true)!=RED: return _materials27_fail("reward/cost coloring")
+	if info.researchQuotes.attack.unitCost.oil<=0 or info.researchQuotes.attack.unitCost.titanium<=0: return _materials27_fail("research inputs")
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for page in ["campaign","research","factory","commandTraining"]:
+				selected_stage=99
+				campaign_mode="campaign"
+				selected_tech="attack"
+				research_branch="combat"
+				tier=7
+				selected_class=0
+				_navigate(page)
+				var name="%s-%dx%d-%d"%[page,window_size.x,window_size.y,roundi(scale_value*100)]
+				await _qa_capture(out,name)
+				captures.append(name)
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	var fixtures=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("combat-fixtures.json")))
+	muted=false
+	var checked=[]
+	for cls in CLASSES:
+		var fixture=fixtures.filter(func(f):return f.id=="destroy-"+cls)[0]
+		for speed in [1,2,4]:
+			open_report(fixture)
+			battle_paused=true
+			battle_speed=speed
+			for step in range(400):
+				if _battle_done(): break
+				_battle_step(0.025*speed)
+			if not _battle_done(): return _materials27_fail("death playback")
+			if battle_audio_events.filter(func(e):return e.key=="vehicle_destroyed").size()!=1: return _materials27_fail("death sound "+cls)
+			if battle_audio_events.filter(func(e):return e.key==cls+"_impact").size()!=1: return _materials27_fail("impact sound "+cls)
+			var impact_voice=battle_voices.slice(4,12).filter(func(v):return v.stream==battle_audio[cls+"_impact"] and v.has_stream_playback())
+			var death_voice=battle_voices.slice(12,16).filter(func(v):return v.has_stream_playback())
+			if impact_voice.is_empty() or death_voice.is_empty(): return _materials27_fail("separate audio voices")
+			checked.append({"class":cls,"speed":speed,"events":battle_audio_events.duplicate(true)})
+			if cls=="rocket" and battle_craters.size()!=5: return _materials27_fail("ground craters")
+		open_report(fixture)
+		_seek_battle_end()
+		if not battle_audio_events.is_empty(): return _materials27_fail("skip silence")
+	if not await _rocket_live_qa(out): return false
+	# Misses and nonlethal hits must not use the destruction clip.
+	for fixture_id in ["rocket-miss","rocket-one-0"]:
+		open_report(fixtures.filter(func(f):return f.id==fixture_id)[0])
+		battle_paused=true
+		_battle_step(1.8)
+		if battle_audio_events.any(func(e):return e.key=="vehicle_destroyed"): return _materials27_fail("false destruction")
+		if fixture_id=="rocket-miss" and battle_audio_events.any(func(e):return e.key=="rocket_impact"): return _materials27_fail("miss impact")
+	muted=true
+	_stop_battle_audio()
+	_navigate("commandTraining")
+	_toggle_fullscreen()
+	await _qa_capture(out,"skills-fullscreen")
+	_toggle_fullscreen()
+	get_window().size=Vector2i(1280,720)
+	if s.wallet!=original_wallet: return _materials27_fail("replay mutated wallet")
+	poll=0
+	FileAccess.open(out.path_join("materials27-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"save_root":save_root,"skills_zero_points_stay":true,"reward_color":true,"five_research_inputs":true,"audio":checked,"captures":captures,"fullscreen":true},"  "))
+	return true
+
+func _presets271_fail(reason):
+	print("V271_FAILED: ",reason)
+	return false
+
+func _presets271_qa(out):
+	if "smoke" not in save_root: return _presets271_fail("save isolation")
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	var template=s.presets.duplicate(true)
+	var inventory=s.available.duplicate(true)
+	var saved=s.formation.duplicate(true)
+	var expected=info.presetLoads[0].formation.duplicate(true)
+	if info.presetLoads[0].requested!=100 or info.presetLoads[0].loaded!=38: return _presets271_fail("preview")
+	_navigate("campaign")
+	selected_stage=0
+	if not await _dispatch_qa_click("training"): return false
+	if not await _dispatch_qa_click("presetLoad:0"): return false
+	if draft!=expected or s.presets!=template or s.available!=inventory or s.formation!=saved: return _presets271_fail("local load mutated source")
+	if not details_dialog.visible or not details_text.text.contains("原保存预设保持不变"): return _presets271_fail("shortage notice")
+	await _qa_capture(out,"shortage-dialog")
+	details_dialog.hide()
+	if _deployment_problem()!="": return _presets271_fail("deployment still blocked")
+	await _qa_capture(out,"loaded-deployment")
+	if not await _dispatch_qa_click("deploymentConfirm"): return false
+	await _settled()
+	if screen!="battle" or s.presets!=template: return _presets271_fail("battle")
+	var troops=0
+	for st in report.initial[0]: troops+=st.count
+	if troops!=38 or s.available!=inventory: return _presets271_fail("training troop snapshot")
+	_action("battleSkip")
+	if not _battle_done() or not settlement_visible: return _presets271_fail("settlement")
+	_navigate("presets")
+	if not await _dispatch_qa_click("presetLoad:0"): return false
+	await _settled()
+	if s.formation!=expected or s.presets!=template or s.available!=inventory or not details_dialog.visible: return _presets271_fail("regular load")
+	details_dialog.hide()
+	await _qa_capture(out,"preset-management")
+	request({"op":"load","id":s.id})
+	await _settled()
+	if s.presets!=template: return _presets271_fail("save reload changed template")
+	for window_size in [Vector2i(1180,680),Vector2i(1920,1080)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			_navigate("campaign")
+			_begin_deployment({"type":"battle","stage":0,"training":true})
+			if not await _dispatch_qa_click("presetLoad:0"): return false
+			await _qa_capture(out,"shortage-%dx%d-%d"%[window_size.x,window_size.y,roundi(scale_value*100)])
+			details_dialog.hide()
+			await _qa_capture(out,"deployment-%dx%d-%d"%[window_size.x,window_size.y,roundi(scale_value*100)])
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("empty-save.json"))})
+	await _settled()
+	_navigate("campaign")
+	_begin_deployment({"type":"battle","stage":0,"training":true})
+	if not await _dispatch_qa_click("presetLoad:0"): return false
+	if draft.any(func(st):return st!=null) or _deployment_problem()=="" or s.presets!=template: return _presets271_fail("empty handling")
+	await _qa_capture(out,"empty-shortage")
+	details_dialog.hide()
+	# Leave a normal shortage case for actual desktop clicking.
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	ui_scale=1.0
+	get_window().size=Vector2i(1280,720)
+	_navigate("campaign")
+	_begin_deployment({"type":"battle","stage":0,"training":true})
+	FileAccess.open(out.path_join("presets271-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"saved_template":100,"loaded":38,"shortage":62,"duplicate_type_shared_stock":true,"deployed_snapshot":38,"template_unchanged_after_battle_reload":true,"empty_blocks_battle":true,"screenshots":12,"save_root":save_root},"  "))
+	return true
+
+# Region maps share one building selection / upgrade path with the dispatch list.
+func _scene_pin(id, label, anchor:Vector2, status, data, selected):
+	var area=Rect2(anchor-Vector2(103,58),Vector2(206,105))
+	var hot=selected or hover==id
+	if hot:
+		draw_rect(area,Color(0.82,0.69,0.38,0.10))
+		draw_rect(area,GOLD,false,1.5)
+	draw_circle(anchor,6,GOLD)
+	draw_arc(anchor,18,0,TAU,48,Color(0.87,0.76,0.48,0.85),1.5)
+	draw_line(anchor+Vector2(0,18),anchor+Vector2(0,47),GOLD,1.5)
+	var rect=Rect2(anchor+Vector2(-115,47),Vector2(230,51))
+	_panel(rect,Color(0.04,0.08,0.07,0.92),GOLD if hot else Color("6f7d71"))
+	_fit_text(label,rect.position+Vector2(10,22),211,19,GOLD if hot else TEXT,true)
+	_fit_text(status,rect.position+Vector2(10,43),211,14,Color("b8c5b3"))
+	_hit(id,Rect2(anchor-Vector2(115,58),Vector2(230,156)),data)
+
+func _draw_district_scene(kind):
+	var names={"resources":"资源区","industry":"工业区","command":"指挥科研区"}
+	var sites={
+		"resources":[["iron",Vector2(287,225)],["titanium",Vector2(872,229)],["oil",Vector2(287,423)],["lead",Vector2(872,423)],["crystal",Vector2(287,603)],["warehouse",Vector2(872,600)]],
+		"industry":[["factory",Vector2(289,262)],["factory2",Vector2(872,262)],["refit",Vector2(290,522)],["repair",Vector2(872,522)]],
+		"command":[["hq",Vector2(592,265)],["lab",Vector2(268,514)],["academy",Vector2(877,514)]]}[kind]
+	if not sites.any(func(entry):return entry[0]==district_building): district_building=sites[0][0]
+	_cover("district_"+kind,Rect2(0,82,1190,754))
+	for i in range(76): draw_rect(Rect2(0,82+i,1190,1),Color(0.02,0.04,0.03,0.8*(1-i/76.0)))
+	_button("nav:base","← 主基地",Rect2(25,101,159,39),"base")
+	_text("/  "+names[kind],Vector2(204,131),24,TEXT,true)
+	_fit_text("点击建筑选择设施 · 右侧升级或使用功能",Vector2(590,128),570,18,GOLD)
+	for item in sites:
+		var id=item[0]
+		var name="维修车间" if id=="repair" else "指挥学院" if id=="academy" else "第一坦克工厂" if id=="factory" else "第二坦克工厂" if id=="factory2" else "改装工厂" if id=="refit" else catalog.buildingNames[id]
+		var status="指挥官 / 统率 / 声望" if id=="academy" else "待修 %d · 工作 %d / 等待 %d"%[info.repairSummary.damaged,info.queues.repair.active,info.queues.repair.waiting] if id=="repair" else ""
+		if status=="":
+			var row=info.construction.filter(func(r):return r.id==id)[0]
+			status="Lv.%d · %s"%[row.level,"升级中 "+_time(row.booked.remainingMs) if row.booked!=null else "点击查看"]
+		_scene_pin("sceneBuilding:"+id,name,item[1],status,id,district_building==id)
+	# A compact breadcrumb/map key leaves the terrain exposed.
+	_panel(Rect2(24,764,1140,48),Color(0.04,0.07,0.06,0.92),LINE)
+	_fit_text("主基地  ›  "+names[kind]+"  ›  "+("维修车间" if district_building=="repair" else "指挥学院" if district_building=="academy" else info.construction.filter(func(r):return r.id==district_building)[0].name),Vector2(42,794),900,18,GOLD)
+	_button("nav:regionDispatch","全基地调度 Q",Rect2(949,773,199,31),"queues")
+	_draw_district_facility()
+
+func _draw_district_facility():
+	_panel(Rect2(1190,82,410,754),Color("111b1c"),LINE)
+	var id=district_building
+	var special=id in ["repair","academy"]
+	var row={} if special else info.construction.filter(func(r):return r.id==id)[0]
+	var name="维修车间" if id=="repair" else "指挥学院" if id=="academy" else row.name
+	if id in ["factory","factory2","refit"]: name=info.facilities[id].name
+	_text("设施档案",Vector2(1214,121),17,GOLD)
+	_fit_text(name,Vector2(1214,169),363,27,TEXT,true)
+	_text("独立服务设施" if special else "等级 %d / 120"%row.level,Vector2(1214,204),18,GOLD)
+	var benefit="统率、战术技能与声望军衔" if id=="academy" else "1个维修工位 + 3个等待位" if id=="repair" else "本地产出 %s / 时"%_amount(info.rates[id]) if id in RES else "容量 %s / 每项资源"%_amount(info.capacity) if id=="warehouse" else "开放基地设施与建设等级" if id=="hq" else "1个研究工位 + 3个等待位" if id=="lab" else "1个生产工位 + 3个等待位"
+	_fit_text(benefit,Vector2(1214,239),363,18,GREEN)
+	if id=="warehouse":
+		_text("保护比例 %.2f%% / 最高40%%"%(info.protection.bps/100.0),Vector2(1214,271),18,GOLD)
+		_text("每项保护额度 "+_amount(info.protection.limit),Vector2(1214,301),18,TEXT)
+	elif id in RES:
+		_text("库存 %s / %s"%[_amount(s.wallet[id]),_amount(info.capacity)],Vector2(1214,271),18,TEXT)
+		_stock_bar(Rect2(1214,289,357,9),s.wallet[id]/info.capacity)
+	elif id=="repair":
+		_text("待修 %d · 维修中 %d"%[info.repairSummary.damaged,info.repairSummary.repairing],Vector2(1214,277),20,GOLD)
+	elif id in ["factory","factory2","refit"]:
+		_fit_text("工厂 6 / 14 / 24 / 36 / 48 / 60 级逐阶开放",Vector2(1214,277),363,16,MUTED)
+	draw_line(Vector2(1214,319),Vector2(1575,319),LINE)
+	if not special:
+		if row.level>=120:
+			_text("已满级 · 当前收益已生效",Vector2(1214,358),20,GREEN)
+			_fit_text("下一目标："+info.progression.next.title,Vector2(1214,393),363,17,TEXT)
+		else:
+			_text("升级至 %d 级 · 预计 %s"%[row.level+1,_eta(row.duration)],Vector2(1214,350),18,GOLD)
+			var n=0
+			for r in RES:
+				if row.cost.get(r,0)<=0: continue
+				_cost({r:row.cost[r]},Vector2(1214+(n%2)*185,390+int(n/2)*38))
+				n+=1
+		var block=_construction_block(row)
+		_fit_text("可在此直接升级" if block=="" else block,Vector2(1214,475),363,16,GREEN if block=="" else GOLD)
+		_button("constructUpgrade:"+id,"已满级" if row.level>=120 else "设施正在升级" if row.booked!=null else "确认升级设施",Rect2(1214,492,363,43),id,true,block=="" and not _command_pending())
+	else:
+		_fit_text("战损车辆按订单依次修复，逐辆返回库存。" if id=="repair" else "提升统率扩大编队；分配技能完善战术。",Vector2(1214,359),363,17,TEXT)
+		_fit_text("查看工位与等待订单的进度和预计时间。" if id=="repair" else "军衔、升级声望及属性均可在档案查看。",Vector2(1214,400),363,17,MUTED)
+	var page="repair" if id=="repair" else "commander" if id=="academy" else "factory" if id in ["factory","factory2","refit"] else "research" if id=="lab" else "queues" if id=="hq" else "inventory"
+	var label={"repair":"进入维修车间","commander":"打开指挥官档案","factory":"进入改装车间" if id=="refit" else "进入生产车间","research":"打开科研树","queues":"全基地作业调度","inventory":"查看资源库存与用途"}[page]
+	_button("sceneFunction",label+" →",Rect2(1214,553,363,46),page,true)
+	if id=="warehouse":
+		_button("warehouseProtection","保护 / 可掠夺库存详情",Rect2(1214,617,363,43))
+		_fit_text("升级仓库可提高容量与保护比例",Vector2(1214,692),363,18,GOLD)
+		_fit_text("单机 NPC 据点同样保留保护库存。",Vector2(1214,713),363,15,MUTED)
+	elif id in ["factory","factory2","refit","lab","repair"]:
+		var station="research" if id=="lab" else id
+		_draw_dispatch_station(_dispatch_station(station),Rect2(1214,620,363,94),true)
+		if special: _fit_text("点击工位可直接安排作业或查看等待订单",Vector2(1214,744),363,16,MUTED)
+	else:
+		_fit_text("设施升级与作业完成后，区域信息立即同步。",Vector2(1214,650),363,17,MUTED)
+	if not special: _button("upgradeBenefits","升级收益与解锁 →",Rect2(1214,728,363,33),id)
+	_button("nav:regionHome","← 返回主基地",Rect2(1214,779,363,35),"base")
+
+func _protection_details():
+	var lines:Array[String]=["仓储保护：当前 %.2f%%，最高40%%。"%(info.protection.bps/100.0),"比例 = 20% + 20% × (仓库等级 − 1) / 119，按基点向下取整。","每项保护额度 = 当前仓储容量 × 保护比例。升级仓库同时增加容量和比例。","仓储科技及 VIP 增加容量，因此也增加保护额度；保护库存仍可正常用于建设、生产和科研。","", "资源    受保护库存 / 可被掠夺库存"]
+	for r in RES:
+		if r=="gold": continue
+		var row=info.protection.resources[r]
+		lines.append("%s    %s / %s"%[catalog.resourceNames[r],_amount(row.protectedStock),_amount(row.lootable)])
+	lines.append("\n金币、核心、车辆与在途/订单物资不参与仓库掠夺。奖励超仓后超过保护额度的部分仍属于可掠夺库存。")
+	lines.append("单机说明：当前没有真人联网或自动来袭；玩家仓库展示保护规则与风险口径，世界突袭 NPC 据点时实际按对方保护额度结算。旧版在途远征目标保持原保护规则直至部队归队。")
+	_details("仓库保护与掠夺规则","\n".join(lines))
+
+func _library29_fail(reason):
+	push_error("V29_FAILED: "+reason)
+	return false
+
+func _library29_qa(out):
+	if "smoke" not in save_root: return _library29_fail("save isolation")
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	var inventory=s.available.duplicate(true)
+	var presets=s.presets.duplicate(true)
+	var candidate="rocket_t6"
+	_navigate("army")
+	reserve_class="all"
+	reserve_tier=0
+	reserve_filter="owned"
+	reserve_sort=false
+	reserve_page=0
+	if not await _dispatch_qa_click("selectReserve"): return false
+	if compare_unit!=candidate: return _library29_fail("candidate selection")
+	for i in range(3):
+		if not await _dispatch_qa_click("slot:"+str(i)): return false
+		if compare_unit!=candidate: return _library29_fail("slot cleared candidate")
+		if not await _dispatch_qa_click("assign:"+candidate): return false
+		if draft[i].count!=[250,250,130][i] or compare_unit!=candidate: return _library29_fail("repeat allocation")
+	if not await _dispatch_qa_click("slot:3"): return false
+	await _qa_capture(out,"formation-stock-exhausted")
+	if _free_for_slot(candidate)!=0 or not buttons.any(func(b):return b.id=="assign:"+candidate and not b.enabled): return _library29_fail("stock exhaustion")
+	var before=draft.duplicate(true)
+	_assign(candidate)
+	if draft!=before: return _library29_fail("zero stock changed formation")
+	if s.available!=inventory or s.presets!=presets: return _library29_fail("draft changed inventory or presets")
+	if not await _dispatch_qa_click("slot:0"): return false
+	if _free_for_slot(candidate)!=250: return _library29_fail("current slot released stock incorrectly")
+	if not await _dispatch_qa_click("assign:"+candidate): return false
+	if not await _dispatch_qa_click("formationSave"): return false
+	await _settled()
+	# JSON round trips represent counts as floats; normalize the expected snapshot too.
+	if s.formation!=JSON.parse_string(JSON.stringify(before)) or s.available!=inventory:
+		return _library29_fail("saved allocation")
+	# Repeat through the shared pre-battle screen after explicitly clearing its local draft.
+	_navigate("campaign")
+	_begin_deployment({"type":"battle","stage":0,"training":true})
+	draft=[null,null,null,null,null,null]
+	for i in range(3):
+		if not await _dispatch_qa_click("slot:"+str(i)): return false
+		if compare_unit!=candidate: return _library29_fail("prebattle cleared candidate")
+		if not await _dispatch_qa_click("assign:"+candidate): return false
+	if _deployment_problem()!="" or s.presets!=presets: return _library29_fail("prebattle validation")
+	await _qa_capture(out,"repeat-deployment")
+	if not await _dispatch_qa_click("deploymentConfirm"): return false
+	await _settled()
+	if screen!="battle" or report.initial[0].reduce(func(n,st):return n+st.count,0)!=630: return _library29_fail("battle snapshot")
+	_action("battleSkip")
+	if not settlement_visible or s.available!=inventory: return _library29_fail("training settlement")
+	_navigate("library")
+	if _library_entries().size()!=39: return _library29_fail("catalog count")
+	for entry in _library_entries():
+		_library_choose(entry.id)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if library_reader.get_v_scroll_bar().value!=0: return _library29_fail("new article starts mid-page "+entry.id)
+		if not library_reader.text.contains(entry.sections[-1].text): return _library29_fail("missing article section")
+	# Reading positions must be independent even for long new reference tables.
+	_library_choose("research-paths")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _qa_capture(out,"library-research-paths")
+	library_reader.get_v_scroll_bar().value=120
+	_library_choose("research-cost")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _qa_capture(out,"library-research-cost")
+	if library_reader.get_v_scroll_bar().value!=0: return _library29_fail("scroll contamination")
+	_library_choose("research-paths")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await _qa_capture(out,"library-research-paths-restored")
+	if library_reader.get_v_scroll_bar().value<100: return _library29_fail("article position not restored")
+	library_category="all"
+	library_query="钛矿 50%"
+	library_search.text=library_query
+	_library_filter_changed()
+	if not _library_filtered().any(func(e):return e.id=="research-cost"): return _library29_fail("search")
+	_library_choose("research-cost")
+	if not await _dispatch_qa_click("libraryGo"): return false
+	if screen!="research": return _library29_fail("article destination")
+	research_branch="combat"
+	selected_tech="attack"
+	var cost=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("research-expected.json")))
+	if info.researchQuotes.attack.unitCost!=cost: return _library29_fail("research UI quote")
+	await _qa_capture(out,"research-quote")
+	if not await _dispatch_qa_click("research:attack"): return false
+	await _settled()
+	if s.jobs.research.unitCost!=cost: return _library29_fail("research actual price")
+	command({"type":"cancel","kind":"research"})
+	await _settled()
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for page in ["army","library","research"]:
+				_navigate(page)
+				if page=="library":
+					library_query=""
+					library_search.text=""
+					library_scroll["presets"]=0
+					_library_choose("presets")
+				var name="%s-%dx%d-%d"%[page,window_size.x,window_size.y,roundi(scale_value*100)]
+				await _qa_capture(out,name)
+				captures.append(name)
+	ui_scale=1.0
+	_navigate("library")
+	_toggle_fullscreen()
+	await _qa_capture(out,"library-fullscreen")
+	_toggle_fullscreen()
+	get_window().size=Vector2i(1280,720)
+	_navigate("army")
+	selected_slot=0
+	poll=0
+	FileAccess.open(out.path_join("library29-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"save_root":save_root,"continuous_deployment":[250,250,130],"inventory_and_presets_unchanged":true,"prebattle_snapshot":630,"articles":39,"independent_scroll":true,"research_quote_and_charge":cost,"captures":captures,"fullscreen":true},"  "))
+	return true
+
+func _districts28_fail(reason):
+	print("V28_FAILED: ",reason)
+	return false
+
+func _districts28_qa(out):
+	if "smoke" not in save_root: return _districts28_fail("save isolation")
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	_navigate("base")
+	if not await _dispatch_qa_click("district:resources"): return false
+	if screen!="resources": return _districts28_fail("resources scene")
+	if not await _dispatch_qa_click("sceneBuilding:iron"): return false
+	if not await _dispatch_qa_click("constructUpgrade:iron"): return false
+	if not confirm_dialog.visible: return _districts28_fail("upgrade confirmation")
+	confirm_dialog.confirmed.emit()
+	confirm_dialog.hide()
+	await _settled()
+	if not info.jobs.any(func(j):return j.kind=="building" and j.target=="iron"): return _districts28_fail("upgrade from scene")
+	if screen!="resources": return _districts28_fail("upgrade navigated away")
+	if not await _dispatch_qa_click("sceneBuilding:warehouse"): return false
+	if not await _dispatch_qa_click("warehouseProtection"): return false
+	if not details_dialog.visible or not details_text.text.contains("可被掠夺"): return _districts28_fail("protection details")
+	await _qa_capture(out,"warehouse-protection")
+	details_dialog.hide()
+	if not await _dispatch_qa_click("upgradeBenefits"): return false
+	if not details_text.text.contains("仓储保护比例"): return _districts28_fail("warehouse upgrade benefit")
+	details_dialog.hide()
+	if not await _dispatch_qa_click("nav:base"): return false
+	if not await _dispatch_qa_click("district:industry"): return false
+	for id in ["factory","factory2","refit","repair"]:
+		if not await _dispatch_qa_click("sceneBuilding:"+id): return false
+		if not await _dispatch_qa_click("sceneFunction"): return false
+		if screen!=("repair" if id=="repair" else "factory"): return _districts28_fail("workshop navigation "+id)
+		if id!="repair" and selected_factory!=id: return _districts28_fail("wrong factory")
+		_navigate("industry")
+	_navigate("base")
+	if not await _dispatch_qa_click("district:research"): return false
+	if district_building!="lab" or screen!="command_zone": return _districts28_fail("research scene")
+	if not await _dispatch_qa_click("sceneFunction"): return false
+	if screen!="research": return _districts28_fail("research tree")
+	_navigate("campaign")
+	if catalog.stages.size()!=192: return _districts28_fail("campaign size")
+	if not await _dispatch_qa_click("chapterPage"): return false
+	if not await _dispatch_qa_click("chapter:7"): return false
+	if selected_stage!=112 or not info.stageStatus[112].unlocked: return _districts28_fail("chapter 8 gate")
+	if not await _dispatch_qa_click("training"): return false
+	if not await _dispatch_qa_click("deploymentConfirm"): return false
+	await _settled()
+	if screen!="battle": return _districts28_fail("chapter 8 battle")
+	_action("battleSkip")
+	if not settlement_visible: return _districts28_fail("chapter 8 settlement")
+	await _qa_capture(out,"chapter8-settlement")
+	_navigate("world")
+	selected_site=s.world.filter(func(v):return v.kind=="npc")[0].id
+	command({"type":"scout","targetId":selected_site})
+	await _settled()
+	_scout_details()
+	if not details_text.text.contains("可掠夺"): return _districts28_fail("NPC protected loot display")
+	await _qa_capture(out,"npc-protection")
+	details_dialog.hide()
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for page in ["base","resources","industry","command_zone","campaign"]:
+				district_building={"resources":"warehouse","industry":"refit","command_zone":"lab"}.get(page,"hq")
+				selected_stage=191
+				_navigate(page)
+				var name="%s-%dx%d-%d"%[page,window_size.x,window_size.y,roundi(scale_value*100)]
+				await _qa_capture(out,name)
+				captures.append(name)
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("base")
+	_toggle_fullscreen()
+	await _qa_capture(out,"base-fullscreen")
+	_toggle_fullscreen()
+	poll=0
+	FileAccess.open(out.path_join("districts28-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"save_root":save_root,"direct_upgrade":"pass","all_workshop_routes":"pass","research_scene":"pass","warehouse_ledger":"pass","chapter8_training_settlement":"pass","chapters":12,"stages":192,"captures":captures,"fullscreen":true},"  "))
+	return true
+
+func _workshops30_fail(reason):
+	push_error("V30_FAILED: "+reason)
+	return false
+
+func _workshops30_qa(out):
+	if "smoke" not in save_root: return _workshops30_fail("save isolation")
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	if catalog.productionBatchLimit!=500: return _workshops30_fail("shared batch limit")
+	_navigate("base")
+	await _qa_capture(out,"base-protection")
+	if buttons.any(func(b):return b.id in ["nav:factory","nav:research"] and b.rect.position.y>=836): return _workshops30_fail("removed navigation")
+	var factory_times={}
+	for id in ["factory","factory2","refit"]:
+		_navigate("industry")
+		if not await _dispatch_qa_click("sceneBuilding:"+id): return false
+		if not await _dispatch_qa_click("sceneFunction"): return false
+		if screen!="factory" or selected_factory!=id or production_mode!=("refit" if id=="refit" else "produce"): return _workshops30_fail("facility routing "+id)
+		selected_class=0
+		tier=7
+		if not await _dispatch_qa_click("quantity:2"): return false
+		if quantity!=500 or _factory_quote().max!=500: return _workshops30_fail("preset / MAX "+id+" "+str(quantity)+" / "+str(_factory_quote().max))
+		await _qa_capture(out,id+"-quote")
+		if buttons.any(func(b):return b.id.begins_with("facility:") or b.id.begins_with("productionMode:")): return _workshops30_fail("mixed workshop controls")
+		factory_times[id]=_factory_quote().duration
+		var q=_factory_quote().duplicate(true)
+		var cores=s.arsenal.cores.tank_core7
+		if not await _dispatch_qa_click("produce"): return false
+		await _settled()
+		var jobs=info.jobs.filter(func(j):return j.kind=="production" and j.facility==id and j.total==500)
+		if jobs.size()!=1 or s.arsenal.cores.tank_core7!=cores-500: return _workshops30_fail("500 order charge "+id)
+		if jobs[0].unitCost!=q.unitCost or jobs[0].duration!=q.duration: return _workshops30_fail("quoted snapshot "+id)
+		district_building="hq"
+		if not await _dispatch_qa_click("nav:industry"): return false
+		if district_building!=id: return _workshops30_fail("workshop breadcrumb "+id)
+	if factory_times.factory2>=factory_times.factory: return _workshops30_fail("local factory speed")
+	# Check quoted first/repeat rewards on their actual mission pages.
+	campaign_mode="stage"
+	_navigate("campaign")
+	selected_stage=17
+	await _qa_capture(out,"campaign-first")
+	selected_stage=16
+	await _qa_capture(out,"campaign-repeat")
+	var repeat=catalog.stages[16].repeatGrowth
+	if repeat.books!=0 or repeat.skillPoints!=0 or repeat.prestige!=floori(catalog.stages[16].growth.prestige/2) or catalog.stages[16].repeatReward.gold!=0: return _workshops30_fail("reward preview")
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for page in ["base","factory","refit","campaign"]:
+				if page in ["factory","refit"]:
+					selected_factory=page
+					production_mode="refit" if page=="refit" else "produce"
+				_navigate("factory" if page=="refit" else page)
+				_set_quantity(500)
+				var name="%s-%dx%d-%d"%[page,window_size.x,window_size.y,roundi(scale_value*100)]
+				await _qa_capture(out,name)
+				captures.append(name)
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	var fixtures=JSON.parse_string(FileAccess.get_file_as_string(out.path_join("combat-fixtures.json")))
+	var checked=[]
+	var captured={}
+	for fixture in fixtures:
+		for speed in [1,2,4]:
+			open_report(fixture)
+			settlement_visible=false
+			battle_paused=true
+			battle_speed=speed
+			var previous=-1
+			var handoffs=0
+			for n in range(16000):
+				if _battle_done(): break
+				_battle_step(0.025)
+				if battle_index!=previous and not last_hit.is_empty():
+					previous=battle_index
+					if battle_index<report.events.size() and report.events[battle_index].side!=last_hit.side:
+						var delay=0.74 if _volley_class()=="rocket" else 0.32
+						if absf(battle_interval-(delay+(1.05-delay)*1.5))>0.0001: return _workshops30_fail("handoff timing")
+						handoffs+=1
+				var age=battle_clock-hit_time
+				if speed==1 and fixture.id=="presentation-tank" and age>0.45 and age<0.52 and not last_hit.is_empty():
+					var kind="critical" if last_hit.critical else "normal"
+					if not last_hit.miss and not captured.has(kind):
+						await _qa_capture(out,"hit-"+kind)
+						captured[kind]=true
+			if not _battle_done() or handoffs==0: return _workshops30_fail("battle completion")
+			for side in range(2):
+				for st in battle_armies[side]:
+					var expected=report.final[side].filter(func(f):return f.slot==st.slot)
+					if expected.size()!=1 or st.totalHp!=expected[0].totalHp or st.count!=ceili(float(expected[0].totalHp)/expected[0].hp): return _workshops30_fail("playback final snapshot")
+			if fixture.id=="presentation-rocket" and battle_craters.is_empty(): return _workshops30_fail("rocket craters")
+			checked.append({"fixture":fixture.id,"speed":speed,"handoffs":handoffs})
+	if not captured.has("normal") or not captured.has("critical"): return _workshops30_fail("hit styles")
+	if _hit_number_style({"miss":false,"critical":true,"damage":500}).color==_hit_number_style({"miss":false,"critical":false,"damage":500}).color: return _workshops30_fail("colors")
+	_navigate("base")
+	_toggle_fullscreen()
+	await _qa_capture(out,"fullscreen")
+	_toggle_fullscreen()
+	get_window().size=Vector2i(1280,720)
+	_action("facility:factory2","factory2")
+	_set_quantity(500)
+	FileAccess.open(out.path_join("workshops30-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"save_root":save_root,"batch":500,"factory_times":factory_times,"independent_workshops":true,"reward_preview":true,"hit_styles":captured,"playback":checked,"resolutions":4,"scales":[100,120],"fullscreen":true,"captures":captures},"  "))
+	return true
+
+func _archive_type_label(kind):
+	return {"all":"全部类型","stage":"主线副本","dungeon":"核心副本","mine":"资源点进攻","raid":"据点突袭","gather-return":"采集资源归队","raid-return":"突袭部队归队","training":"战术演习","world":"历史世界行动"}.get(kind,"历史世界行动")
+
+func _wallet_total(wallet):
+	var total=0
+	for key in wallet: total+=wallet[key]
+	return total
+
+func _return_receipt(id):
+	for row in info.archive:
+		if row.id!=id: continue
+		var lines: Array[String]=[row.title,_archive_type_label(row.category)+" · "+("成功归队" if row.winner==0 else "行动失败"),Time.get_datetime_string_from_unix_time(int(row.at/1000)+28800,true),"", "带回物资："+(_cost_text(row.cargo) if _wallet_total(row.cargo)>0 else "0"),"实际入库："+(_cost_text(row.rewards) if _wallet_total(row.rewards)>0 else "0"),"超过仓库容量丢弃："+(_cost_text(row.discarded) if _wallet_total(row.discarded)>0 else "0"),"", "生还 %d 辆"%row.survivors]
+		for c in row.casualties: lines.append("%s：损失%d / 可修%d / 永久%d"%[catalog.units[c.unitId].name,c.lost,c.repairable,c.destroyed])
+		lines.append("\n"+("采集返城按归队时的剩余仓容入库，超出部分丢弃。" if row.category=="gather-return" else "据点突袭战利品按原奖励规则入库，可超过仓储上限。")+"查看本收据不会重复领取。")
+		if not row.confirmed: lines.append("旧档归队凭据：沿用当时入库量，没有独立的溢出统计。")
+		_details("归队结算 / "+row.title,"\n".join(lines))
+		return
+
+func _expeditions31_qa(out):
+	if "smoke" not in save_root: return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	if not fatal.is_empty() or s.marches.size()!=1 or s.marches[0].phase!="gathering": return false
+	var stats=info.commanderStats.duplicate(true)
+	selected_site="site-0"
+	_navigate("world")
+	await _dispatch_qa_click("gather")
+	if screen!="deployment" or _formation_tactics(draft,true)!=stats: return false
+	var snapshot=draft.duplicate(true)
+	draft=[{"unitId":"tank_t1","count":1},null,null,null,null,null]
+	if _formation_tactics(draft,true)!=stats: return false
+	draft=snapshot
+	await _qa_capture(out,"departure-capacity")
+	await _dispatch_qa_click("departurePlan")
+	await _qa_capture(out,"departure-plan")
+	details_dialog.hide()
+	await _dispatch_qa_click("deploymentCancel")
+	_navigate("base")
+	var receipt_count=s.get("expeditionLog",[]).size()
+	await _dispatch_qa_click("rest:480")
+	await _settled()
+	if not confirm_dialog.visible: return false
+	_confirm_action()
+	await _settled()
+	if screen!="restReport" or not s.marches.is_empty() or s.expeditionLog.size()!=receipt_count+1: return false
+	var receipt=s.expeditionLog[0]
+	if receipt.stored.iron<=0 or receipt.cargo.iron!=receipt.stored.iron: return false
+	await _qa_capture(out,"rest-credited")
+	_navigate("reports")
+	var captured=[]
+	for size_value in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=size_value
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			report_type="all"
+			report_result="all"
+			report_page=0
+			var name="archive-%dx%d-%d"%[size_value.x,size_value.y,int(scale_value*100)]
+			await _qa_capture(out,name)
+			captured.append(name)
+			_return_receipt("return:"+receipt.marchId)
+			await _qa_capture(out,"receipt-%dx%d-%d"%[size_value.x,size_value.y,int(scale_value*100)])
+			details_dialog.hide()
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	for type_value in ["stage","dungeon","mine","raid","gather-return","raid-return"]:
+		report_type=type_value
+		if _filtered_reports().is_empty() or not _filtered_reports().all(func(v):return v.category==type_value): return false
+	report_type="gather-return"
+	report_result="loss"
+	if _filtered_reports().is_empty() or not _filtered_reports().all(func(v):return v.winner==1): return false
+	await _qa_capture(out,"filter-failed-return")
+	var wallet=s.wallet.duplicate(true)
+	var report_id=s.reports[0].id
+	request({"op":"report","id":report_id})
+	await _settled()
+	if s.wallet!=wallet: return false
+	_action("battleReplay")
+	_action("battleSkip")
+	if not settlement_visible or s.wallet!=wallet: return false
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("overflow-save.json"))})
+	await _settled()
+	command({"type":"rest","minutes":480})
+	await _settled()
+	if not s.marches.is_empty() or s.expeditionLog[0].discarded.iron<=0 or s.expeditionLog[0].stored.iron!=0: return false
+	_navigate("reports")
+	report_type="gather-return"
+	report_result="all"
+	await _qa_capture(out,"overflow-archive")
+	_return_receipt("return:"+s.expeditionLog[0].marchId)
+	await _qa_capture(out,"overflow-receipt")
+	details_dialog.hide()
+	_toggle_fullscreen()
+	await _qa_capture(out,"archive-fullscreen")
+	_toggle_fullscreen()
+	_navigate("world")
+	await _dispatch_qa_click("gather")
+	for size_value in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=size_value
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			await _qa_capture(out,"departure-%dx%d-%d"%[size_value.x,size_value.y,int(scale_value*100)])
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	await _dispatch_qa_click("deploymentCancel")
+	_navigate("reports")
+	report_type="all"
+	FileAccess.open(out.path_join("expeditions31-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"commander_stats":stats,"credited":receipt.stored,"overflow_discarded":s.expeditionLog[0].discarded,"filters":6,"replay_idempotent":true,"captures":captured,"save_root":save_root},"  "))
 	return true

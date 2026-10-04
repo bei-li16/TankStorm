@@ -1,4 +1,5 @@
 import { rules, units } from './content';
+import { prestigeBonusBps } from './commander';
 import type {
   ArmyStack,
   BattleAction,
@@ -22,7 +23,9 @@ export function army(
   formation: Formation,
   tech?: GameState['tech'],
   skill = 0,
-  commander?: Pick<GameState['commander'], 'initiativeSkill' | 'extraFireSkill'>,
+  commander?: Partial<
+    Pick<GameState['commander'], 'initiativeSkill' | 'extraFireSkill' | 'prestige'>
+  >,
 ): ArmyStack[] {
   return formation.flatMap((s, i) => {
     if (!s || !s.count) return [];
@@ -31,7 +34,8 @@ export function army(
       (u.hp *
         (10000 +
           (tech?.hp ?? 0) * rules.economy.techBonusPerLevelBps +
-          (tech?.armorPlating ?? 0) * 300)) /
+          (tech?.armorPlating ?? 0) * 300 +
+          prestigeBonusBps(commander?.prestige ?? 0))) /
         10000,
     );
     return [
@@ -47,18 +51,12 @@ export function army(
         evasion: 0,
         crit: 0,
         armor: 0,
-        initiative:
-          100 + (u.tier - 1) * 6 + (tech?.march ?? 0) * 3 + (commander?.initiativeSkill ?? 0) * 3,
-        extraFire:
-          100 +
-          (u.tier - 1) * 5 +
-          (tech?.ballistics ?? 0) * 4 +
-          (commander?.extraFireSkill ?? 0) * 4,
         attackBonus:
           10000 +
           (tech?.attack ?? 0) * rules.economy.techBonusPerLevelBps +
           (tech?.ballistics ?? 0) * 200 +
-          skill * 200,
+          skill * 200 +
+          prestigeBonusBps(commander?.prestige ?? 0),
       },
     ];
   });
@@ -67,7 +65,17 @@ function alive(a: ArmyStack[]) {
   return a.filter((s) => s.totalHp > 0);
 }
 // Save schema stays compatible; historical reports retain their recorded rules and events.
-export const BATTLE_RULESET = 'classic-combat-v0.24.3';
+export const BATTLE_RULESET = 'classic-combat-v0.31';
+// Army composition never participates in these commander-level attributes.
+export function commanderStats(
+  tech?: Partial<GameState['tech']>,
+  commander?: Partial<GameState['commander']>,
+): CombatStats {
+  return {
+    initiative: 100 + (tech?.march ?? 0) * 3 + (commander?.initiativeSkill ?? 0) * 3,
+    extraFire: 100 + (tech?.ballistics ?? 0) * 4 + (commander?.extraFireSkill ?? 0) * 4,
+  };
+}
 // Commit targets once per action. Only rockets fire at empty cells.
 export function attackSlots(
   classId: ArmyStack['classId'],
@@ -114,7 +122,8 @@ export function casualtySummary(
     return { unitId, sent, survived, lost, repairable, destroyed: persist ? lost - repairable : 0 };
   });
 }
-// Values are fixed at deployment; casualties must not change initiative or proc chance.
+// Legacy in-flight saves can still contain the old per-stack snapshot. New battles
+// always pass explicit commander snapshots; historical events are never re-simulated.
 export function combatStats(stacks: ArmyStack[]): CombatStats {
   const deployed = alive(stacks);
   const mean = (key: keyof CombatStats) =>
@@ -131,11 +140,15 @@ export function simulate(
   defender: ArmyStack[],
   seed: number,
   mode: BattleReport['mode'] = 'training',
+  commanders?: [CombatStats, CombatStats],
 ): BattleReport {
   if (!Number.isInteger(seed) || seed < 1 || seed > 4294967295) throw Error('无效的战斗种子');
   const initial = structuredClone([attacker, defender]) as [ArmyStack[], ArmyStack[]];
   const teams = structuredClone(initial);
-  const stats = initial.map(combatStats) as [CombatStats, CombatStats];
+  const stats = structuredClone(commanders ?? initial.map(combatStats)) as [
+    CombatStats,
+    CombatStats,
+  ];
   const firstSide: 0 | 1 = stats[1].initiative > stats[0].initiative ? 1 : 0;
   const chances: [number, number] = [
     extraFireChance(stats[0].extraFire, stats[1].extraFire),
@@ -226,7 +239,10 @@ export function simulate(
         BigInt(profile.patternMultiplierBps) *
         BigInt(critical ? rules.battle.critMultiplierBps : 10000) *
         BigInt(reduction);
-      const damage = miss ? 0 : Math.max(1, Number(product / 10000n ** 6n));
+      // Half attack before downstream multipliers, with only final integer rounding.
+      const damage = miss
+        ? 0
+        : Math.max(1, Number(product / (10000n ** 6n * (action.extra ? 2n : 1n))));
       target.totalHp = Math.max(0, target.totalHp - damage);
       events.push({
         action: action.id,

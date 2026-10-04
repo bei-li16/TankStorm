@@ -1,5 +1,7 @@
+import { protectionLedger } from './protection';
+import { trimArchive, REPORT_LIMIT } from './archive';
 import { MAX_LEVEL, MAX_PRODUCTION_BATCH, facilitySpeedBps, economyBonus } from './growth';
-import { enableCommander, leadershipQuote, BOOK_PRICE } from './commander';
+import { enableCommander, leadershipQuote, BOOK_PRICE, prestigeRank } from './commander';
 import {
   enableResearch,
   researchTree,
@@ -56,7 +58,15 @@ import {
   npcProtected,
   scoutCost,
 } from './world';
-import { army, rng32, simulate, survivors, BATTLE_RULESET } from './battle';
+import {
+  army,
+  rng32,
+  simulate,
+  survivors,
+  BATTLE_RULESET,
+  commanderStats,
+  combatStats,
+} from './battle';
 import {
   RULESET,
   classNames,
@@ -109,8 +119,7 @@ function fail(message: string): never {
 const integer = (n: number, min = 0, max = 1000000) =>
   Number.isSafeInteger(n) && n >= min && n <= max;
 export function commanderRank(s: GameState) {
-  const p = s.commander.prestige;
-  return p >= 500 ? '少校' : p >= 200 ? '上尉' : p >= 50 ? '中尉' : '少尉';
+  return prestigeRank(s.commander.prestige);
 }
 export function commanderLevel(s: GameState) {
   return Math.min(MAX_LEVEL, 1 + Math.floor(Math.sqrt(s.commander.xp / 50)));
@@ -126,7 +135,7 @@ export function capacity(s: GameState) {
   );
 }
 export function protectedAmount(s: GameState) {
-  return s.buildings.warehouse * 1000;
+  return protectionLedger(0, capacity(s), s.buildings.warehouse).limit;
 }
 export function rate(s: GameState, r: Resource) {
   return r === 'titanium' && s.buildings.hq < rules.economy.titaniumUnlockHeadquartersLevel
@@ -294,14 +303,46 @@ export function validateFormation(s: GameState, f: Formation, requireTroops = fa
     if (n > (s.available[id] ?? 0)) fail(`${units[id].name} 库存不足，出征中的部队无法重复使用`);
   if (requireTroops && !Object.keys(totals).length) fail('请先在编队中部署战车');
 }
-export function usableFormation(s: GameState): Formation {
+// A saved formation is a requested template, never an inventory reservation.
+// Allocate shared stock in slot order, preserving types/positions and the source template.
+export function formationAvailability(s: GameState, template: Formation = s.formation) {
   const remaining = { ...s.available };
-  return s.formation.map((slot) => {
+  const reductions: {
+    slot: number;
+    unitId: string;
+    requested: number;
+    loaded: number;
+    stockShortage: number;
+    capShortage: number;
+  }[] = [];
+  let requested = 0;
+  let loaded = 0;
+  const formation: Formation = template.map((slot, i) => {
     if (!slot) return null;
-    const n = Math.min(slot.count, remaining[slot.unitId], leadershipCap(s));
+    const capped = Math.min(slot.count, leadershipCap(s));
+    const n = Math.min(capped, remaining[slot.unitId] ?? 0);
     remaining[slot.unitId] -= n;
+    requested += slot.count;
+    loaded += n;
+    if (n < slot.count)
+      reductions.push({
+        slot: i + 1,
+        unitId: slot.unitId,
+        requested: slot.count,
+        loaded: n,
+        stockShortage: capped - n,
+        capShortage: slot.count - capped,
+      });
     return n ? { unitId: slot.unitId, count: n } : null;
   });
+  const shortage = requested - loaded;
+  const message = shortage
+    ? `预设计划${requested}辆，已加载可用${loaded}辆，缺额${shortage}辆；原预设不变`
+    : `预设已载入${loaded}辆；原预设不变`;
+  return { formation, requested, loaded, shortage, reductions, message };
+}
+export function usableFormation(s: GameState): Formation {
+  return formationAvailability(s).formation;
 }
 export function maxFormation(s: GameState): Formation {
   const remaining = { ...s.available };
@@ -345,7 +386,7 @@ function report(s: GameState, b: BattleReport, title: string) {
   b.at = s.now;
   b.title = title;
   s.reports.unshift(b);
-  s.reports = s.reports.slice(0, 100);
+  trimArchive(s);
   return b.id;
 }
 export function upgradeBlock(s: GameState, b: Building): string | undefined {
@@ -530,11 +571,23 @@ function resolveArrival(s: GameState, m: March) {
   let battle: BattleReport | undefined;
   if (m.phase === 'returning') {
     returnArmy(s, m.troops);
-    credit(s, m.cargo);
-    const amount = resources.reduce((n, r) => n + m.cargo[r], 0);
+    const stored = emptyWallet(),
+      discarded = emptyWallet();
+    for (const r of resources) {
+      stored[r] =
+        m.mission === 'gather'
+          ? Math.min(m.cargo[r], Math.max(0, capacity(s) - s.wallet[r]))
+          : m.cargo[r];
+      discarded[r] = m.cargo[r] - stored[r];
+    }
+    credit(s, stored);
+    const amount = resources.reduce((n, r) => n + stored[r], 0);
     count(s, 'cargo', amount);
-    notice(s, `部队返回基地，带回 ${amount} 份物资`);
-    recordExpedition(s, m, 'returned');
+    notice(
+      s,
+      `部队归队：入库 ${amount}，满仓丢弃 ${resources.reduce((n, r) => n + discarded[r], 0)}；详见归队战报`,
+    );
+    recordExpedition(s, m, 'returned', stored, discarded);
     s.marches = s.marches.filter((x) => x.id !== m.id);
     return;
   }
@@ -552,13 +605,25 @@ function resolveArrival(s: GameState, m: March) {
       guardArmy(site),
       nextSeed(s),
       'world',
+      [
+        m.commanderStats ??
+          (m.combatArmy ? combatStats(m.combatArmy) : commanderStats(s.tech, s.commander)),
+        commanderStats({
+          march: (site.economyVersion ?? 0) >= 2 ? Math.floor(site.level / 2) : 0,
+          ballistics: (site.economyVersion ?? 0) >= 2 ? Math.floor(site.level / 2) : 0,
+        }),
+      ],
     );
     b.marchId = m.id;
+    b.worldKind = site.kind;
     battle = b;
     applyLoss(s, b);
     m.troops = survivors(b.final[0]);
     site.guards = survivors(b.final[1]);
     report(s, b, `${site.name} (${site.x}, ${site.y})`);
+    m.battleId = b.id;
+    m.battleWon = b.winner === 0;
+    m.casualties = structuredClone(b.casualties);
     if (b.winner !== 0) {
       if (m.troops.some(Boolean)) sendHome(s, m);
       else {
@@ -603,9 +668,24 @@ function resolveArrival(s: GameState, m: March) {
     notice(s, `${site.name}采集开始，装满后自动返航`);
   }
 }
-function recordExpedition(s: GameState, m: March, outcome: 'returned' | 'defeated') {
+function recordExpedition(
+  s: GameState,
+  m: March,
+  outcome: 'returned' | 'defeated',
+  stored = emptyWallet(),
+  discarded = emptyWallet(),
+) {
+  const site = s.world.find((v) => v.id === m.targetId)!;
+  const battle = s.reports.find((r) => r.marchId === m.id);
   s.expeditionLog = [
     {
+      mission: m.mission,
+      success: outcome === 'returned' && (m.battleWon ?? battle?.winner !== 1),
+      title: `${site.name} [${site.x},${site.y}]`,
+      stored,
+      discarded,
+      battleId: m.battleId ?? battle?.id ?? '',
+      casualties: structuredClone(m.casualties ?? battle?.casualties ?? []),
       marchId: m.id,
       targetId: m.targetId,
       at: s.now,
@@ -614,7 +694,8 @@ function recordExpedition(s: GameState, m: March, outcome: 'returned' | 'defeate
       survivors: m.troops.reduce((n, st) => n + (st?.count ?? 0), 0),
     },
     ...(s.expeditionLog ?? []),
-  ].slice(0, 100);
+  ];
+  trimArchive(s);
 }
 function advanceInPlace(s: GameState, target: number, accounting?: ResourceAccounting) {
   enableCommander(s);
@@ -745,7 +826,7 @@ export function execute(
       if (!u || !integer(command.count, 1, 10000)) fail('请输入 1 至 10000 的整数数量');
       const repairing = command.type === 'repair';
       if (!repairing && command.count > MAX_PRODUCTION_BATCH)
-        fail('制造或改装单次最多100辆，请分批提交');
+        fail(`制造或改装单次最多${MAX_PRODUCTION_BATCH}辆，请分批提交`);
       const facility = command.facility ?? (command.type === 'refit' ? 'refit' : 'factory');
       if (!productionFacilities.includes(facility)) fail('未知工业设施');
       const quote = productionQuote(s, u.unitId, command.type, facility);
@@ -814,10 +895,10 @@ export function execute(
     }
     case 'presetLoad': {
       const p = s.presets[command.index];
-      if (!p) fail('预设不存在');
-      validateFormation(s, p.formation);
-      s.formation = structuredClone(p.formation);
-      result = '预设已载入';
+      if (!Number.isInteger(command.index) || !p) fail('预设不存在');
+      const allocation = formationAvailability(s, p.formation);
+      s.formation = allocation.formation;
+      result = allocation.message;
       break;
     }
     case 'presetRename':
@@ -846,6 +927,7 @@ export function execute(
         army(stageFormation(index)),
         nextSeed(s),
         command.training ? 'training' : 'stage',
+        [commanderStats(s.tech, s.commander), commanderStats()],
       );
       b.target = { type: 'battle', stage: index, training: !!command.training };
       if (!command.training) {
@@ -874,16 +956,14 @@ export function execute(
     }
     case 'repairAll': {
       const q = repairAllQuote(s);
-      if (!q.count) fail('没有可以修复的战车');
+      if (q.block) fail(q.block);
       if (command.quote !== q.token) fail('维修清单已变化，请重新确认全部修复');
-      pay(s, q.cost);
+      if (!afford(s, q.cost)) pay(s, q.cost); // Validate the whole transaction before reserving.
       for (const row of q.rows) {
-        s.available[row.unitId] += row.count;
-        s.damaged[row.unitId] = 0;
+        startJob(s, 'repair', row.unitId, row.count, row.unitCost, row.duration);
+        s.damaged[row.unitId] -= row.count;
       }
-      for (const job of allJobs(s).filter((j) => j.kind === 'repair')) removeJob(s, job);
-      count(s, 'repair', q.count);
-      result = `全部修复完成：${q.count} 辆已回到待命库存，含 ${q.prepaid} 辆已付费维修`;
+      result = `已送修 ${q.count} 辆 / ${q.rows.length} 单，按维修队列交付${q.remainingCount ? `；另有 ${q.remainingCount} 辆待安排` : ''}`;
       notice(s, result);
       break;
     }
@@ -897,6 +977,10 @@ export function execute(
         dungeonArmy(dungeon),
         nextSeed(s),
         command.training ? 'training' : 'dungeon',
+        [
+          commanderStats(s.tech, s.commander),
+          commanderStats({ march: dungeon.guardTech, ballistics: dungeon.guardTech }),
+        ],
       );
       b.target = { type: 'dungeon', dungeonId: dungeon.id, training: !!command.training };
       if (!command.training) {
@@ -979,6 +1063,7 @@ export function execute(
         mission: command.mission,
         troops: f,
         combatArmy: army(f, s.tech, s.commander.attackSkill, s.commander),
+        commanderStats: commanderStats(s.tech, s.commander),
         startedAt: s.now,
         dueAt: s.now + travelMs,
         travelMs,
@@ -1230,7 +1315,13 @@ export function assertState(s: GameState) {
   for (const q of queues) {
     if (
       q.active.length > q.slots ||
-      q.waiting.length > q.waitingSlots ||
+      q.waiting.length >
+        Math.max(
+          q.waitingSlots,
+          q.active[0]?.kind === 'production' || q.active[0]?.kind === 'research'
+            ? [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5][vipBenefits(s).level]
+            : 0,
+        ) ||
       (q.waiting.length && !q.active.length)
     )
       fail('队列超出 VIP 容量');
@@ -1255,7 +1346,7 @@ export function assertState(s: GameState) {
     const pending = pendingJobs.includes(j);
     if (
       !['building', 'research', 'production', 'repair'].includes(kind) ||
-      (pending && (j.completed !== 0 || !['research', 'production'].includes(kind))) ||
+      (pending && (j.completed !== 0 || !['research', 'production', 'repair'].includes(kind))) ||
       !integer(j!.total, 1, 10000) ||
       !integer(j!.completed, 0, j!.total - 1) ||
       !integer(j!.duration, 1, 1e12) ||
@@ -1330,7 +1421,10 @@ export function assertState(s: GameState) {
       (n, m) => n + m.troops.reduce((n, t) => n + (t?.unitId === id ? t.count : 0), 0),
       0,
     );
-    const repair = s.jobs.repair?.target === id ? s.jobs.repair.total - s.jobs.repair.completed : 0;
+    const repair = allJobs(s).reduce(
+      (n, j) => n + (j.kind === 'repair' && j.target === id ? j.total - j.completed : 0),
+      0,
+    );
     const refit = allJobs(s).reduce(
       (n, j) => n + (j.sourceUnitId === id ? j.total - j.completed : 0),
       0,
@@ -1363,7 +1457,7 @@ export function assertState(s: GameState) {
     fail('任务数据无效');
   if (
     !Array.isArray(s.reports) ||
-    s.reports.length > 100 ||
+    s.reports.length > REPORT_LIMIT ||
     !s.receipts ||
     typeof s.receipts !== 'object' ||
     !Array.isArray(s.notices)

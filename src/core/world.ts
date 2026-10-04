@@ -1,3 +1,4 @@
+import { protectionLedger } from './protection';
 import { rateCurve, rules, units } from './content';
 import { army } from './battle';
 import { resources, type Formation, type GameState, type WorldSite } from './types';
@@ -31,7 +32,11 @@ export const npcCapacity = (site: WorldSite, r = site.resource) =>
     ? Math.max(NPC_CAPACITY, worldBaseRate(site, r) * 4)
     : NPC_CAPACITY;
 export const npcProtected = (site: WorldSite, r = site.resource) =>
-  (site.economyVersion ?? 0) >= 2 ? Math.floor(npcCapacity(site, r) * 0.1) : NPC_PROTECTED;
+  site.protectionVersion === 1
+    ? protectionLedger(0, npcCapacity(site, r), site.level).limit
+    : (site.economyVersion ?? 0) >= 2
+      ? Math.floor(npcCapacity(site, r) * 0.1)
+      : NPC_PROTECTED;
 export const npcRate = (site: WorldSite, r = site.resource) =>
   worldBaseRate(site, r) * ((site.economyVersion ?? 0) >= 2 ? 2 : 1);
 export const worldTier = (level: number) =>
@@ -99,6 +104,7 @@ export function configureSite(site: WorldSite, level: number, now: number, prese
   const oldCaps = Object.fromEntries(resources.map((r) => [r, npcCapacity(site, r)]));
   site.level = level;
   site.economyVersion = 3;
+  site.protectionVersion = 1;
   site.lastGrowth = now;
   site.reserve = preserve
     ? Math.floor(mineCapacity(site) * Math.min(1, fraction))
@@ -118,6 +124,13 @@ export function configureSite(site: WorldSite, level: number, now: number, prese
 export function enableRenewableWorld(s: GameState) {
   if (!s.worldRules) for (const site of s.world) site.lastGrowth = s.now;
   s.worldRules = WORLD_RULES;
+  // Old expeditions retain their target protection until they return.
+  for (const site of s.world) {
+    if (!site.protectionVersion && !s.marches.some((m) => m.targetId === site.id)) {
+      site.protectionVersion = 1;
+      if (site.kind === 'npc') delete s.intel[site.id];
+    }
+  }
   if (s.world.every((site) => site.economyVersion === 3)) return;
   const levels = worldLevels(s.world);
   for (const site of s.world) {

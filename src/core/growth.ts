@@ -6,7 +6,7 @@ export const growthLimits = {
   commander: MAX_LEVEL,
   skill: MAX_LEVEL,
 };
-export const MAX_PRODUCTION_BATCH = 100;
+export const MAX_PRODUCTION_BATCH = 500;
 // Log interpolation keeps adjacent levels continuous without a special level-20 extension.
 export function milestoneCurve(level: number, anchors: number[][]) {
   if (level <= anchors[0][0]) return anchors[0][1];

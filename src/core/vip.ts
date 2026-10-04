@@ -8,12 +8,13 @@ import type { ProductionFacility } from './types';
 
 // Benefits: Rayjoy official VIP article 173 (2016-10-18). Purchase permissions
 // become automatic unlocks for this offline edition. V10 threshold is our extension.
+// v0.26: all industrial/research/repair lines have three waiting positions at every VIP.
 export const vipLevels = [0, 40, 460, 960, 3000, 7200, 20000, 60000, 180000, 500000, 1000000].map(
   (threshold, level) => ({
     level,
     threshold,
     building: [1, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7][level],
-    waiting: [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5][level],
+    waiting: 3,
     marches: [2, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8][level],
     freeMinutes: [0, 2, 3, 4, 5, 6, 7, 8, 10, 12, 15][level],
     production: [0, 0, 0, 0, 30, 40, 50, 60, 70, 80, 90][level],
@@ -52,7 +53,7 @@ export function queueStatus(
   const slots =
     kind === 'building' ? v.building : kind === 'production' && !facility ? lines.length : 1;
   const waitingSlots =
-    kind === 'production' ? v.waiting * slots : kind === 'research' ? v.waiting : 0;
+    kind === 'production' ? 3 * slots : kind === 'research' || kind === 'repair' ? 3 : 0;
   return {
     active,
     waiting,

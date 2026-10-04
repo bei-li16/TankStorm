@@ -1,6 +1,6 @@
 """Reproducible original battle Foley. No external samples, downloads or synthesis service.
 
-Eight distinct PCM assets are generated once at build-authoring time, not in the game loop.
+Nine distinct PCM assets are generated once at build-authoring time, not in the game loop.
 """
 from pathlib import Path
 import hashlib
@@ -74,8 +74,9 @@ for cls in ['tank', 'tank_destroyer', 'spg', 'rocket']:
                     deposit(sound,jet,at,.55)
                 description = 'Six staggered rocket ignitions with sustained rising jet whoosh'
             else:
-                for at, gain in [(0,1),(.055,.75),(.12,.70),(.21,.60),(.31,.47)]:
-                    deposit(sound,layer(n,.10,84,70,.9,9500),at,gain)
+                for at, gain in [(0,1),(.075,.96),(.16,.92),(.245,.88),(.33,.84),(.42,.80)]:
+                    # Crisp cluster pops, distinct from the launch's sustained jet hiss.
+                    deposit(sound,layer(n,.075,104,100,1.25,12500),at,gain)
                 sound += noise(n,.6,high=1500) * np.exp(-t/.25) * .16
                 description = 'Staggered cluster explosions and short rattling debris'
         # Outdoor reflections, no strong indoor reverb. All files use a click-free tail.
@@ -91,6 +92,21 @@ for cls in ['tank', 'tank_destroyer', 'spg', 'rocket']:
             wav.setnchannels(1);wav.setsampwidth(2);wav.setframerate(RATE);wav.writeframes(pcm.tobytes())
         spectrum=abs(np.fft.rfft(sound));freq=np.fft.rfftfreq(n,1/RATE)
         manifest['assets'][key]={'file':path.name,'description':description,'seconds':round(duration,3),'peak':float(max(abs(sound))),'rms':round(float(np.sqrt(np.mean(sound**2))),4),'spectralCentroidHz':round(float(sum(spectrum*freq)/sum(spectrum))),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
-assert len({v['sha256'] for v in manifest['assets'].values()}) == 8
+# Shared vehicle destruction: secondary bass detonation, tearing plate and falling wreckage.
+duration=1.55; n=int(duration*RATE); t=np.arange(n)/RATE
+sound=layer(n,.32,37,42,.8,5200)
+for at,gain in [(.035,.62),(.12,.34),(.29,.22),(.51,.12)]:
+    deposit(sound,layer(n,.045,180,70,1.0,10500),at,gain)
+sound+=noise(n,.6,high=2600)*(1-np.exp(-t/.02))*np.exp(-t/.43)*.42
+sound=np.tanh(sound*.6); sound-=sound.mean()
+sound*=np.minimum(1,t/.001)*np.minimum(1,(duration-t)/.09)
+sound*=.86/max(abs(sound))
+path=OUT/'vehicle_destroyed.wav'
+with wave.open(str(path),'wb') as wav:
+    wav.setnchannels(1);wav.setsampwidth(2);wav.setframerate(RATE)
+    wav.writeframes(np.round(sound*32767).astype('<i2').tobytes())
+spectrum=abs(np.fft.rfft(sound));freq=np.fft.rfftfreq(n,1/RATE)
+manifest['assets']['vehicle_destroyed']={'file':path.name,'description':'Shared wreck blast, tearing armor plates and falling debris','seconds':duration,'peak':float(max(abs(sound))),'rms':round(float(np.sqrt(np.mean(sound**2))),4),'spectralCentroidHz':round(float(sum(spectrum*freq)/sum(spectrum))),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+assert len({v['sha256'] for v in manifest['assets'].values()}) == 9
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf-8')
 print(json.dumps(manifest,indent=2))

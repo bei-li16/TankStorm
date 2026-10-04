@@ -89,23 +89,23 @@ describe('offline VIP and queued work', () => {
     expect(s.buildings.lab).toBe(19);
     assertState(s);
   });
-  it('serializes five waiting batches; acceleration never completes the following batch for free', () => {
+  it('serializes three waiting batches; acceleration never completes the following batch for free', () => {
     let s = base(1000000);
-    for (let i = 0; i < 6; i++) s = run(s, { type: 'produce', unitId: 'tank_t1', count: 100 });
-    expect(s.jobBacklog).toHaveLength(5);
+    for (let i = 0; i < 4; i++) s = run(s, { type: 'produce', unitId: 'tank_t1', count: 100 });
+    expect(s.jobBacklog).toHaveLength(3);
     expect(() => run(s, { type: 'produce', unitId: 'tank_t1', count: 1 })).toThrow('等待位已满');
     const jobs = queueView(s);
     expect(jobs[1].waitMs).toBe(jobs[0].remainingMs);
-    expect(jobs[5].remainingMs).toBe((productionQuote(s, 'tank_t1').duration * 100 - 900000) * 6);
+    expect(jobs[3].remainingMs).toBe((productionQuote(s, 'tank_t1').duration * 100 - 900000) * 4);
     expect(() =>
       run(s, { type: 'accelerate', kind: 'production', seq: s.jobBacklog![0].seq }),
     ).toThrow('开工');
     s = run(s, { type: 'accelerate', kind: 'production' });
     expect(s.available.tank_t1).toBe(120);
-    expect(s.jobBacklog).toHaveLength(4);
+    expect(s.jobBacklog).toHaveLength(2);
     expect(s.jobs.production!.completed).toBe(0);
     s = advance(s, Math.max(...queueView(s).map((j) => s.now + j.remainingMs)));
-    expect(s.available.tank_t1).toBe(620);
+    expect(s.available.tank_t1).toBe(420);
     expect(s.jobs).toEqual({});
     assertState(s);
   });
@@ -135,7 +135,7 @@ describe('offline VIP and queued work', () => {
     for (const tech of ['attack', 'construction', 'resourceOutput'] as const)
       s = run(s, { type: 'research', tech });
     expect(s.jobBacklog).toHaveLength(2);
-    expect(() => run(s, { type: 'research', tech: 'gather' })).toThrow();
+    expect(() => run(s, { type: 'research', tech: 'gather' })).not.toThrow();
     s = run(s, { type: 'cancel', kind: 'research', seq: s.jobBacklog![1].seq });
     expect(() => run(s, { type: 'research', tech: 'construction' })).toThrow('已在队列');
     s = advance(s, s.now + queueView(s)[0].remainingMs);
@@ -175,10 +175,10 @@ describe('offline VIP and queued work', () => {
     expect(s.marches).toHaveLength(0);
     expect(capacity(s)).toBe(31680);
   });
-  it('keeps VIP0 single queues; rejects forged overcapacity and duplicate sequence saves', () => {
+  it('keeps VIP0 one worker with three waiting positions; rejects duplicate sequence saves', () => {
     let s = base();
     s = run(s, { type: 'produce', unitId: 'tank_t1', count: 100 });
-    expect(() => run(s, { type: 'produce', unitId: 'tank_t1', count: 100 })).toThrow();
+    expect(() => run(s, { type: 'produce', unitId: 'tank_t1', count: 100 })).not.toThrow();
     s.jobBacklog = [structuredClone(s.jobs.production!)];
     expect(() => assertState(s)).toThrow();
     s = base(40);

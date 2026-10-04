@@ -22,6 +22,19 @@ syncVersion(root + '/native/export_presets.cfg', [
 syncVersion(root + '/native/project.godot', [
   [/^config\/version="[^"]*"/m, `config/version="${version}"`],
 ]);
+const buildDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Singapore',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(
+  new Date(
+    process.env.SOURCE_DATE_EPOCH ? Number(process.env.SOURCE_DATE_EPOCH) * 1000 : Date.now(),
+  ),
+);
+syncVersion(root + '/native/project.godot', [
+  [/^config\/build_date="[^"]*"/m, `config/build_date="${buildDate}"`],
+]);
 const folder = 'TankStorm-v' + version;
 const out = resolve(root, 'release', folder);
 mkdirSync(out + '/runtime', { recursive: true });

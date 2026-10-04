@@ -175,6 +175,7 @@ function battleFeedback(
       'classic-combat-v0.20',
       'classic-combat-v0.22',
       'classic-combat-v0.24.3',
+      'classic-combat-v0.26',
     ].includes(r.ruleset)
   ) {
     const shots = r.events.filter((e) => e.side === 0 && !e.miss && !e.ground);
@@ -199,8 +200,15 @@ export function transportStatus(s: GameState, r: BattleReport) {
   if (receipt)
     return {
       status: receipt.outcome,
-      label: receipt.outcome === 'returned' ? '已归队 · 实际物资已入库' : '部队全损 · 无返城物资',
-      cargo: receipt.cargo,
+      label:
+        receipt.outcome === 'returned'
+          ? Object.values(receipt.discarded ?? {}).some((n) => n > 0)
+            ? '已归队 · 入库完成 / 溢出丢弃'
+            : '已归队 · 实际物资已入库'
+          : '部队全损 · 无返城物资',
+      cargo: receipt.stored ?? receipt.cargo,
+      carried: receipt.cargo,
+      discarded: receipt.discarded ?? {},
       at: receipt.at,
     };
   const march = s.marches.find((v) => v.id === r.marchId);

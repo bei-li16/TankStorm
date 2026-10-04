@@ -69,9 +69,18 @@
       "description": "Staggered cluster explosions and short rattling debris",
       "seconds": 1.14,
       "peak": 0.86,
-      "rms": 0.1591,
-      "spectralCentroidHz": 4143,
-      "sha256": "e72d23198b78bf85234f804538a9dafa3b3ec2fa514b72eabacf43b701f80543"
+      "rms": 0.211,
+      "spectralCentroidHz": 5654,
+      "sha256": "f7714af1deda6f5fbbbf384e2bec1f8bb63982f59eea0fa936e7c988e3174bf8"
+    },
+    "vehicle_destroyed": {
+      "file": "vehicle_destroyed.wav",
+      "description": "Shared wreck blast, tearing armor plates and falling debris",
+      "seconds": 1.55,
+      "peak": 0.86,
+      "rms": 0.1507,
+      "spectralCentroidHz": 2780,
+      "sha256": "0308c5d1953aad34c745a51d4bd0376e9827ad9be014b2e80f75feaaf904f5a7"
     }
   }
 }

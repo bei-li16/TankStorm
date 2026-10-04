@@ -129,29 +129,55 @@ export function dungeonBlock(s: GameState, d: (typeof dungeons)[number]) {
 }
 
 export function repairAllQuote(s: GameState) {
-  const cost: Cost = {};
-  const repairs = allJobs(s).filter((j) => j.kind === 'repair');
-  const rows = unitList.flatMap((u) => {
-    const damaged = s.damaged[u.unitId];
-    const repairing = repairs
-      .filter((j) => j.target === u.unitId)
-      .reduce((n, j) => n + j.total - j.completed, 0);
-    for (const [r, n] of Object.entries(materialCost(s, u.repairCost)))
-      cost[r as keyof Cost] = (cost[r as keyof Cost] ?? 0) + n * damaged;
-    return damaged + repairing
-      ? [{ unitId: u.unitId, damaged, repairing, count: damaged + repairing }]
-      : [];
+  const q = queueStatus(s, 'repair');
+  const freeSlots = Math.max(0, q.slots + q.waitingSlots - q.active.length - q.waiting.length);
+  const pending = unitList.filter((u) => s.damaged[u.unitId] > 0);
+  let finishMs = queueWait(s, 'repair');
+  const rows = pending.slice(0, freeSlots).map((u) => {
+    const quote = productionQuote(s, u.unitId, 'repair');
+    const count = Math.min(10000, s.damaged[u.unitId]);
+    const waitMs = finishMs;
+    finishMs += Math.max(0, quote.duration * count - vipBenefits(s).freeMinutes * 60000);
+    return {
+      unitId: u.unitId,
+      count,
+      damaged: count,
+      unitCost: quote.unitCost,
+      duration: quote.duration,
+      waitMs,
+      finishMs,
+    };
   });
+  const cost: Cost = {};
+  for (const row of rows)
+    for (const [r, n] of Object.entries(row.unitCost))
+      cost[r as keyof Cost] = (cost[r as keyof Cost] ?? 0) + n * row.count;
   const shortage = Object.entries(cost)
     .filter(([r, n]) => s.wallet[r as keyof Cost] < n)
     .map(([id, n]) => ({ id, amount: n - s.wallet[id as keyof Cost] }));
+  const count = rows.reduce((n, r) => n + r.count, 0);
+  const pendingCount = pending.reduce((n, u) => n + s.damaged[u.unitId], 0);
   return {
     rows,
     cost,
     shortage,
-    count: rows.reduce((n, r) => n + r.count, 0),
-    prepaid: rows.reduce((n, r) => n + r.repairing, 0),
-    token: JSON.stringify([rows, cost, repairs.map((j) => j.seq)]),
+    count,
+    freeSlots,
+    finishMs,
+    pendingCount,
+    remainingCount: pendingCount - count,
+    prepaid: [...q.active, ...q.waiting].reduce((n, j) => n + j.total - j.completed, 0),
+    block: !pendingCount
+      ? '没有可以修复的战车；已送修车辆按队列交付'
+      : !freeSlots
+        ? '维修队列已满：1个工作位和3个等待位'
+        : '',
+    // Deadlines tick between preview and confirm; only reservations/materials invalidate the quote.
+    token: JSON.stringify([
+      rows.map(({ unitId, count, unitCost, duration }) => ({ unitId, count, unitCost, duration })),
+      cost,
+      [...q.active, ...q.waiting].map((j) => [j.seq, j.completed]),
+    ]),
   };
 }
 

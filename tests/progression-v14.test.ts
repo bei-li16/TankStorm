@@ -140,15 +140,15 @@ describe('normalized power and stock-limited arrangement', () => {
   });
 });
 
-describe('seven chapter campaign and persistent rewards', () => {
-  it('has 112 deterministic mixed-tier stages with ordered chapter difficulty', () => {
-    expect(chapters).toHaveLength(7);
-    expect(stageNames).toHaveLength(112);
+describe('twelve chapter campaign and persistent rewards', () => {
+  it('has 192 deterministic mixed-tier stages with ordered chapter difficulty', () => {
+    expect(chapters).toHaveLength(12);
+    expect(stageNames).toHaveLength(192);
     expect(stageNames[0]).toBe('边境哨卡');
     expect(stageNames[11]).toBe('黎明行动');
     expect(stageFormation(0)[0]).toEqual({ unitId: 'tank_t1', count: 3 });
     expect(stageReward(0, true)).toMatchObject({ gold: 5, iron: 250 });
-    for (let i = 1; i < 112; i++) {
+    for (let i = 1; i < 192; i++) {
       expect(armyPower(army(stageFormation(i))), `stage ${i}`).toBeGreaterThanOrEqual(
         armyPower(army(stageFormation(i - 1))),
       );
@@ -159,7 +159,7 @@ describe('seven chapter campaign and persistent rewards', () => {
           .size,
       ).toBe(2);
   });
-  it('gates chapter transitions, preserves first rewards and repeat books, saves final target', async () => {
+  it('gates chapter transitions, preserves first rewards and limits repeat growth, saves final target', async () => {
     let s = game();
     s.commander.prestige = prestigeRequired(120);
     s.commander.leadership = 120;
@@ -176,6 +176,9 @@ describe('seven chapter campaign and persistent rewards', () => {
     expect(first.growth!.books).toBe(1);
     s = act(s, { type: 'battle', stage: 16 });
     expect(s.reports[0].growth!.skillPoints).toBe(0);
+    expect(s.reports[0].growth!.books).toBe(0);
+    expect(s.reports[0].growth!.prestige).toBe(Math.floor(first.growth!.prestige / 2));
+    expect(s.reports[0].growth!.xp).toBe(first.growth!.xp);
     expect(s.reports[0].rewards.gold).toBe(stageReward(16, false).gold);
     s.cleared = Array.from({ length: 111 }, (_, i) => i);
     s = act(s, { type: 'battle', stage: 111 });
@@ -298,8 +301,8 @@ describe('leadership and independent upgrade rolls', () => {
     expect(s.reports[0].ruleset).toBe(BATTLE_RULESET);
     expect(s.reports[0].tactics!.teams[0]).toEqual({ initiative: 103, extraFire: 104 });
     s = act(s, { type: 'march', targetId: s.world[0].id, mission: 'gather' });
-    expect(s.marches[0].combatArmy![0].initiative).toBe(103);
+    expect(s.marches[0].commanderStats!.initiative).toBe(103);
     s = act(s, { type: 'initiativeSkill' });
-    expect(s.marches[0].combatArmy![0].initiative).toBe(103);
+    expect(s.marches[0].commanderStats!.initiative).toBe(103);
   });
 });
