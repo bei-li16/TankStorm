@@ -26,7 +26,13 @@ export type Technology =
   | 'cargo'
   | 'survey'
   | 'ballistics'
-  | 'armorPlating';
+  | 'armorPlating'
+  | 'accuracy'
+  | 'evasion'
+  | 'critical'
+  | 'criticalDamage'
+  | 'armorResistance'
+  | 'defense';
 export type Slot = { unitId: string; count: number } | null;
 export type Formation = Slot[];
 export type JobKind = 'building' | 'research' | 'production' | 'repair';
@@ -57,6 +63,10 @@ export interface ArmyStack {
   evasion: number;
   crit: number;
   armor: number;
+  critMultiplierBps?: number;
+  defense?: number;
+  baseDefense?: number;
+  damageReduction?: number;
   attackBonus?: number;
   initiative?: number;
   extraFire?: number;
@@ -221,7 +231,7 @@ export interface GameState {
     cargo: Wallet;
     survivors: number;
   }[];
-  researchVersion?: 1;
+  researchVersion?: 1 | 2;
   industry?: { version: 1; factory2: number; refit: number };
   vip?: { version: 1; paidGold: number; lastDaily: number };
   jobBacklog?: Job[];

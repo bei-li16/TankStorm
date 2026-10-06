@@ -8,11 +8,13 @@ import {
   BOOK_PRICE,
   prestigeRank,
   LEADERSHIP_BATCHES,
+  leadershipCapacity,
 } from './commander';
 import {
   enableResearch,
   researchTree,
   legacyTech,
+  version1Tech,
   techLevel,
   materialCost,
   researchRequirements,
@@ -133,7 +135,7 @@ export function commanderLevel(s: GameState) {
   return Math.min(MAX_LEVEL, 1 + Math.floor(Math.sqrt(s.commander.xp / 50)));
 }
 export function leadershipCap(s: GameState) {
-  return 20 + (s.commander.leadership - 1) * 5;
+  return leadershipCapacity(s.commander.leadership);
 }
 export function capacity(s: GameState) {
   return Math.floor(
@@ -266,7 +268,7 @@ export function newGame(id: string, nickname: string, now: number, seed = 260100
       titanium: 1,
       crystal: 1,
     },
-    researchVersion: 1,
+    researchVersion: 2,
     tech: Object.fromEntries(researchTree.map((t) => [t.id, 0])) as Record<Technology, number>,
     available: { ...stocks },
     damaged: Object.fromEntries(unitList.map((u) => [u.unitId, 0])),
@@ -1156,7 +1158,6 @@ export function execute(
     case 'extraFireSkill': {
       const key = command.type;
       if (s.commander.skillPoints < 1) fail('技能点不足');
-      if ((s.commander[key] ?? 0) >= MAX_LEVEL) fail(`技能已达 ${MAX_LEVEL} 级`);
       s.commander.skillPoints--;
       s.commander[key] = (s.commander[key] ?? 0) + 1;
       result = key === 'initiativeSkill' ? '战场预判提升：先手 +3' : '连击指挥提升：二次开火 +4';
@@ -1164,7 +1165,6 @@ export function execute(
     }
     case 'skill':
       if (s.commander.skillPoints < 1) fail('技能点不足');
-      if (s.commander.attackSkill >= MAX_LEVEL) fail('技能已达最高等级');
       s.commander.skillPoints--;
       s.commander.attackSkill++;
       result = '战术指挥提升，全队攻击增加 2%';
@@ -1266,7 +1266,11 @@ export function assertState(s: GameState) {
   for (const r of resources) if (!integer(s.remainders[r], 0, 3599999)) fail('产量余数无效');
   for (const b of Object.keys(buildingNames) as Building[])
     if (!integer(s.buildings[b], 1, MAX_LEVEL)) fail('建筑等级无效');
-  for (const t of (s.researchVersion ? Object.keys(techNames) : legacyTech) as Technology[])
+  for (const t of (s.researchVersion === 2
+    ? Object.keys(techNames)
+    : s.researchVersion === 1
+      ? version1Tech
+      : legacyTech) as Technology[])
     if (!integer(s.tech[t], 0, MAX_LEVEL)) fail('科技等级无效');
   for (const [t, n] of Object.entries(s.tech))
     if (
@@ -1277,7 +1281,7 @@ export function assertState(s: GameState) {
       fail('科技扩展无效');
   if (
     !integer(s.commander.leadership, 1, Number.MAX_SAFE_INTEGER) ||
-    !integer(s.commander.attackSkill, 0, MAX_LEVEL)
+    !integer(s.commander.attackSkill, 0, Number.MAX_SAFE_INTEGER)
   )
     fail('指挥官等级无效');
   for (const k of ['xp', 'books', 'prestige', 'skillPoints'] as const)

@@ -308,6 +308,7 @@ export function FactoryScreen({ state, run, busy, toast }: ScreenProps) {
                   <div className="stats-row">
                     <Stat label="攻击" value={u.attack} />
                     <Stat label="生命" value={u.hp} />
+                    <Stat label="防御" value={u.defense} />
                     <Stat label="载重" value={u.load} />
                   </div>
                   <div className="stock-line">
@@ -336,7 +337,8 @@ export function FactoryScreen({ state, run, busy, toast }: ScreenProps) {
                     </p>
                     <p>
                       当前生命 {Math.floor(u.hp * (1 + state.tech.hp * 0.05))} · 攻击加成 +
-                      {state.tech.attack * 5 + state.commander.attackSkill * 2}%
+                      {state.tech.attack * 5 + state.commander.attackSkill * 2}% · 当前防御{' '}
+                      {Math.floor(u.defense * (1 + (state.tech.armorPlating ?? 0) * 0.02))}
                     </p>
                     <p>
                       单辆生产{' '}

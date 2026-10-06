@@ -265,10 +265,10 @@ describe('formation, battle and progression', () => {
   });
   it('damage floors only after the complete multiplier product', () => {
     const a = army([{ unitId: 'tank_t1', count: 1 }, null, null, null, null, null]),
-      d = army([{ unitId: 'rocket_t1', count: 100 }, null, null, null, null, null]);
+      d = army([{ unitId: 'rocket_t1', count: 1 }, null, null, null, null, null]);
     const r = simulate(a, d, 1);
     expect(r.events[0].critical).toBe(true);
-    expect(r.events[0].damage).toBe(Math.floor(20 * 1.05 * 1.25 * 1.5));
+    expect(r.events[0].damage).toBe(Math.floor((20 - 2) * 1.05 * 1.25 * 1.5));
   });
   it('A15 casualties aggregate across equal units before repair rounding', () => {
     const a = army([

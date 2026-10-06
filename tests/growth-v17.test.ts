@@ -158,7 +158,7 @@ describe('120-level growth', () => {
     expect(() => assertState(invalid)).toThrow();
     await expect(exportSave(invalid)).rejects.toThrow();
   });
-  it('commander skills and experience reach 120 and repeatable skill points require HQ21', () => {
+  it('commander skills pass 120 while experience stops at 120 and repeatable skill points require HQ21', () => {
     let s = state(20);
     const points = s.commander.skillPoints;
     s = act(s, { type: 'daily' });
@@ -171,8 +171,13 @@ describe('120-level growth', () => {
     s.commander.attackSkill = s.commander.initiativeSkill = s.commander.extraFireSkill = 119;
     for (const type of ['skill', 'initiativeSkill', 'extraFireSkill'] as const) {
       s = act(s, { type });
-      expect(() => act(s, { type })).toThrow(/最高|120/);
+      s = act(s, { type });
     }
+    expect([
+      s.commander.attackSkill,
+      s.commander.initiativeSkill,
+      s.commander.extraFireSkill,
+    ]).toEqual([121, 121, 121]);
     s.commander.xp = 50 * 119 ** 2;
     expect(commanderLevel(s)).toBe(120);
   });

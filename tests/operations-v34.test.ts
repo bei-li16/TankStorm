@@ -35,7 +35,9 @@ describe('v34 continuous commander progression', () => {
       expect(earnedPrestigeLevel(s.commander.prestige - 1)).toBe(level - 1);
       expect(prestigeRank(s.commander.prestige)).toBe('上将');
       expect(leadershipChance(level + 1)).toBe(10);
-      expect(leadershipCap(s)).toBe(20 + 5 * (level - 1));
+      expect(leadershipCap(s)).toBe(
+        [1275, 1292, 1815, 323765, 1272515][[120, 121, 150, 2500, 5000].indexOf(level)],
+      );
       const p = prestigeOverview(s, level, 10);
       expect(p.levels[9].level).toBe(level + 9);
       expect(p.levels.every((row) => row.rank === '上将')).toBe(true);
@@ -126,7 +128,7 @@ describe('v34 continuous commander progression', () => {
     expect(loaded.reports[0]).toEqual(report);
     assertState(loaded);
   });
-  it('continues prestige combat bonuses while retaining building/research/skill limits', () => {
+  it('continues prestige combat bonuses while retaining building/research limits and allowing continued skills', () => {
     const s = ready();
     s.commander.prestige = prestigeRequired(120);
     const old = army(s.formation, s.tech, 0, s.commander);
@@ -140,6 +142,6 @@ describe('v34 continuous commander progression', () => {
       expect(() => assertState(invalid)).toThrow();
     }
     s.commander.attackSkill = 120;
-    expect(() => act(s, { type: 'skill' })).toThrow('最高等级');
+    expect(act(s, { type: 'skill' }).commander.attackSkill).toBe(121);
   });
 });

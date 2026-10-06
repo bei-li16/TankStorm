@@ -1,6 +1,7 @@
 import { army, commanderStats } from './battle';
 import { unitList, units } from './content';
-import { powerOverview, tierPower, unitPower } from './power';
+import { flatDefenseFactor, powerOverview, tierPower, unitPower } from './power';
+import { defenseReduction, defenseStats } from './combat_research';
 import type { Formation, GameState } from './types';
 
 const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
@@ -22,7 +23,10 @@ export function unitAttributes(s: GameState, unitId: string) {
     Math.sqrt(hit / 0.95),
     Math.sqrt(0.95 / enemyHit),
     Math.sqrt((1 + crit * 0.5) / 1.05),
+    Math.sqrt((1 + crit * ((st.critMultiplierBps ?? 15000) / 10000 - 1)) / (1 + crit * 0.5)),
     Math.sqrt(1.05 / (1 + enemyCrit * 0.5)),
+    Math.sqrt(flatDefenseFactor(st) / flatDefenseFactor(base)),
+    Math.sqrt(1 + defenseStats(st).rating / 10000),
     1 + Math.max(0, tactics.initiative - 100) / 1000,
     (1 + 0.5 * clamp(0.1 + (tactics.extraFire - 100) / 1000, 0, 0.35)) / 1.05,
   ];
@@ -36,32 +40,53 @@ export function unitAttributes(s: GameState, unitId: string) {
   const names = [
     '攻击',
     '生命',
-    '命中率',
+    '命中值',
     '闪避率',
     '暴击率',
+    '暴击额外伤害',
     '装甲 / 抗暴',
+    '车辆防御',
+    '比例减伤',
     '指挥官先手',
     '指挥官二次开火',
   ];
-  const ids = ['attack', 'hp', 'accuracy', 'evasion', 'crit', 'armor', 'initiative', 'extraFire'];
-  const bases = [base.attack, base.hp, 95, 0, 10, 0, 100, 100];
+  const ids = [
+    'attack',
+    'hp',
+    'accuracy',
+    'evasion',
+    'crit',
+    'criticalDamage',
+    'armor',
+    'defense',
+    'damageReduction',
+    'initiative',
+    'extraFire',
+  ];
+  const bases = [base.attack, base.hp, 95, 0, 10, 50, 0, base.defense ?? 0, 0, 100, 100];
   const values = [
     (st.attack * (st.attackBonus ?? 10000)) / 10000,
     st.hp,
-    hit * 100,
+    95 + st.accuracy / 100,
     st.evasion / 100,
     crit * 100,
+    ((st.critMultiplierBps ?? 15000) - 10000) / 100,
     st.armor / 100,
+    defenseStats(st).flat,
+    100 * defenseReduction(defenseStats(st).rating),
     tactics.initiative,
     tactics.extraFire,
   ];
   const sources = [
     `攻击科技 ${s.tech.attack} / 弹道 ${s.tech.ballistics} / 战术 ${s.commander.attackSkill} / 声望军衔`,
     `生命科技 ${s.tech.hp} / 装甲加固 ${s.tech.armorPlating} / 声望军衔`,
-    '当前无额外命中加成',
-    '当前无额外闪避加成',
-    '团队歼击车光环不计入静态分数',
-    '抗暴属性；装甲加固的收益计入生命',
+    `稳定瞄准 ${s.tech.accuracy ?? 0}；对手闪避另扣`,
+    `规避机动 ${s.tech.evasion ?? 0}`,
+    `弱点锁定 ${s.tech.critical ?? 0}；光环另计`,
+    `毁伤强化 ${s.tech.criticalDamage ?? 0}；基础+50%`,
+    `抗爆装甲 ${s.tech.armorResistance ?? 0}；减少暴击率`,
+    `车型基础 ${base.defense} / 反应装甲 ${s.tech.armorPlating}；每级+2%基础防御`,
+    `纵深防护 ${s.tech.defense ?? 0}；减伤评级 ${defenseStats(st).rating}`,
     `机动 ${s.tech.march} / 战场预判 ${s.commander.initiativeSkill ?? 0}`,
     `弹道 ${s.tech.ballistics} / 连击指挥 ${s.commander.extraFireSkill ?? 0}`,
   ];
@@ -74,7 +99,7 @@ export function unitAttributes(s: GameState, unitId: string) {
       name: names[i],
       base: bases[i],
       value: values[i],
-      percent: i >= 2 && i <= 5,
+      percent: (i >= 2 && i <= 6) || i === 8,
       delta: delta[i],
       source: sources[i],
     })),

@@ -2,6 +2,14 @@ import type { GameState } from './types';
 
 export const BOOK_PRICE = 19;
 export const LEADERSHIP_BATCHES = [1, 10, 100, 1000] as const;
+// Marginal capacity grows by one vehicle per ten target levels: +5, +6, +7, ...
+export const leadershipGain = (target: number) => 5 + Math.floor((target - 1) / 10);
+export function leadershipCapacity(level: number) {
+  const n = level - 1,
+    q = Math.floor(n / 10),
+    r = n % 10;
+  return 20 + n * 5 + 5 * q * (q - 1) + q * (r + 1);
+}
 export function enableCommander(s: GameState) {
   // Older saves only retained the last batch. Import it once without inventing prior rolls.
   if (!s.leadershipHistory)
@@ -64,7 +72,7 @@ export function prestigeOverview(s: GameState, startLevel = 1, count = 120) {
         required: prestigeRequired(n),
         next: prestigeRequired(n + 1),
         bonusBps: (n - 1) * 10,
-        cap: 20 + (n - 1) * 5,
+        cap: leadershipCapacity(n),
       };
     }),
   };
@@ -86,6 +94,9 @@ export function leadershipQuote(s: GameState) {
   const chance = leadershipChance(target);
   return {
     target,
+    capacity: leadershipCapacity(s.commander.leadership),
+    nextCapacity: leadershipCapacity(target),
+    capacityGain: leadershipGain(target),
     chance,
     price: BOOK_PRICE,
     prestigeLevel: prestigeLevel(s),

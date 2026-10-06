@@ -124,11 +124,19 @@ export function buildingDuration(s: GameState, b: Building) {
 }
 export function researchDuration(s: GameState, t: Technology) {
   if (techLevel(s, t) >= MAX_LEVEL) return 0;
-  const factor = ['ballistics', 'armorPlating'].includes(t)
+  const factor = [
+    'ballistics',
+    'armorPlating',
+    'criticalDamage',
+    'armorResistance',
+    'defense',
+  ].includes(t)
     ? 1
     : ['materials', 'refitSpeed', 'repairSpeed'].includes(t)
       ? 0.85
-      : ['construction', 'researchSpeed', 'production'].includes(t)
+      : ['construction', 'researchSpeed', 'production', 'accuracy', 'evasion', 'critical'].includes(
+            t,
+          )
         ? 0.75
         : ['gather', 'march', 'cargo', 'survey'].includes(t)
           ? 0.6
