@@ -10,7 +10,7 @@ import { restPreview } from '../src/core/planning';
 const fresh = () => newGame('base32', '休整验收', 1700000000000, 32);
 const hash = (data: unknown) => createHash('sha256').update(JSON.stringify(data)).digest('hex');
 describe('v32 continuous chapters and editable rest', () => {
-  it('preserves every pre-v32 stage definition and reward exactly', () => {
+  it('preserves pre-v32 definitions except the v38 prestige multiplier', () => {
     // Recorded from v0.31.0 / 35d451a, not generated from the implementation under test.
     expect(
       hash(
@@ -21,14 +21,18 @@ describe('v32 continuous chapters and editable rest', () => {
             stageFormation(i),
             stageReward(i, true),
             stageReward(i, false),
-            stageGrowth(i, true),
-            stageGrowth(i, false),
+            { ...stageGrowth(i, true), prestige: stageGrowth(i, true).prestige / 5 },
+            { ...stageGrowth(i, false), prestige: stageGrowth(i, false).prestige / 5 },
           ]),
       ),
     ).toBe('03ae59a98b6fcfa567df7426d0e7ac8d2a60028a17b179d1daa46a1274f73c9f');
-    expect(hash(dungeons.slice(0, 80))).toBe(
-      'ffe405f871ca1800b40f5fc3df2a6fef0d87caad23900f1598a3ae050425a900',
-    );
+    expect(
+      hash(
+        dungeons
+          .slice(0, 80)
+          .map((d) => ({ ...d, growth: { ...d.growth, prestige: d.growth.prestige / 5 } })),
+      ),
+    ).toBe('ffe405f871ca1800b40f5fc3df2a6fef0d87caad23900f1598a3ae050425a900');
   });
   it.each([1, 3, 12, 120, 720])('settles %i hours and ignores duplicate request IDs', (hours) => {
     const original = fresh();

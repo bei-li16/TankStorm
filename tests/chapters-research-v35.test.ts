@@ -36,7 +36,7 @@ let seq = 0;
 const act = (s: GameState, c: Command) => execute(s, c, s.now, 'v35-' + ++seq).state;
 
 describe('v35 campaign extension', () => {
-  it('preserves the full pre-v35 288 main and 144 core definitions', () => {
+  it('preserves pre-v35 definitions except the v38 prestige multiplier', () => {
     expect(
       hash(
         stageNames.slice(0, 288).map((name, i) => ({
@@ -45,13 +45,17 @@ describe('v35 campaign extension', () => {
           formation: stageFormation(i),
           reward: stageReward(i, true),
           repeat: stageReward(i, false),
-          growth: stageGrowth(i, true),
+          growth: { ...stageGrowth(i, true), prestige: stageGrowth(i, true).prestige / 5 },
         })),
       ),
     ).toBe('dde6039f353723e986922dbae24a17e44e075175cc49aa21f034b5f3769d34cf');
-    expect(hash(dungeons.slice(0, 144))).toBe(
-      '933744c3d63d848235bb13b5c000db50e4b7dbc12dd95fcaf5241454f6c939f0',
-    );
+    expect(
+      hash(
+        dungeons
+          .slice(0, 144)
+          .map((d) => ({ ...d, growth: { ...d.growth, prestige: d.growth.prestige / 5 } })),
+      ),
+    ).toBe('933744c3d63d848235bb13b5c000db50e4b7dbc12dd95fcaf5241454f6c939f0');
   });
   it('extends the original troop, technology and drop slopes without a strength ceiling', () => {
     expect(chapters).toHaveLength(36);

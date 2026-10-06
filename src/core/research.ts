@@ -1,4 +1,5 @@
 import { MAX_LEVEL, materialSavingBps, economyBonus } from './growth';
+import { combatResearch, defenseReduction } from './combat_research';
 import type { Cost, GameState, Technology } from './types';
 
 export const legacyTech = ['attack', 'hp', 'production', 'construction', 'gather'] as const;
@@ -69,14 +70,27 @@ export const researchTree: Node[] = [
     ['gather', 5],
     ['march', 3],
   ]),
-  node('attack', '火控校准', 'combat', 0, 1, 1, 5, '全兵种攻击'),
-  node('hp', '复合装甲', 'combat', 1, 1, 1, 5, '全兵种生命', [['attack', 1]]),
-  node('ballistics', '精密弹道', 'combat', 2, 0, 6, 2, '额外攻击', [
+  node('attack', '火控校准', 'combat', 0, 0, 1, 5, '全兵种攻击'),
+  node('hp', '复合装甲', 'combat', 0, 3, 1, 5, '全兵种生命', [['attack', 1]]),
+  node('ballistics', '精密弹道', 'combat', 1, 0, 6, 2, '额外攻击', [
     ['attack', 3],
     ['hp', 3],
   ]),
-  node('armorPlating', '反应装甲', 'combat', 2, 2, 8, 3, '额外生命', [['hp', 5]]),
+  node('armorPlating', '反应装甲', 'combat', 1, 3, 8, 3, '生命与基础防御', [['hp', 5]]),
+  node('accuracy', '稳定瞄准', 'combat', 0, 1, 6, 0.15, '命中加成', [['attack', 3]]),
+  node('critical', '弱点锁定', 'combat', 1, 1, 10, 0.2, '暴击率加成', [['ballistics', 3]]),
+  node('criticalDamage', '毁伤强化', 'combat', 2, 1, 14, 0.5, '额外暴击伤害', [['critical', 5]]),
+  node('evasion', '规避机动', 'combat', 0, 2, 8, 0.2, '闪避加成', [
+    ['hp', 3],
+    ['march', 3],
+  ]),
+  node('armorResistance', '抗爆装甲', 'combat', 1, 2, 12, 0.1, '装甲抗暴', [['armorPlating', 3]]),
+  node('defense', '纵深防护', 'combat', 2, 2, 16, 0.25, '比例减伤', [
+    ['hp', 5],
+    ['armorResistance', 3],
+  ]),
 ];
+export const version1Tech = researchTree.filter((t) => !(t.id in combatResearch)).map((t) => t.id);
 export const techNames = Object.fromEntries(researchTree.map((t) => [t.id, t.name])) as Record<
   Technology,
   string
@@ -84,18 +98,24 @@ export const techNames = Object.fromEntries(researchTree.map((t) => [t.id, t.nam
 export const techDescriptions = Object.fromEntries(
   researchTree.map((t) => [
     t.id,
-    t.id === 'materials'
-      ? `${t.effect}：每级0.5%，最高60%`
-      : t.branch === 'economy' || ['gather', 'survey', 'cargo'].includes(t.id)
-        ? `${t.effect}：${t.step * 40}%×(等级/120)^0.8，按完整曲线递增`
-        : `${t.effect} +${t.step}% / 级${t.branch === 'industry' ? '（只加速可变工序）' : ''}`,
+    t.id === 'defense'
+      ? '每级减伤评级+25；比例减伤=评级/(10000+评级)，120级23.08%；在基础防御抵扣后结算，保留原科研收益'
+      : t.id === 'armorPlating'
+        ? '每级生命+3%、车辆基础防御+2%；防御先按目标组存活车数抵扣攻击，不影响装甲抗暴'
+        : t.id in combatResearch
+          ? `${t.effect}：每级+${t.step}个百分点${t.id === 'criticalDamage' ? '，在基础暴击额外50%上叠加' : ''}`
+          : t.id === 'materials'
+            ? `${t.effect}：每级0.5%，最高60%`
+            : t.branch === 'economy' || ['gather', 'survey', 'cargo'].includes(t.id)
+              ? `${t.effect}：${t.step * 40}%×(等级/120)^0.8，按完整曲线递增`
+              : `${t.effect} +${t.step}% / 级${t.branch === 'industry' ? '（只加速可变工序）' : ''}`,
   ]),
 ) as Record<Technology, string>;
 export const techLevel = (s: Pick<GameState, 'tech'>, id: Technology) => s.tech[id] ?? 0;
 export function enableResearch(s: GameState) {
-  if (s.researchVersion !== undefined) return;
+  if (s.researchVersion === 2) return;
   for (const t of researchTree) s.tech[t.id] ??= 0;
-  s.researchVersion = 1;
+  s.researchVersion = 2;
 }
 export function researchRequirements(s: GameState, id: Technology) {
   const node = researchTree.find((t) => t.id === id)!;
@@ -134,9 +154,11 @@ export function materialCost(s: GameState, cost: Cost): Cost {
 
 export function researchEffect(id: Technology, level: number) {
   const node = researchTree.find((t) => t.id === id)!;
-  return id === 'materials'
-    ? materialSavingBps(level) / 100
-    : node.branch === 'economy' || ['gather', 'survey', 'cargo'].includes(id)
-      ? economyBonus(level, node.step)
-      : node.step * level;
+  return id === 'defense'
+    ? 100 * defenseReduction(level * combatResearch.defense)
+    : id === 'materials'
+      ? materialSavingBps(level) / 100
+      : node.branch === 'economy' || ['gather', 'survey', 'cargo'].includes(id)
+        ? economyBonus(level, node.step)
+        : node.step * level;
 }

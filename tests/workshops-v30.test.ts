@@ -87,7 +87,7 @@ describe('v30 classic campaign first/repeat rewards', () => {
         xp: first.xp,
         books: 0,
         skillPoints: 0,
-        prestige: Math.floor(first.prestige / 2),
+        prestige: Math.floor(first.prestige / 10) * 5,
       });
       expect(stageReward(i, false).gold).toBe(0);
       expect(stageReward(i, false).iron).toBeGreaterThan(0);

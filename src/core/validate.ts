@@ -89,11 +89,23 @@ const stack = obj(
     evasion: num(-10000, 10000),
     crit: num(-10000, 10000),
     armor: num(-10000, 10000),
+    critMultiplierBps: num(10000, Number.MAX_SAFE_INTEGER),
+    defense: num(0, Number.MAX_SAFE_INTEGER),
+    baseDefense: num(0, Number.MAX_SAFE_INTEGER),
+    damageReduction: num(0, Number.MAX_SAFE_INTEGER),
     attackBonus: num(1, Number.MAX_SAFE_INTEGER),
-    initiative: num(0, 1000000),
-    extraFire: num(0, 1000000),
+    initiative: num(0, Number.MAX_SAFE_INTEGER),
+    extraFire: num(0, Number.MAX_SAFE_INTEGER),
   },
-  ['attackBonus', 'initiative', 'extraFire'],
+  [
+    'attackBonus',
+    'initiative',
+    'extraFire',
+    'critMultiplierBps',
+    'defense',
+    'baseDefense',
+    'damageReduction',
+  ],
 );
 const army = list(stack, 6);
 const report = obj(
@@ -123,7 +135,14 @@ const report = obj(
     initial: list(army, 2, 2),
     final: list(army, 2, 2),
     tactics: obj({
-      teams: list(obj({ initiative: num(0, 1000000), extraFire: num(0, 1000000) }), 2, 2),
+      teams: list(
+        obj({
+          initiative: num(0, Number.MAX_SAFE_INTEGER),
+          extraFire: num(0, Number.MAX_SAFE_INTEGER),
+        }),
+        2,
+        2,
+      ),
       firstSide: one([0, 1]),
       chances: list(num(0, 3500), 2, 2),
     }),
@@ -224,7 +243,10 @@ const march = obj(
       }),
       28,
     ),
-    commanderStats: obj({ initiative: num(0, 1000000), extraFire: num(0, 1000000) }),
+    commanderStats: obj({
+      initiative: num(0, Number.MAX_SAFE_INTEGER),
+      extraFire: num(0, Number.MAX_SAFE_INTEGER),
+    }),
     id: str(100),
     targetId: str(100),
     phase: one(['outbound', 'gathering', 'returning']),
@@ -315,7 +337,7 @@ const schema = obj({
     books: integer,
     prestige: num(0, Number.MAX_SAFE_INTEGER),
     skillPoints: integer,
-    attackSkill: num(0, MAX_LEVEL),
+    attackSkill: num(0, Number.MAX_SAFE_INTEGER),
   }),
   counters: record(integer, 50),
   claimed: list(str(100), 20),
@@ -331,7 +353,7 @@ export function validateShape(value: unknown) {
     num(1, Number.MAX_SAFE_INTEGER)(ext.prestigeFloor, 'save.prestigeFloor');
   for (const skill of ['initiativeSkill', 'extraFireSkill'])
     if (ext.commander[skill] !== undefined)
-      num(0, MAX_LEVEL)(ext.commander[skill], 'save.commander.' + skill);
+      num(0, Number.MAX_SAFE_INTEGER)(ext.commander[skill], 'save.commander.' + skill);
   const leadershipFields = {
     target: num(2, Number.MAX_SAFE_INTEGER),
     attempts: num(1, 1000),
@@ -419,7 +441,7 @@ export function validateShape(value: unknown) {
       REPORT_LIMIT,
     )(expeditionLog, 'save.expeditionLog');
   const researchVersion = (value as { researchVersion?: unknown }).researchVersion;
-  if (researchVersion !== undefined) one([1])(researchVersion, 'save.researchVersion');
+  if (researchVersion !== undefined) one([1, 2])(researchVersion, 'save.researchVersion');
   const industry = (value as { industry?: unknown }).industry;
   if (industry !== undefined)
     obj({ version: one([1]), factory2: num(0, MAX_LEVEL), refit: num(0, MAX_LEVEL) })(

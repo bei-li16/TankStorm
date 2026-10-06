@@ -172,6 +172,7 @@ describe('v0.26 prestige and half-attack combo', () => {
         st.hp = 1e9;
         st.totalHp = st.hp * st.count;
         st.armor = 0;
+        st.defense = 0; // Isolate half attack; v39 covers full defense deducted after halving.
         st.accuracy = 10000;
       }
       a[0].extraFire = 1000;

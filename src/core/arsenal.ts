@@ -128,7 +128,12 @@ export const dungeons = Array.from(
       legacyName,
       theme: curve.theme,
       guardTech: interpolate(curve.tech, step / 15),
-      growth: { xp: 300 + index * 45, books: 1 + band, prestige: 150 + index * 20, skillPoints: 0 },
+      growth: {
+        xp: 300 + index * 45,
+        books: 1 + band,
+        prestige: (150 + index * 20) * 5,
+        skillPoints: 0,
+      },
       coreId: primary.id,
       factoryLevel: interpolate(curve.gate, block / 3),
       firstReward: primary.first,

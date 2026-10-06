@@ -865,6 +865,8 @@ func _action(id, data = null):
 		reserve_page = maxi(0, reserve_page - 1)
 	elif id.begins_with("campaignMode:"):
 		campaign_mode = data
+	elif id == "enemyAttributes":
+		_enemy_attributes(data)
 	elif id.begins_with("dungeon:"):
 		selected_dungeon = int(data)
 	elif id == "dungeonAttack" or id == "dungeonTraining":
@@ -1066,7 +1068,7 @@ func _text_prompt(mode, value):
 	if mode == "formationCount":
 		text_dialog.title = "调整阵位 %d 数量" % (selected_slot + 1)
 		name_input.placeholder_text = "输入 1—%d" % mini(info.leadership, _free_for_slot(draft[selected_slot].unitId))
-		name_input.max_length = 5
+		name_input.max_length = 16
 	name_input.text = value
 	text_dialog.popup_centered()
 	name_input.grab_focus()
@@ -1172,6 +1174,7 @@ func _begin_deployment(battle_command: Dictionary):
 	deployment_backup = {"draft": draft.duplicate(true), "dirty": dirty}
 	deployment = {"command": battle_command.duplicate(true), "title": target.name, "enemy": target.formation.duplicate(true)}
 	deployment.guardTech = int(target.get("guardTech", 0))
+	deployment.attributes = target.enemy.duplicate(true)
 	draft = draft.duplicate(true) if dirty else info.usable.duplicate(true)
 	dirty = true
 	deployment_retry = {}
@@ -1392,6 +1395,9 @@ func _library_action(id, data):
 	elif id == "libraryGo":
 		if library_selected == "cores": campaign_mode = "dungeon"
 		elif library_selected == "campaign": campaign_mode = "stage"
+		elif library_selected == "defense":
+			research_branch="combat"
+			selected_tech="defense"
 		_navigate(data)
 	else: return false
 	return true
@@ -2039,10 +2045,10 @@ func _draw_factory():
 			var p=Vector2(60+side*293,412)
 			_image(id,Rect2(p,Vector2(270,121)))
 			_fit_text(catalog.units[id].name+" · "+("消耗原车" if side==0 else "产出新车")+" ×%d"%quantity,p+Vector2(0,144),278,15,TEXT)
-			_fit_text("攻 %d / 生命 %d"%[st.attack,st.hp],p+Vector2(0,166),278,15,GOLD)
+			_fit_text("攻 %d / 生命 %d / 防御 %d"%[st.attack,st.hp,st.defense],p+Vector2(0,166),278,15,GOLD)
 	else:
 		_image(u.unitId, Rect2(105, 406, 488, 173))
-	_fit_text("攻击 %s · 生命 %s · 载重 %s" % [_amount(effective.attack),_amount(effective.hp),_amount(effective.load)], Vector2(60, 600), 575,18,GOLD)
+	_fit_text("攻击 %s · 生命 %s · 防御 %s · 载重 %s" % [_amount(effective.attack),_amount(effective.hp),_amount(effective.defense),_amount(effective.load)], Vector2(60, 600), 575,18,GOLD)
 	var manufacture_facility=selected_factory if selected_factory!="refit" else "factory2" if info.facilities.factory2.level>info.facilities.factory.level else "factory"
 	var manufacture_quote=effective.produce2 if manufacture_facility=="factory2" else effective.produce
 	_unit_recipe(manufacture_quote,"制造 / %s Lv.%d"%["二厂" if manufacture_facility=="factory2" else "一厂",info.facilities[manufacture_facility].level],Vector2(60,615))
@@ -2184,6 +2190,7 @@ func _draw_repair():
 
 func _formation_tactics(_formation, player_side):
 	if player_side: return info.commanderStats
+	if deployment.has("attributes") and not deployment.attributes.is_empty(): return deployment.attributes.commander
 	var guard_tech = deployment.get("guardTech",0)
 	return {"initiative":100+guard_tech*3,"extraFire":100+guard_tech*4}
 
@@ -2224,7 +2231,7 @@ func _draw_army():
 			_image(unit.unitId, Rect2(p + Vector2(10, 28), Vector2(162, 86)))
 			_text("×%d" % st.count, p+Vector2(187,77),24,GOLD,true)
 			_text(unit.name, p+Vector2(14,127),19,TEXT,true)
-			_fit_text("攻击 %d · 单车生命 %d" % [actual.attack,actual.hp],p+Vector2(14,153),238,15,GOLD)
+			_fit_text("攻 %d · 生命 %d · 防 %d" % [actual.attack,actual.hp,actual.defense],p+Vector2(14,153),238,15,GOLD)
 			_fit_text("总生命 %s · 载重 %s" % [_amount(actual.hp*st.count),_amount(actual.load*st.count)],p+Vector2(14,179),238,15,TEXT)
 			_fit_text({"tank":"逐列1–3发","tank_destroyer":"对列单体","spg":"对列1–2发","rocket":"固定6发"}[unit.classId]+" · 对"+{"tank":"火箭","tank_destroyer":"坦克","spg":"歼击","rocket":"火炮"}[unit.classId]+" +25%",p+Vector2(14,204),238,14,MUTED)
 		else:
@@ -2260,6 +2267,7 @@ func _draw_army():
 	if deploying:
 		_button("deploymentEnemy", "返回待命部队" if deployment_enemy else "查看敌军部署", Rect2(1097, 215, 179, 36), null, deployment_enemy)
 	if deploying and deployment_enemy:
+		_button("enemyAttributes","敌军加成属性",Rect2(1300,215,242,36),deployment.get("attributes",{}))
 		_mini_formation(deployment.enemy, Vector2(925, 283), Vector2(194, 170))
 		_text("过期情报仅供参考；建议重新侦察。" if deployment.get("stale",false) else "先核对敌方阵位，再安排己方前后排。", Vector2(929, 682), 17, RED if deployment.get("stale",false) else GOLD)
 		_text("坦克横排 · 歼击单体 · 火炮纵列 · 火箭全体", Vector2(929, 716), 16, MUTED)
@@ -2269,8 +2277,8 @@ func _draw_army():
 			var enemy_hp = 0
 			for st in draft:
 				if st!=null: own_hp += info.unitStats[st.unitId].hp * st.count
-			for st in deployment.enemy:
-				if st!=null: enemy_hp += int(floor(catalog.units[st.unitId].hp*(1+deployment.get("guardTech",0)*0.08))) * st.count
+			for st in deployment.get("attributes",{}).get("army",[]):
+				enemy_hp += st.hp * st.count
 			_text("我方 / 已知敌方生命 %s / %s · %s" % [_amount(own_hp),_amount(enemy_hp),"承伤储备偏低" if own_hp<enemy_hp else "需结合克制判断"],Vector2(929,646),17,RED if own_hp<enemy_hp else GOLD)
 		_text("确认后出发行军，到达才交战；物资返城后入库。" if deployment.command.type=="march" else "确认后立即进入战斗，返回不产生战损。", Vector2(929, 751), 16, MUTED)
 		return
@@ -2500,7 +2508,7 @@ func _draw_settlement():
 	_button("battleAdvice","战术建议",Rect2(1210,731,142,42))
 	_button("battleAdvanced","高级详情",Rect2(1370,731,171,42))
 	var next=_next_battle_target()
-	var actions=[["battleDetails","详细战报",null],["battleReplay","回放",null],["nav:army","补兵 / 编队","army"],["nav:repair","维修车间","repair"],["repairAll","批量送修",null],["rematch","再次挑战",null],["nav:campaign","返回世界" if report.mode=="world" else "返回战役","world" if report.mode=="world" else "campaign"],["battleNext","下一关 · 备战",next] if not next.is_empty() else ["nav:objectives","成长目标","objectives"]]
+	var actions=[["battleDetails","详细战报",null],["battleReplay","回放",null],["nav:army","补兵 / 编队","army"],["nav:repair","维修车间","repair"],["repairAll","批量送修",null],["rematch","再次挑战",null],["nav:campaign","返回世界" if report.mode=="world" else "返回战役","world" if report.mode=="world" else "campaign"],["battleNext","下一关",next] if not next.is_empty() else ["nav:objectives","成长目标","objectives"]]
 	for i in range(actions.size()): _button(actions[i][0],actions[i][1],Rect2(40+i*192,818,176,49),actions[i][2],i==7,_repair_all_ready() if actions[i][0]=="repairAll" else not _command_pending() if actions[i][0] in ["rematch","battleNext"] else true)
 
 func _next_battle_target():
@@ -2543,7 +2551,7 @@ func _eta(ms):
 	return "立即完成" if ms <= 0 else _time(ms)
 
 func _tech_rect(node):
-	return Rect2(52 + node.col * 340, 296 + node.row * 150, 282, 105)
+	return Rect2(52 + node.col * 340, (282 + node.row * 114) if node.branch=="combat" else (296 + node.row * 150), 282, 105)
 
 func _draw_research():
 	_title("科研技术树", "RESEARCH BUREAU  /  ECONOMY · INDUSTRY · LOGISTICS · COMBAT")
@@ -2561,6 +2569,7 @@ func _draw_research():
 			continue
 		for pre in info.researchQuotes[node.id].prerequisites:
 			var parent = nodes[pre.id]
+			if parent.branch != research_branch: continue
 			var a = _tech_rect(parent).get_center() + Vector2(142, 0)
 			var b = _tech_rect(node).get_center() - Vector2(142, 0)
 			var tint = GREEN.darkened(0.4) if pre.current >= pre.level else LINE
@@ -2584,7 +2593,7 @@ func _draw_research():
 		_panel(rect, Color("343a2b") if active else Color("192625"), GOLD if active else LINE)
 		_text(node.name, rect.position + Vector2(16, 30), 21, TEXT, true)
 		_small("%02d / 120" % level, rect.position + Vector2(185, 29), 16, GOLD)
-		_text(node.effect + " %.1f%%" % q.effectCurrent, rect.position + Vector2(16, 58), 14, MUTED)
+		_text("生命 +%d%% / 防御 +%d%%"%[s.tech.armorPlating*3,s.tech.armorPlating*2] if node.id=="armorPlating" else node.effect + " %.1f%%" % q.effectCurrent, rect.position + Vector2(16, 58), 14, MUTED)
 		_bar(Rect2(rect.position + Vector2(16, 75), Vector2(133, 4)), level / float(catalog.MAX_LEVEL), GOLD)
 		_text("已满级" if level == int(catalog.MAX_LEVEL) else "研究中 / 已排队" if q.duplicate else "可研究" if q.block == "" else "前置未满足", rect.position + Vector2(157, 89), 13, GOLD if q.duplicate else tint)
 		_hit("techSelect:" + node.id, rect, node.id)
@@ -2594,8 +2603,9 @@ func _draw_research():
 	_panel(Rect2(1123, 268, 437, 480), Color("14201e"), GOLD.darkened(0.6))
 	_text(node.name, Vector2(1146, 309), 28, TEXT, true)
 	_text("Lv.%02d → %02d / 120" % [level, mini(int(catalog.MAX_LEVEL),level + 1)], Vector2(1147, 340), 19, GOLD)
-	_text(node.effect, Vector2(1147, 373), 17, MUTED)
-	_text("%.1f%% → %.1f%%" % [q.effectCurrent, q.effectNext], Vector2(1147, 403), 25, GOLD)
+	var effect_hint={"accuracy":"每级命中 +0.15个百分点", "evasion":"每级闪避 +0.2个百分点", "critical":"每级暴击率 +0.2个百分点", "criticalDamage":"每级+0.5百分点 · 基础暴击额外50%", "armorResistance":"每级抗暴 +0.1个百分点", "defense":"每级减伤评级+25 · 满级比例减伤23.08%", "armorPlating":"每级生命+3% · 基础防御+2%"}.get(selected_tech,node.effect)
+	_fit_text(effect_hint, Vector2(1147, 373),392,16,MUTED)
+	_fit_text(_research_gain_text(selected_tech,q),Vector2(1147,403),392,21,GOLD)
 	_text("科研中心 %d 级 · 当前 %d" % [q.lab,s.buildings.lab], Vector2(1147, 439), 16, GREEN if s.buildings.lab >= q.lab else RED)
 	if q.prerequisites.is_empty():
 		_text("基础节点 · 无前置科技", Vector2(1147, 471), 16, GREEN)
@@ -2622,20 +2632,81 @@ func _draw_research():
 	_text("机动推进每级额外 +3 先手；精密弹道每级额外 +4 二次开火。出征后保留属性快照。", Vector2(42, 811), 15, MUTED)
 	_button("nav:queues", "研究队列  %d 工作 / %d 等待 →" % [info.queues.research.active,info.queues.research.waiting], Rect2(1123, 771, 437, 47), "queues")
 
+func _chapter_pager(id, page, pages):
+	_button(id+"Prev","←",Rect2(1345,198,56,39),maxi(0,page-1),false,page>0)
+	_fit_text("%d / %d"%[page+1,pages],Vector2(1415,224),78,17,GOLD)
+	_button(id,"→",Rect2(1504,198,56,39),mini(pages-1,page+1),false,page<pages-1)
+
+func _world_enemy_attributes(site_id):
+	if not s.intel.has(site_id): return {}
+	return {"army":info.knownGuardStats.get(site_id,[]),"commander":info.knownGuardCommanders[site_id],"stale":s.now-s.intel[site_id].at>=info.worldInterval,"scouted":true}
+
+func _research_gain_text(id,q):
+	if id=="armorPlating":
+		var level=int(s.tech.armorPlating)
+		var next_level=mini(level+1,int(catalog.MAX_LEVEL))
+		return "生命 +%d%% → +%d%% · 防御 +%d%% → +%d%%"%[level*3,next_level*3,level*2,next_level*2]
+	return "收益 %.1f%% → %.1f%%"%[q.effectCurrent,q.effectNext]
+
+func _flat_defense(st):
+	return st.get("defense",0) if st.has("baseDefense") or st.has("damageReduction") else 0
+
+func _damage_reduction(st):
+	var rating=st.get("damageReduction",0) if st.has("baseDefense") or st.has("damageReduction") else st.get("defense",0)
+	return 100.0*rating/(10000+rating)
+
+func _enemy_attribute_text(data):
+	if data==null or data.is_empty(): return "守军属性未知。请先在世界地图侦察目标；未知不代表没有守军或没有加成。"
+	var team=data.commander
+	var own=info.commanderStats
+	var chance=clampf(10+(team.extraFire-own.extraFire)*0.1,0,35)
+	var lines: Array[String]=[]
+	if data.get("scouted",false): lines.append("情报已过期，请重新侦察；以下仅为已知守军。" if data.get("stale",false) else "已侦察的守军属性；到达前敌军可能发生变化。")
+	lines.append("【敌方指挥官 · 全军属性】")
+	lines.append("先手 %d（我方 %d，%s）  |  连击 / 二次开火 %d（我方 %d）"%[team.initiative,own.initiative,"敌方先攻" if team.initiative>own.initiative else "我方先攻",team.extraFire,own.extraFire])
+	lines.append("对当前我方的连击概率 %.1f%%；最多追加一次，追加攻击力为一半。"%chance)
+	lines.append("先手和连击不绑定阵位，不随某组车辆阵亡而降低。")
+	var stacks=data.army
+	if stacks.is_empty():
+		lines.append("\n当前已知阵位没有驻守车辆。")
+		return "\n".join(lines)
+	var mods=stacks[0]
+	lines.append("\n【战斗属性 · 未计对手抵消与条件光环】")
+	lines.append("攻击加成 +%.1f%%  |  命中加成 +%.1f%%  |  闪避 +%.1f%%"%[(mods.get("attackBonus",10000)-10000)/100.0,mods.accuracy/100.0,mods.evasion/100.0])
+	lines.append("暴击率 %.1f%%（基础 %.1f%% + 加成 %.1f%%）  |  暴击额外伤害 +%.1f%%"%[(catalog.rules.battle.baseCritBps+mods.crit)/100.0,catalog.rules.battle.baseCritBps/100.0,mods.crit/100.0,(mods.get("critMultiplierBps",15000)-10000)/100.0])
+	lines.append("抗暴装甲 %.1f%%  |  比例减伤 %.2f%%；车辆防御按各目标组存活数先抵扣攻击。"%[mods.armor/100.0,_damage_reduction(mods)])
+	lines.append("基础命中 %.1f%%；实际命中、暴击需抵消目标闪避、抗暴，并受概率上限约束。"%(catalog.rules.battle.baseHitBps/100.0))
+	lines.append("\n【各阵位 · 已计科技与成长，未计条件光环】")
+	for st in stacks:
+		var unit=catalog.units[st.unitId]
+		lines.append("%d号 %s ×%d：攻击 %s / 单车生命 %s / 防御 %s（基础 %s） / 本组总防御 %s"%[st.slot,unit.name,st.count,_amount(st.attack*st.get("attackBonus",10000)/10000.0),_amount(st.hp),_amount(_flat_defense(st)),_amount(st.get("baseDefense",0)),_amount(_flat_defense(st)*ceili(st.totalHp/float(st.hp)))])
+	lines.append("\n【在场车系光环 · 同系不叠加，全系阵亡后失效】")
+	var classes=[]
+	var descriptions={"tank":"全军攻击另乘 +%.1f%%","tank_destroyer":"全军暴击率 +%.1f%%","spg":"承受歼击车伤害减少 %.1f%%","rocket":"承受火箭车伤害减少 %.1f%%"}
+	for st in stacks:
+		if st.classId in classes: continue
+		classes.append(st.classId)
+		lines.append(catalog.classNames[st.classId]+"："+descriptions[st.classId]%(catalog.rules.battle.classProfiles[st.classId].aura.value/100.0))
+	lines.append("克制额外倍率取决于具体攻击双方；上列加成不会重复叠加到面板属性。")
+	return "\n".join(lines)
+
+func _enemy_attributes(data):
+	_details("敌军加成属性 / 战前情报",_enemy_attribute_text(data))
+
 func _draw_campaign():
 	if campaign_mode == "dungeon":
 		_draw_dungeons()
 		return
 	var chapter=int(selected_stage/16)
 	_title("钢铁远征 · "+catalog.chapters[chapter].name, "CAMPAIGN / CHAPTERS")
-	_text("战役进度  %d / %d" % [s.cleared.size(),catalog.stages.size()], Vector2(1300, 148), 20, GOLD)
+	_text("战役进度  %d / %d" % [s.cleared.size(),catalog.stages.size()], Vector2(43,179), 17, GOLD)
+	_button("campaignMode:dungeon", "切换：核心副本", Rect2(1331,119,231,44), "dungeon")
 	campaign_chapter_page=clampi(campaign_chapter_page,0,ceili(catalog.chapters.size()/6.0)-1)
 	for n in range(6):
 		var c=campaign_chapter_page*6+n
 		if c>=catalog.chapters.size(): break
 		_button("chapter:"+str(c),"%d  %s"%[c+1,catalog.chapters[c].name],Rect2(40+n*217,198,205,39),c,c==chapter)
-	var next_page=(campaign_chapter_page+1)%ceili(catalog.chapters.size()/6.0)
-	_button("chapterPage","%d—%d章 →"%[next_page*6+1,mini(catalog.chapters.size(),next_page*6+6)],Rect2(1345,198,215,39),next_page)
+	_chapter_pager("chapterPage",campaign_chapter_page,ceili(catalog.chapters.size()/6.0))
 	for n in range(16):
 		var i=chapter*16+n
 		var p = Vector2(40 + (n % 4) * 214, 253 + int(n / 4.0) * 130)
@@ -2661,7 +2732,8 @@ func _draw_campaign():
 	_text(stage.name, Vector2(932, 294), 29, TEXT, true)
 	_text(stage.hint.substr(0,29), Vector2(932, 329), 16, MUTED)
 	_text(stage.hint.substr(29), Vector2(932, 354), 16, MUTED)
-	_text("守军部署 · 战力 %d"%_formation_power(stage.formation,false), Vector2(932, 387), 18, GOLD)
+	_text("守军战力 "+_amount(_formation_power(stage.formation,false)), Vector2(932, 387), 18, GOLD)
+	_button("enemyAttributes","敌军加成属性",Rect2(1352,362,182,32),stage.enemy)
 	_mini_formation(stage.formation, Vector2(928, 403), Vector2(190, 88))
 	var cleared=info.stageStatus[selected_stage].cleared
 	var rewards=stage.repeatReward if cleared else stage.reward
@@ -2673,12 +2745,11 @@ func _draw_campaign():
 	_button("training", "战术演习 · 无战损", Rect2(929, 749, 270, 43), null, false, not _command_pending())
 	var unlocked = info.stageStatus[selected_stage].unlocked
 	_button("attack", "发起进攻", Rect2(1215, 749, 319, 43), null, true, unlocked and not _command_pending())
-	_button("campaignMode:dungeon", "核心副本 →", Rect2(40, 788, 230, 36), "dungeon")
-	_text("%d章架空行动 · 演习无掉落；正式胜利推进关卡。"%catalog.chapters.size(),Vector2(300,814),15,MUTED)
+	_text("%d章架空行动 · 演习无掉落；正式胜利推进关卡。"%catalog.chapters.size(),Vector2(43,814),15,MUTED)
 
 func _draw_dungeons():
 	_title("核心行动", "CORE OPERATIONS")
-	_button("campaignMode:stage", "← 经典战役", Rect2(1331,119,231,44), "stage")
+	_button("campaignMode:stage", "切换：主线副本", Rect2(1331,119,231,44), "stage")
 	selected_dungeon = clampi(selected_dungeon, 0, catalog.dungeons.size()-1)
 	var chapter=int(selected_dungeon/16)
 	_text("%d章 · 每章16关   |   已突破 %d / %d   |   首通固定，重复随机"%[catalog.coreChapters.size(),s.arsenal.cleared.size(),catalog.dungeons.size()],Vector2(43,179),17,GOLD)
@@ -2688,8 +2759,7 @@ func _draw_dungeons():
 		for i in range(c*16,c*16+16):
 			if info.dungeonStatus[i].cleared: cleared+=1
 		_button("coreChapter:"+str(c),"%d  %s  %d/16"%[c+1,catalog.coreChapters[c],cleared],Rect2(40+(c%5)*260,198,248,39),c,c==chapter)
-	var next_page=(core_chapter_page+1)%ceili(catalog.coreChapters.size()/5.0)
-	_button("coreChapterPage","%d—%d章 →"%[next_page*5+1,mini(catalog.coreChapters.size(),next_page*5+5)],Rect2(1345,198,215,39),next_page)
+	_chapter_pager("coreChapterPage",core_chapter_page,ceili(catalog.coreChapters.size()/5.0))
 	for local in range(16):
 		var i = chapter*16+local
 		var d=catalog.dungeons[i]
@@ -2709,7 +2779,8 @@ func _draw_dungeons():
 	_text(d.name,Vector2(930,286),24,TEXT,true)
 	var legacy_clear=d.id in s.arsenal.cleared and maxf(s.buildings.factory,s.industry.factory2)<d.factoryLevel
 	_text(catalog.classNames[d.classId]+"补给 · "+("旧通关可重打（新关需工厂 %d 级）" if legacy_clear else "制造工厂 %d 级")%d.factoryLevel,Vector2(931,313),17,GOLD)
-	_text("守军战力 %s · 攻防 / 弹道 / 装甲 / 机动科技 %d级"%[_amount(d.power),d.guardTech],Vector2(931,338),16,TEXT)
+	_fit_text("守军战力 %s · 科技 %d级"%[_amount(d.power),d.guardTech],Vector2(931,338),407,16,TEXT)
+	_button("enemyAttributes","敌军加成属性",Rect2(1352,317,182,29),d.enemy)
 	_mini_formation(d.formation,Vector2(928,350),Vector2(190,68))
 	_text("本关只产出"+catalog.classNames[d.classId]+"的两种核心",Vector2(931,521),17,GOLD)
 	for i in range(2):
@@ -2728,7 +2799,7 @@ func _draw_dungeons():
 	_text("依次突破 · 跨章承接上一章末关 · 旧通关保持开放",Vector2(306,814),15,MUTED)
 
 func _core_route_details():
-	var lines: Array[String] = ["九章各16关。每四关按坦克、歼击、火炮、火箭循环；产出只属于本关车系。", "首通固定，重复数量独立随机。以下100辆预算只计算VII核心的均值产出，不含首通、失败、前置关、材料与战损补兵，不是次数保证。", ""]
+	var lines: Array[String] = ["%d章各16关。每四关按坦克、歼击、火炮、火箭循环；产出只属于本关车系。"%catalog.coreChapters.size(), "首通固定，重复数量独立随机。以下100辆预算只计算VII核心的均值产出，不含首通、失败、前置关、材料与战损补兵，不是次数保证。", ""]
 	for c in range(catalog.coreChapters.size()):
 		var first=catalog.dungeons[c*16]
 		var last=catalog.dungeons[c*16+15]
@@ -2848,7 +2919,7 @@ func _draw_world():
 		_text("情报物资 " + _cost_text(intel.wallet), Vector2(1063, 430), 11, MUTED)
 	_fit_text("当前远征队的实际进度见下方" if mq.load<=0 else "含往返毛收益 %.1f×自产 · 未扣战损"%mq.tripMultiple if site.kind=="mine" and mq.localRate>0 else "往返计时；保护20%—40%，详见侦察档案",Vector2(1063,557),473,15,GOLD)
 	_button("scout", ("重新侦察" if intel!=null else "侦察")+" · %s 水晶"%_amount(mq.scoutCost), Rect2(1062, 445, 259, 37), null, false, s.wallet.crystal>=mq.scoutCost and not _command_pending())
-	_button("scoutDetails","守军阵位详情",Rect2(1334,445,200,37))
+	_button("scoutDetails","守军 / 加成属性",Rect2(1334,445,200,37))
 	_button("gather" if site.kind == "mine" else "raid", "出征采集" if site.kind == "mine" else "突袭据点", Rect2(1062, 496, 473, 43), null, true, s.marches.size() < info.vip.marches and mq.load > 0 and not _command_pending())
 	march_page = mini(march_page, maxi(0, ceili(s.marches.size() / 2.0) - 1))
 	for i in range(2):
@@ -2891,9 +2962,9 @@ func _draw_commander():
 	_text("统率能力", Vector2(553, 242), 23, TEXT, true)
 	_text("等级 %d   每格 %d 辆   统率书 %d" % [s.commander.leadership, info.leadership, s.commander.books], Vector2(553, 279), 18, MUTED)
 	_button("nav:commandTraining", "统率 / 技能 / 购买统率书 →", Rect2(552, 299, 448, 36), "commandTraining", true)
-	_text("战术指挥 · Lv.%d / 120"%s.commander.attackSkill, Vector2(1070, 242), 23, TEXT, true)
-	_text("攻击 +%d%% → +%d%% · %d点" % [s.commander.attackSkill*2,mini(120,s.commander.attackSkill+1)*2,s.commander.skillPoints], Vector2(1070, 279), 18, MUTED)
-	_button("skill", "已满级 · 全队攻击+240%" if s.commander.attackSkill>=120 else "提升战术指挥 · 1 技能点", Rect2(1070, 299, 465, 36), null, true, s.commander.skillPoints > 0 and s.commander.attackSkill < int(catalog.MAX_LEVEL) and not _command_pending())
+	_text("战术指挥 · Lv.%d · 持续成长"%s.commander.attackSkill, Vector2(1070, 242), 23, TEXT, true)
+	_text("攻击 +%d%% → +%d%% · %d点" % [s.commander.attackSkill*2,(s.commander.attackSkill+1)*2,s.commander.skillPoints], Vector2(1070, 279), 18, MUTED)
+	_button("skill", "提升战术指挥 · 1 技能点", Rect2(1070, 299, 465, 36), null, true, s.commander.skillPoints > 0 and not _command_pending())
 	_text("战地任务", Vector2(533, 395), 25, TEXT, true)
 	_button("questNext", "切换任务页  %d / 2" % (quest_page + 1), Rect2(1345, 365, 214, 39))
 	for i in range(5):
@@ -3111,6 +3182,7 @@ func _next_fire_interval():
 
 func _hit_number_style(e):
 	if e.miss: return {"label":"闪避","size":22,"color":Color("b6d6ce")}
+	if e.damage==0: return {"label":"未破防","size":24,"color":MUTED}
 	if e.critical: return {"label":"暴击 −"+_amount(e.damage),"size":32,"color":Color("ff9261")}
 	return {"label":"−"+_amount(e.damage),"size":26,"color":Color("f0efdd")}
 
@@ -3506,7 +3578,7 @@ func _draw_shot(shot):
 			draw_string(bold,text_pos,label,HORIZONTAL_ALIGNMENT_LEFT,-1,label_size,ink)
 			var feedback=""
 			if e.remaining==0 and not e.miss: feedback+=" 击毁"
-			elif not e.miss and report.ruleset in ["classic-combat-v0.10","classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26"]:
+			elif not e.miss and report.ruleset in ["classic-combat-v0.10","classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26","classic-combat-v0.31","classic-combat-v0.37"]:
 				var attacker=""
 				var defender=""
 				for st in report.initial[int(e.side)]:
@@ -3544,8 +3616,8 @@ func _battle_header():
 		var x_stats = 440 if side == 0 else 1295
 		if report.has("tactics"):
 			var stats = report.tactics.teams[side]
-			_small("先手 %d  ·  %s" % [stats.initiative, "先攻" if report.tactics.firstSide == side else "后攻"], Vector2(x_stats, 34), 15, GOLD)
-			_small("二次开火 %d  ·  %.1f%%" % [stats.extraFire, report.tactics.chances[side] / 100.0], Vector2(x_stats, 57), 14, Color("bdc1ad"))
+			_fit_text("指挥官先手 %d · %s" % [stats.initiative, "先攻" if report.tactics.firstSide == side else "后攻"], Vector2(x_stats, 34), 270, 16, GOLD)
+			_fit_text("连击值 %d · 触发 %.1f%%" % [stats.extraFire, report.tactics.chances[side] / 100.0], Vector2(x_stats, 57), 270, 16, TEXT)
 		else:
 			_small("历史战报 · 按原记录回放", Vector2(x_stats, 47), 13, Color("bdc1ad"))
 	draw_string_outline(latin, Vector2(753, 53), "VS", HORIZONTAL_ALIGNMENT_LEFT, -1, 48, 4, Color("060b0a"))
@@ -3622,6 +3694,7 @@ func _unit_guide():
 	var lines: Array[String] = [u.name, catalog.classDescriptions[u.classId], "",
 		"基础攻击 %d → 科技、技能与声望加成后 %d（实际伤害另受数量、克制、光环、命中与暴击影响）" % [u.attack, effective.attack],
 		"基础生命 %d → 科技与声望加成后 %d；每辆载重 %d" % [u.hp, effective.hp, info.unitStats[u.unitId].load],
+		"车辆基础防御 %d → 反应装甲加成后 %d；比例减伤 %.2f%%。先扣目标组总防御，再判暴击倍率等，未破防为0。"%[u.defense,effective.defense,_damage_reduction(effective)],
 		"生产每辆：" + _cost_text(effective.produce.unitCost) + "，原时长 " + _time(effective.produce.duration),
 		"维修每辆：" + _cost_text(info.unitStats[u.unitId].repair.unitCost) + "（含材料科技），耗时 " + _time(info.unitStats[u.unitId].repair.duration),
 		"制造：本厂 %d 级；改装：改装厂与任一制造工厂均需 %d 级。" % [u.unlock.factoryLevel,u.unlock.factoryLevel], "VI / VII 阶还需对应副本核心；改装消耗低一阶待命战车。已有车辆仍可使用和维修。", "", "【攻击模式】"]
@@ -3655,9 +3728,10 @@ func _report_details():
 		for side in range(2):
 			var stats = report.tactics.teams[side]
 			lines.append("%s：先手 %d，二次开火 %d，本场追加概率 %.1f%%" % ["我方" if side == 0 else "敌方", stats.initiative, stats.extraFire, report.tactics.chances[side] / 100.0])
-		lines.append("每个大回合存活阵位各行动一次，双方交替；少阵位一方等待。连击归属当前小回合。" if report.ruleset in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26"] else "历史规则：每回合双方各行动一次，各自按存活阵位循环；先手同值时进攻方先行。")
+		lines.append("每个大回合存活阵位各行动一次，双方交替；少阵位一方等待。连击归属当前小回合。" if report.ruleset in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26","classic-combat-v0.31","classic-combat-v0.37","classic-combat-v0.39"] else "历史规则：每回合双方各行动一次，各自按存活阵位循环；先手同值时进攻方先行。")
 		lines.append("二次开火最多追加一次完整攻击，不连锁；击毁目标不奖励额外行动。")
-		lines.append("本记录连击攻击力50%，再独立判定命中、暴击和克制。" if report.ruleset=="classic-combat-v0.26" else "旧版连击伤害保留原始记录，不按新规则重算。")
+		lines.append("本记录连击攻击力50%，再独立判定命中、暴击和克制。" if report.ruleset in ["classic-combat-v0.26","classic-combat-v0.31","classic-combat-v0.37","classic-combat-v0.39"] else "旧版连击伤害保留原始记录，不按新规则重算。")
+		if report.ruleset=="classic-combat-v0.39": lines.append("伤害顺序：攻击组总攻击（连击先减半）−目标组总防御，最低0；再乘暴击、克制、光环、比例减伤，最后取整。")
 		for action in report.get("actions", []):
 			if action.get("extraTriggered", false):
 				lines.append("行动 %d：%s阵位 %d 触发二次开火。" % [action.id, "我方" if action.side == 0 else "敌方", action.from])
@@ -3667,6 +3741,7 @@ func _report_details():
 		lines.append("【我方出战】" if side == 0 else "【敌方出战】")
 		for st in report.initial[side]:
 			lines.append("阵位 %d  %s × %d  单车生命 %d  基础攻击 %d" % [st.slot, catalog.units[st.unitId].name, st.count, st.hp, st.attack])
+			lines.append("战时快照：攻击加成 %.1f%% · 命中值 %.1f%% · 闪避 %.1f%% · 暴击率 %.1f%%\n暴击额外伤害 +%.1f%% · 装甲抗暴 %.1f%% · 车辆防御 %s · 比例减伤 %.2f%%（不含条件光环与敌方修正）"%[(st.get("attackBonus",10000)-10000)/100.0,95+st.accuracy/100.0,st.evasion/100.0,10+st.crit/100.0,(st.get("critMultiplierBps",15000)-10000)/100.0,st.armor/100.0,_amount(_flat_defense(st)),_damage_reduction(st)])
 	lines.append("\n【我方结算】")
 	for c in report.casualties:
 		lines.append("%s：出战 %d / 生还 %d / 待修 %d / 永久损失 %d" % [catalog.units[c.unitId].name, c.sent, c.survived, c.repairable, c.destroyed])
@@ -3702,6 +3777,21 @@ func _smoke_test():
 		if arg.begins_with("--qa-output="):
 			out = arg.trim_prefix("--qa-output=")
 	DirAccess.make_dir_recursive_absolute(out)
+	if "--defense39-only" in OS.get_cmdline_user_args():
+		var passed=await _defense39_qa(out)
+		print("V39_DEFENSE_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 82)
+		return
+	if "--campaign38-only" in OS.get_cmdline_user_args():
+		var passed=await _campaign38_qa(out)
+		print("V38_CAMPAIGN_INTEL_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 81)
+		return
+	if "--combat37-only" in OS.get_cmdline_user_args():
+		var passed=await _combat37_qa(out)
+		print("V37_COMBAT_GROWTH_QA: ",passed)
+		if not passed or not "--qa-stay" in OS.get_cmdline_user_args(): get_tree().quit(0 if passed else 80)
+		return
 	if "--research36-only" in OS.get_cmdline_user_args():
 		var passed=await _research36_qa(out)
 		print("V36_BASE_RESEARCH_QA: ",passed)
@@ -5278,6 +5368,7 @@ func _experience_action(id, data):
 	if id.begins_with("rewardInfo:"):
 		_details("奖励明细 / "+data.name,data.name+" +"+QuantityFormat.exact(data.count)+"\n\n"+(_cargo_label() if data.cargo else "已自动计入当前存档；查看或回放不会再次发放。"))
 	elif id=="battleNext":
+		if _command_pending(): return true
 		var next=_next_battle_target()
 		if not next.is_empty():
 			campaign_mode="stage" if next.type=="battle" else "dungeon"
@@ -5285,7 +5376,7 @@ func _experience_action(id, data):
 			else:
 				for i in range(catalog.dungeons.size()):
 					if catalog.dungeons[i].id==next.dungeonId: selected_dungeon=i
-			_begin_deployment(next)
+			command(next.duplicate(true))
 	elif id=="mapClear":
 		map_resource="all"
 		map_level=0
@@ -5300,7 +5391,7 @@ func _experience_action(id, data):
 	elif id.begins_with("attributeScope:"): attribute_scope=str(data)
 	elif id.begins_with("attributeClass:"): selected_class=int(data)
 	elif id.begins_with("attributeTier:"): tier=int(data)
-	elif id=="attributeRules": _details("属性战力口径",info.attributes.explanation+"\n\n当前编队按已保存且可用的部队计算；未保存的草稿不计入此表。战斗历史属性仍以原战报为准。\n\n装甲为抗暴属性；装甲加固科技实际提供生命，计入生命一行。克制和团队光环依赖敌我阵容，不重复加静态分。\n载重、生产速度、采速、资源产出等属性直接战力为 0，但支持持续补给。")
+	elif id=="attributeRules": _details("属性战力口径",info.attributes.explanation+"\n\n当前编队按已保存且可用的部队计算；未保存的草稿不计入此表。战斗历史属性仍以原战报为准。\n\n抗爆装甲减少敌方暴击率；复合/反应装甲增加生命，反应装甲还增强基础防御。车辆防御先抵扣攻击，纵深防护最后按比例减伤；暴击额外伤害以50%为基准。克制和团队光环依赖敌我阵容，不重复加静态分。\n载重、生产速度、采速、资源产出等属性直接战力为 0，但支持持续补给。")
 	elif id == "selectReserve": compare_unit=str(data)
 	elif id == "coreRoute": _core_route_details()
 	elif id.begins_with("coreChapter:"):
@@ -5337,7 +5428,7 @@ func _experience_action(id, data):
 		var payment="books" if id=="trainBooks" else "gold"
 		_confirm({"type":"leadership","payment":payment,"attempts":leadership_attempts},"目标统率 Lv.%d；每次成功率 %.2f%%\n最多尝试 %d 次，成功即停，未使用部分不扣费。\n每次消耗 %s；失败不降级、无保底。\n最多花费 %s。"%[info.leadershipQuote.target,info.leadershipQuote.chance/100.0,leadership_attempts,"1 本统率书" if payment=="books" else "19 金币","%d 本书"%leadership_attempts if payment=="books" else "%d 金币"%(leadership_attempts*19)])
 	elif id=="leadRules":
-		_details("统率、声望与独立概率","统率与声望不设玩法等级上限，统率不能超过声望等级。声望等级 = 1 + floor(sqrt(声望 / 40))；旧档保留已有统率所需的最低声望等级，不增加声望点。\n\n升至 2—10 级为 100%；11 级 90%，之后按指数曲线降低，120 级及以后固定为 0.1%。每次独立判定，失败不降级、不累积保底；相同失败次数不会改变下一次概率。\n\n每次尝试一本统率书，或直接 19 金币。最多 1 / 10 / 100 / 1000 次是独立尝试的批次，成功立即停止，不保证成功。1/p 是平均次数，不是保证次数，连续 200 次失败也可能发生。\n\n经典战役仅首通 1 本；核心第一至第九章仅首通分别 1—9 本。重复胜利无统率书，声望为首通一半，经验不减。每日补给、既有任务和 19 金币购书仍可使用。战役和核心胜利都获得声望。")
+		_details("统率、声望与独立概率","统率与声望不设玩法等级上限，统率不能超过声望等级。声望等级 = 1 + floor(sqrt(声望 / 40))；旧档保留已有统率所需的最低声望等级，不增加声望点。\n\n升至 2—10 级为 100%；11 级 90%，之后按指数曲线降低，120 级及以后固定为 0.1%。每次独立判定，失败不降级、不累积保底；相同失败次数不会改变下一次概率。\n\n每次尝试一本统率书，或直接 19 金币。最多 1 / 10 / 100 / 1000 次是独立尝试的批次，成功立即停止，不保证成功。1/p 是平均次数，不是保证次数，连续 200 次失败也可能发生。\n\n经典战役仅首通 1 本；核心各章仅首通获得章节数对应的统率书。重复胜利无统率书，声望为首通一半，经验不减。每日补给、既有任务和 19 金币购书仍可使用。战役和核心胜利都获得声望。")
 	elif id == "reportType":
 		var options=["all","stage","dungeon","mine","raid","gather-return","raid-return","world","training"]
 		report_type=options[(options.find(report_type)+1)%options.size()]
@@ -5475,7 +5566,7 @@ func _disabled_reason(id, data):
 	if id=="buyBooks": return "购买 %d 本书需 %d 金币，还缺 %d"%[leadership_attempts,leadership_attempts*19,maxi(0,leadership_attempts*19-int(s.wallet.gold))]
 	if id in ["skill","initiativeSkill","extraFireSkill"]:
 		var key={"skill":"attackSkill","initiativeSkill":"initiativeSkill","extraFireSkill":"extraFireSkill"}[id]
-		return "此技能已达120级上限" if s.commander[key]>=120 else "技能点不足：需要1点，当前%d点。战役首通可得，指挥中心21级起每日补给另加1点。"%s.commander.skillPoints
+		return "技能点不足：需要1点，当前%d点。战役首通可得，指挥中心21级起每日补给另加1点。"%s.commander.skillPoints
 	if id=="budget": return "选择 VI 或 VII 阶战车可查看核心成本计划"
 	if id == "produce":
 		var q = _factory_quote()
@@ -5658,7 +5749,7 @@ func _step_action():
 	battle_speed = speed
 
 func _same_turn(a,b):
-	if report.get("ruleset","") in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26"] and a.has("exchange") and b.has("exchange"):
+	if report.get("ruleset","") in ["classic-combat-v0.14","classic-combat-v0.20","classic-combat-v0.22","classic-combat-v0.24.3","classic-combat-v0.26","classic-combat-v0.31","classic-combat-v0.37"] and a.has("exchange") and b.has("exchange"):
 		return a.round==b.round and a.exchange==b.exchange and a.side==b.side and a.from==b.from
 	return _same_battle_action(a,b)
 
@@ -5701,11 +5792,12 @@ func _compare_details(id):
 	var lines: Array[String] = [catalog.units[id].name + " · " + _pattern_name(catalog.units[id].classId), "已包含科技和指挥官技能，实战还受数量、克制和光环影响。", ""]
 	var st=info.unitStats[id]
 	var base=catalog.units[id]
-	lines.append("基础：攻击 %d / 生命 %d / 单机运输载重 %d"%[base.attack,base.hp,st.baseLoad])
+	lines.append("基础：攻击 %d / 生命 %d / 防御 %d / 单机运输载重 %d"%[base.attack,base.hp,base.defense,st.baseLoad])
 	lines.append("当前加成：火控/弹道攻击 +%d%%，战术指挥攻击 +%d%%；装甲科技生命 +%d%%；声望另加攻击/生命各 +%.1f%%；运输科技 ×%.2f"%[s.tech.attack*5+s.tech.ballistics*2,s.commander.attackSkill*2,s.tech.hp*5+s.tech.armorPlating*3,info.prestige.bonusBps/100.0,st.load/float(st.baseLoad)])
+	lines.append("命中值 %.1f%% / 闪避 +%.1f%% / 暴击 %.1f%% / 暴击额外 +%.1f%%\n装甲抗暴 %.1f%% / 车辆防御 %d（基础%d，反应装甲+%d%%） / 比例减伤 %.2f%%"%[95+st.accuracy/100.0,st.evasion/100.0,10+st.crit/100.0,(st.critMultiplierBps-10000)/100.0,st.armor/100.0,st.defense,st.baseDefense,s.tech.armorPlating*2,_damage_reduction(st)])
 	lines.append("历史属性只在对应战报快照内查看；本页为当前有效属性。")
 	lines.append("前排适配：%s；后排适配：保护主炮输出，仍受纵列 / 全体攻击"%["高生命承伤" if base.classId=="tank" else "注意较低生命与敌方克制"])
-	lines.append("单车攻击 %d / 生命 %d / 载重 %d\n先手 %d / 二次开火 %d"%[st.attack,st.hp,st.load,st.initiative,st.extraFire])
+	lines.append("单车攻击 %d / 生命 %d / 载重 %d\n指挥官先手 %d / 二次开火 %d"%[st.attack,st.hp,st.load,info.commanderStats.initiative,info.commanderStats.extraFire])
 	for item in info.inventory:
 		if item.id==id:
 			var assigned=0
@@ -5749,6 +5841,7 @@ func _begin_world_deployment(mission):
 	deployment_backup={"draft":draft.duplicate(true),"dirty":dirty}
 	deployment={"command":{"type":"march","targetId":target.id,"mission":mission,"training":false},"title":target.name+" [%d,%d]"%[target.x,target.y],"enemy":intel.guards.duplicate(true) if intel!=null else [null,null,null,null,null,null],"unknown":intel==null,"stale":intel!=null and s.now-intel.at>=info.worldInterval}
 	deployment.guardTech=int(target.level/2) if intel!=null and target.get("economyVersion",0)>=2 else 0
+	deployment.attributes=_world_enemy_attributes(target.id)
 	draft=info.usable.duplicate(true)
 	dirty=true
 	deployment_retry={}
@@ -6044,13 +6137,14 @@ func _draw_intel():
 		var matched=stats.filter(func(st):return st.slot==i+1)
 		if not matched.is_empty():
 			var st=matched[0]
-			_fit_text("实际攻击 %s · 单车生命 %s"%[_amount(int(st.attack*st.attackBonus/10000)),_amount(st.hp)],p+Vector2(155,95),320,17,TEXT)
-			_fit_text("先手 %d · 二次开火 %d"%[st.initiative,st.extraFire],p+Vector2(155,124),320,17,TEXT)
+			_fit_text("攻 %s · 生命 %s · 防御 %s"%[_amount(int(st.attack*st.attackBonus/10000)),_amount(st.hp),_amount(_flat_defense(st))],p+Vector2(155,95),320,17,TEXT)
+			_fit_text("攻击 +%.1f%% · 生命 +%.1f%%"%[(st.get("attackBonus",10000)-10000)/100.0,(float(st.hp)/u.hp-1)*100],p+Vector2(155,124),320,16,GOLD)
 		_fit_text(_pattern_name(u.classId),p+Vector2(17,166),461,17,GOLD)
 		_fit_text(_counter_label(u.classId),p+Vector2(17,193),461,16,MUTED)
 	_fit_text("地区守军科技 %d 级 · 克制、光环与实际出战数量共同影响战果"%int(site.level/2) if intel!=null and site.get("economyVersion",0)>=2 else "侦察档案只展示已获得的情报；敌军可能在之后恢复或发生变化。",Vector2(45,757),1505,17,MUTED)
-	_button("intelText","完整属性档案",Rect2(40,786,270,42))
-	_button("nav:army","调整下一队编队",Rect2(330,786,350,42),"army")
+	_button("intelText","完整属性档案",Rect2(40,786,240,42))
+	_button("enemyAttributes","敌军加成属性",Rect2(290,786,240,42),_world_enemy_attributes(site.id))
+	_button("nav:army","调整下一队编队",Rect2(540,786,300,42),"army")
 	_button("gather" if site.kind=="mine" else "raid","检查编队并出征",Rect2(1130,786,430,42),null,true,s.marches.size()<info.vip.marches and q.load>0 and not _command_pending())
 
 func _scout_details():
@@ -6064,7 +6158,8 @@ func _scout_details():
 		var st=intel.guards[i]
 		lines.append("阵位 %d：%s"%[i+1,"空阵位" if st==null else catalog.units[st.unitId].name+" ×%d"%st.count])
 		for actual in info.knownGuardStats.get(selected_site,[]):
-			if actual.slot==i+1: lines.append("攻击 %s · 单车生命 %s · 先手 %d · 二次开火 %d"%[QuantityFormat.exact(int(actual.attack*actual.attackBonus/10000)),QuantityFormat.exact(actual.hp),actual.initiative,actual.extraFire])
+			if actual.slot==i+1: lines.append("攻击 %s · 单车生命 %s"%[QuantityFormat.exact(int(actual.attack*actual.attackBonus/10000)),QuantityFormat.exact(actual.hp)])
+	lines.append(_enemy_attribute_text(_world_enemy_attributes(selected_site)))
 	if _site().kind=="npc":
 		lines.append("仓储保护：只可掠夺保护额度以上的库存，并受本队实际载重限制；库存为侦察时快照。")
 		for r in RES:
@@ -6081,7 +6176,7 @@ func _formation_power(f, player_side):
 	return int(total)
 
 func _power_details():
-	_details("战力计算与统计口径","当前出战编队：%d\n当前库存最大可编战力：%d\n当前成长条件六格满编上限：%d\n\n上限 = 当前已解锁或曾获得车型的最高单车战力 × 单格统率上限 × 6。不要求现在拥有足够车辆或核心，不预支尚未研究的科技。库存方案只用当前待命车辆，维修和出征车辆不可重复使用。\n\n同阶四车系白板单车使用相同基准分；伤害覆盖 × 命中 × 暴击 × 有效生命构成能力，按该车系自身白板归一化，再乘先手与连击增幅。装甲按当前战斗规则代表抗暴；装甲加固科技提供的生命也计入。攻击、生命、弹道、机动科技，以及指挥官攻击 / 先手 / 连击技能都影响战力。\n\n战力为战略比较指标，不是伤害或胜率。克制、目标数量、前后排与条件光环不强行折算成必胜分。历史战斗属性仍以该场快照为准。"%[_formation_power(draft,true),info.power.readyMax,info.power.ceiling])
+	_details("战力计算与统计口径","当前出战编队：%d\n当前库存最大可编战力：%d\n当前成长条件六格满编上限：%d\n\n上限 = 当前已解锁或曾获得车型的最高单车战力 × 单格统率上限 × 6。不要求现在拥有足够车辆或核心，不预支尚未研究的科技。库存方案只用当前待命车辆，维修和出征车辆不可重复使用。\n\n同阶四车系白板单车使用相同基准分；伤害覆盖 × 命中 × 暴击 × 有效生命构成能力，按该车系自身白板归一化，再乘先手与连击增幅。装甲代表抗暴；生命装甲、命中、闪避、暴击率、暴击额外伤害、车辆防御、比例减伤均计入。攻击、生命、弹道、机动科技，以及指挥官攻击 / 先手 / 连击技能都影响战力。\n\n战力为战略比较指标，不是伤害或胜率。克制、目标数量、前后排与条件光环不强行折算成必胜分。历史战斗属性仍以该场快照为准。"%[_formation_power(draft,true),info.power.readyMax,info.power.ceiling])
 
 func _counter_details():
 	var lines: Array[String]=["伤害倍率：每次命中按攻击者 → 目标车系计算，与兵阶无关。"]
@@ -6097,7 +6192,7 @@ func _draw_command_training():
 	var q=info.leadershipQuote
 	_panel(Rect2(40,203,745,539),Color("15231e"),GOLD.darkened(0.5))
 	_text("统率 Lv.%d · 持续培养"%s.commander.leadership,Vector2(66,249),31,TEXT,true)
-	_text("单格 %d 辆 · 六格 %d 辆"%[info.leadership,info.leadership*6],Vector2(66,285),21,GOLD)
+	_fit_text("单格 %d → %d（+%d）· 当前六格 %d 辆"%[info.leadership,q.nextCapacity,q.capacityGain,info.leadership*6],Vector2(66,285),690,20,GOLD)
 	_text("声望 Lv.%d · 统率不得超过声望等级"%info.prestigeLevel,Vector2(66,323),20,TEXT)
 	_text("下一等级 %d · 每次成功率 %.2f%%"%[q.target,q.chance/100.0],Vector2(66,367),25,GOLD,true)
 	_text("平均约 %.1f 次 / %.0f 金币（非保底次数）"%[q.expectedAttempts,q.expectedAttempts*19],Vector2(66,406),18,MUTED)
@@ -6128,10 +6223,10 @@ func _draw_command_training():
 		var level=s.commander.get(keys[i],0)
 		var y=301+i*94
 		_panel(Rect2(828,y,714,86),Color("20302a"),LINE)
-		_fit_text(names[i]+" · %d / 120"%level,Vector2(840,y+24),467,19,TEXT,true)
-		_fit_text("当前 +%d%s → 下级 +%d%s"%[level*values[i],units[i],mini(120,level+1)*values[i],units[i]],Vector2(840,y+51),467,16,GOLD)
-		_bar(Rect2(840,y+64,427,5),level/120.0,GREEN)
-		_button(ids[i],"已满级" if level>=120 else "提升 · 1点",Rect2(1320,y+22,204,42),null,true,level<120 and s.commander.skillPoints>0 and not _command_pending())
+		_fit_text(names[i]+" · Lv.%d"%level,Vector2(840,y+24),467,19,TEXT,true)
+		_fit_text("当前 +%d%s → 下级 +%d%s"%[level*values[i],units[i],(level+1)*values[i],units[i]],Vector2(840,y+51),467,16,GOLD)
+		_text("持续成长 · 每次消耗1技能点",Vector2(840,y+75),13,MUTED)
+		_button(ids[i],"提升 · 1点",Rect2(1320,y+22,204,42),null,true,s.commander.skillPoints>0 and not _command_pending())
 	_text("统率书军需 · 19 金币 / 本",Vector2(837,601),23,GOLD)
 	_button("buyBooks","购买 %d 本 · %d 金币"%[leadership_attempts,leadership_attempts*19],Rect2(836,636,695,53),null,true,s.wallet.gold>=leadership_attempts*19 and not _command_pending())
 	_text("购书数量随左侧尝试数量切换。",Vector2(837,722),17,MUTED)
@@ -6197,16 +6292,16 @@ func _draw_attributes():
 	var p=Vector2(40,309)
 	_panel(Rect2(p,Vector2(1080,438)),Color("13211d"),LINE)
 	for i in range(5): _text(["属性","白板","当前值","战力增量","加成来源 / 等级"][i],p+Vector2([18,213,349,503,682][i],31),18,GOLD,true)
-	for i in range(8):
+	for i in range(sheet.rows.size()):
 		var r=sheet.rows[i]
-		var y=70+i*43
-		if i%2==0: draw_rect(Rect2(p+Vector2(2,y-25),Vector2(1076,43)),Color("1a2823"))
+		var y=64+i*33
+		if i%2==0: draw_rect(Rect2(p+Vector2(2,y-25),Vector2(1076,33)),Color("1a2823"))
 		_text(r.name,p+Vector2(18,y),17,TEXT)
 		var show_values=attribute_scope!="formation"
 		_text(("%.1f%s"%[r.base,"%" if r.percent else ""]) if show_values else "逐车型",p+Vector2(213,y),16,MUTED)
 		_text(("%.1f%s"%[r.value,"%" if r.percent else ""]) if show_values else "加总",p+Vector2(349,y),16,TEXT)
 		_text("%+d"%r.delta,p+Vector2(503,y),18,GOLD,true)
-		_text(r.source,p+Vector2(682,y),13,MUTED)
+		_fit_text(r.source,p+Vector2(682,y),382,13,MUTED)
 	var load_unit=info.attributes.bestUnit if attribute_scope=="ceiling" else _unit_id()
 	var cargo=info.unitStats[load_unit].load
 	if attribute_scope=="ceiling": cargo*=int(info.leadership)*6
@@ -6350,10 +6445,10 @@ func _experience25_qa(out):
 	await _qa_capture(out,"report-dialog")
 	if not details_text.text.contains("经验"): return false
 	details_dialog.hide()
-	_action("battleNext")
-	if screen!="deployment" or deployment.command.stage!=1: return false
-	_action("deploymentCancel")
 	if JSON.stringify(s.reports)!=saved_reports or JSON.stringify(s.wallet)!=saved_wallet: return false
+	_action("battleNext")
+	await _settled()
+	if screen!="battle" or report.target.stage!=1: return false
 	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
 		get_window().size=window_size
 		for scale_value in [1.0,1.2]:
@@ -6944,7 +7039,7 @@ func _v18_qa(out):
 	_navigate("world")
 	_begin_world_deployment("gather")
 	deployment_enemy=true
-	if deployment.guardTech!=60 or _formation_tactics(deployment.enemy,false).initiative!=info.knownGuardStats[selected_site][0].initiative: return false
+	if deployment.guardTech!=60 or _formation_tactics(deployment.enemy,false).initiative!=info.knownGuardCommanders[selected_site].initiative: return false
 	await _qa_capture(out,"v18-guard-deployment")
 	deployment_enemy=false
 	_action("departurePlan")
@@ -7554,8 +7649,8 @@ func _district_action(id, data):
 			production_mode="refit" if district_building=="refit" else "produce"
 		_navigate(str(data))
 	elif id=="warehouseProtection": _protection_details()
-	elif id=="chapterPage": campaign_chapter_page=int(data)
-	elif id=="coreChapterPage": core_chapter_page=int(data)
+	elif id in ["chapterPage","chapterPagePrev"]: campaign_chapter_page=int(data)
+	elif id in ["coreChapterPage","coreChapterPagePrev"]: core_chapter_page=int(data)
 	elif id=="baseBuildPrev": base_build_page=maxi(0,base_build_page-1)
 	elif id=="baseBuildNext": base_build_page+=1
 	elif id.begins_with("constructUpgrade:"):
@@ -7690,7 +7785,7 @@ func _draw_dispatch_arrange(station):
 				var block=q.block if q.block!="" else "科研等待队列已满" if info.queues.research.full else _missing_resources(q.unitCost)
 				_panel(rect)
 				_fit_text(catalog.techNames[row.id]+" · Lv.%d / 120"%s.tech[row.id],rect.position+Vector2(15,25),710,20,TEXT,true)
-				_fit_text("收益 %.1f%% → %.1f%% · %s"%[q.effectCurrent,q.effectNext,_eta(q.duration)],rect.position+Vector2(15,52),710,16,GOLD)
+				_fit_text(_research_gain_text(row.id,q)+" · "+_eta(q.duration),rect.position+Vector2(15,52),710,16,GOLD)
 				if booked!=null:
 					var status="等待 %s · 预计完成 %s"%[_time(booked.waitMs),_time(booked.remainingMs)] if booked.waiting else "研究中 · 剩余 "+_time(booked.remainingMs)
 					_fit_text(status+" · 材料已支付",rect.position+Vector2(15,77),710,16,GOLD if booked.waiting else GREEN)
@@ -9133,16 +9228,159 @@ func _research35_qa(out):
 	FileAccess.open(out.path_join("research35-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"main_chapters":36,"core_chapters":20,"direct_research":true,"inline_acceleration":true,"fifo_promotion":true,"tree_acceleration":true,"page_retained":true,"save_reload":true,"replay_no_credit":true,"captures":captures,"save_root":save_root},"  "))
 	return true
 
+func _combat37_check(ok,label):
+	if not ok: print("V37_FAIL: ",label," screen=",screen," fatal=",fatal," toast=",toast)
+	return ok
+
+func _combat37_qa(out):
+	if not _combat37_check("smoke" in save_root,"isolated profile"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_navigate("commandTraining")
+	for id in ["skill","initiativeSkill","extraFireSkill"]:
+		await _dispatch_qa_click(id)
+		await _settled()
+	if not _combat37_check(screen=="commandTraining" and s.commander.skillPoints==0 and s.commander.attackSkill==121 and s.commander.initiativeSkill==121 and s.commander.extraFireSkill==121 and info.leadership==2723,"three skills above 120 and new capacity"): return false
+	_navigate("base")
+	await _dispatch_qa_click("dispatchOpen:research")
+	await _qa_capture(out,"base-expanded")
+	if not _combat37_check(await _research36_seek("defense"),"scroll to new research"): return false
+	var row=research_list.rows.defense
+	var cost=info.researchQuotes.defense.unitCost.duplicate(true)
+	var wallet=s.wallet.duplicate(true)
+	await _operations34_mouse(row.upgrade.get_global_rect().get_center())
+	await _settled()
+	for key in cost:
+		if not _combat37_check(s.wallet[key]==wallet[key]-cost[key],"research charge "+key): return false
+	var job=info.researchQuotes.defense.booked
+	var gold=s.wallet.gold
+	await _qa_capture(out,"defense-working")
+	research_list.scroll_vertical+=maxi(0,int(row.speed.get_global_rect().get_center().y-620))
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	await _operations34_mouse(row.speed.get_global_rect().get_center())
+	await _settled()
+	await _qa_capture(out,"defense-completed")
+	if not _combat37_check(s.tech.defense==31 and s.wallet.gold==gold-job.acceleration and info.unitStats.tank_t7.damageReduction==775 and not confirm_dialog.visible,"research completion feeds real attributes"): return false
+	_navigate("research")
+	research_branch="combat"
+	selected_tech="defense"
+	await _qa_capture(out,"research-combat")
+	if not _combat37_check(buttons.filter(func(b):return b.id.begins_with("techSelect:") and b.rect.size==Vector2(282,105)).size()==10,"ten visible combat nodes"): return false
+	for node in catalog.researchTree:
+		if node.branch=="combat" and not _combat37_check(Rect2(40,268,1054,480).encloses(_tech_rect(node)),"node bounds "+node.id): return false
+	# Actual UI path: challenge -> deployment -> result -> next battle (no deployment).
+	_navigate("campaign")
+	campaign_mode="stage"
+	selected_stage=0
+	await _dispatch_qa_click("attack")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	_action("battleSkip")
+	await _qa_capture(out,"result-next")
+	if not _combat37_check(report.winner==0 and settlement_visible,"first victory"): return false
+	var reports=s.reports.size()
+	_action("battleNext")
+	_action("battleNext")
+	await _settled()
+	if not _combat37_check(screen=="battle" and report.target.stage==1 and s.reports.size()==reports+1 and not _battle_done(),"direct next and duplicate click guard"): return false
+	_action("battleSkip")
+	_report_details()
+	if not _combat37_check("比例减伤" in details_text.text and "暴击额外伤害" in details_text.text,"historical properties present"): return false
+	details_dialog.hide()
+	_navigate("campaign")
+	campaign_mode="dungeon"
+	selected_dungeon=0
+	await _dispatch_qa_click("dungeonAttack")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	_action("battleSkip")
+	if not _combat37_check(report.winner==0 and not _next_battle_target().is_empty(),"core first victory"): return false
+	await _dispatch_qa_click("battleNext")
+	await _settled()
+	if not _combat37_check(screen=="battle" and report.target.dungeonId==catalog.dungeons[1].id and not _battle_done(),"core direct next"): return false
+	_action("battleSkip")
+	var result_id=report.id
+	reports=s.reports.size()
+	command({"type":"formation","slots":[null,null,null,null,null,null]})
+	await _settled()
+	await _dispatch_qa_click("battleNext")
+	await _settled()
+	if not _combat37_check(report.id==result_id and s.reports.size()==reports and screen=="battle" and _battle_done() and not toast.is_empty(),"empty army blocks next without losing result"): return false
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1280,720),Vector2i(1920,1080),Vector2i(2560,1440)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			for page in ["commandTraining","research","attributes"]:
+				_navigate(page)
+				if page=="research":
+					research_branch="combat"
+					selected_tech="defense"
+				if page=="attributes":
+					attribute_scope="unit"
+					selected_class=0
+					tier=7
+				var name="%s-%dx%d-%d"%[page,window_size.x,window_size.y,int(scale_value*100)]
+				await _qa_capture(out,name)
+				captures.append(name)
+	_toggle_fullscreen()
+	await _qa_capture(out,"attributes-fullscreen")
+	_toggle_fullscreen()
+	get_window().size=Vector2i(1280,720)
+	_navigate("library")
+	library_category="all"
+	library_query=""
+	_library_choose("defense")
+	await _qa_capture(out,"library-defense")
+	if not _combat37_check(_library_entries().size()==40 and "目标组总防御" in library_reader.text,"current library formulas"): return false
+	await _dispatch_qa_click("libraryGo")
+	if not _combat37_check(screen=="research" and research_branch=="combat" and selected_tech=="defense","library research destination"): return false
+	# Read an old ruleset through the packaged bridge; replay and skip never pay again.
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("legacy-save.json"))})
+	await _settled()
+	if not _combat37_check(s.tech.defense==0 and s.tech.criticalDamage==0,"old research defaults"): return false
+	wallet=s.wallet.duplicate(true)
+	var original=s.reports[0].duplicate(true)
+	request({"op":"report","id":original.id})
+	await _settled()
+	_action("battleSkip")
+	_action("battleReplay")
+	_action("battleSkip")
+	if not _combat37_check(s.wallet==wallet and s.reports[0]==original and report.ruleset=="classic-combat-v0.31","old replay preserved and idempotent"): return false
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("large-save.json"))})
+	await _settled()
+	_navigate("army")
+	selected_slot=0
+	await _dispatch_qa_click("slotcount")
+	name_input.text="123456"
+	_text_confirmed()
+	text_dialog.hide()
+	await _dispatch_qa_click("formationSave")
+	await _settled()
+	if not _combat37_check(info.leadership==323765 and s.formation[0].count==123456,"large capacity manual deployment"): return false
+	FileAccess.open(out.path_join("combat37-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"save_root":save_root,"skills_above_120":true,"capacity_at_192":2723,"combat_nodes":10,"research_payment_completion":true,"direct_next_main_core":true,"duplicate_click_guard":true,"empty_next_blocked":true,"large_manual_count":123456,"library_formula_destination":true,"old_replay_unchanged":true,"captures":captures,"fullscreen":true},"  "))
+	return true
+
 func _research36_check(ok,label):
 	if not ok: print("V36_FAILED: ",label," toast: ",toast)
 	return ok
 
 func _research36_seek(id):
+	# A bridge response can arrive before native controls clear their pending state.
+	# Wait for the rendered layout before measuring/clicking a compact row.
+	await get_tree().process_frame
+	await RenderingServer.frame_post_draw
 	var button=research_list.rows[id].upgrade
-	for i in range(150):
-		var y=button.get_global_rect().get_center().y
-		if y>=245 and y<725: return true
-		await _operations34_wheel(Vector2(1510,510))
+	for i in range(300):
+		var visible_area=research_list.get_global_rect().grow(-4)
+		if visible_area.encloses(button.get_global_rect()): return true
+		await _operations34_wheel(visible_area.get_center())
+	print("RESEARCH_SEEK_FAILED: ",id," y=",button.get_global_rect().get_center().y," scroll=",research_list.scroll_vertical," visible=",research_list.visible)
 	return false
 
 func _research36_qa(out):
@@ -9271,4 +9509,183 @@ func _research36_qa(out):
 	await _qa_capture(out,"research-collapsed")
 	if not _research36_check(screen=="base" and base_panel=="dispatch" and not research_list.visible,"escape collapses"): return false
 	FileAccess.open(out.path_join("research36-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"native_inline_research":true,"scroll":scroll,"stable_rows":true,"direct_acceleration":true,"fifo":true,"full_queue":true,"gold_shortage":true,"detail_back":true,"keyboard":true,"captures":captures,"save_root":save_root},"  "))
+	return true
+
+func _campaign38_check(ok,label):
+	if not ok: print("V38_FAIL: ",label," screen=",screen," fatal=",fatal," toast=",toast)
+	return ok
+
+func _campaign38_qa(out):
+	if not _campaign38_check("smoke" in save_root,"isolated profile"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	campaign_mode="stage"
+	_navigate("campaign")
+	selected_stage=0
+	campaign_chapter_page=0
+	await _qa_capture(out,"main-first")
+	if not _campaign38_check(not buttons.filter(func(b):return b.id=="chapterPagePrev")[0].enabled,"main first boundary"): return false
+	for i in range(5):
+		if not await _dispatch_qa_click("chapterPage"): return false
+	if not _campaign38_check(campaign_chapter_page==5,"main forward"): return false
+	await _qa_capture(out,"main-last")
+	if not _campaign38_check(not buttons.filter(func(b):return b.id=="chapterPage")[0].enabled,"main last boundary"): return false
+	await _dispatch_qa_click("chapterPagePrev")
+	await _dispatch_qa_click("chapter:24")
+	var selected=selected_stage
+	var toggle=buttons.filter(func(b):return b.id=="campaignMode:dungeon")[0].rect
+	await _dispatch_qa_click("campaignMode:dungeon")
+	core_chapter_page=0
+	await _qa_capture(out,"core-first")
+	if not _campaign38_check(toggle==buttons.filter(func(b):return b.id=="campaignMode:stage")[0].rect,"same toggle position"): return false
+	if not _campaign38_check(not buttons.filter(func(b):return b.id=="coreChapterPagePrev")[0].enabled,"core first boundary"): return false
+	for i in range(3): await _dispatch_qa_click("coreChapterPage")
+	await _qa_capture(out,"core-last")
+	if not _campaign38_check(core_chapter_page==3 and not buttons.filter(func(b):return b.id=="coreChapterPage")[0].enabled,"core last boundary"): return false
+	await _dispatch_qa_click("coreChapterPagePrev")
+	await _dispatch_qa_click("coreChapter:10")
+	var core_selected=selected_dungeon
+	for i in range(3):
+		await _dispatch_qa_click("campaignMode:stage")
+		await _dispatch_qa_click("campaignMode:dungeon")
+	if not _campaign38_check(selected_stage==selected and selected_dungeon==core_selected and campaign_chapter_page==4 and core_chapter_page==2,"toggle preserves both positions"): return false
+	await _dispatch_qa_click("enemyAttributes")
+	if not _campaign38_check(details_dialog.visible and "指挥官" in details_text.text and "暴击额外伤害" in details_text.text and "抗暴装甲" in details_text.text and "在场车系光环" in details_text.text,"complete core modifiers"): return false
+	await _qa_capture(out,"core-attributes")
+	details_dialog.hide()
+	await _dispatch_qa_click("campaignMode:stage")
+	await _dispatch_qa_click("enemyAttributes")
+	if not _campaign38_check("攻击加成 +0.0%" in details_text.text and "先手 100" in details_text.text,"main base enemy stats"): return false
+	await _qa_capture(out,"main-attributes")
+	details_dialog.hide()
+	selected_stage=0
+	await _dispatch_qa_click("training")
+	await _dispatch_qa_click("deploymentEnemy")
+	await _dispatch_qa_click("enemyAttributes")
+	if not _campaign38_check(details_dialog.visible and "先手 100" in details_text.text,"deployment attributes"): return false
+	details_dialog.hide()
+	await _dispatch_qa_click("deploymentCancel")
+	_navigate("world")
+	for site in s.world:
+		if site.level>=60 and site.kind=="mine":
+			selected_site=site.id
+			break
+	await _dispatch_qa_click("scoutDetails")
+	await _dispatch_qa_click("enemyAttributes")
+	if not _campaign38_check("守军属性未知" in details_text.text,"unknown guards hidden"): return false
+	details_dialog.hide()
+	await _dispatch_qa_click("scout")
+	await _settled()
+	await _qa_capture(out,"world-intelligence")
+	await _dispatch_qa_click("enemyAttributes")
+	if not _campaign38_check("已侦察" in details_text.text and "攻击加成" in details_text.text,"known world bonuses"): return false
+	await _qa_capture(out,"world-attributes")
+	details_dialog.hide()
+	var known=_world_enemy_attributes(selected_site)
+	known.stale=true
+	if not _campaign38_check("情报已过期" in _enemy_attribute_text(known),"stale label"): return false
+	await _dispatch_qa_click("gather")
+	await _dispatch_qa_click("deploymentEnemy")
+	await _dispatch_qa_click("enemyAttributes")
+	if not _campaign38_check("已侦察" in details_text.text and deployment.attributes.commander==info.knownGuardCommanders[selected_site],"world deployment same snapshot"): return false
+	details_dialog.hide()
+	await _dispatch_qa_click("deploymentCancel")
+	campaign_mode="dungeon"
+	_navigate("campaign")
+	selected_dungeon=0
+	core_chapter_page=0
+	await _dispatch_qa_click("dungeonTraining")
+	await _dispatch_qa_click("deploymentConfirm")
+	await _settled()
+	battle_paused=true
+	if not _campaign38_check(screen=="battle" and report.initial[1]==catalog.dungeons[0].enemy.army and report.tactics.teams[1]==catalog.dungeons[0].enemy.commander,"actual battle matches preview"): return false
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1920,1080)]:
+		get_window().size=window_size
+		for scale_value in [1.0,1.2]:
+			ui_scale=scale_value
+			screen="battle"
+			var suffix="%dx%d-%d"%[window_size.x,window_size.y,int(scale_value*100)]
+			await _qa_capture(out,"battle-"+suffix)
+			for mode in ["stage","dungeon"]:
+				campaign_mode=mode
+				screen="campaign"
+				if mode=="stage": selected_stage=395;campaign_chapter_page=4
+				else: selected_dungeon=95;core_chapter_page=1
+				await _qa_capture(out,mode+"-"+suffix)
+			captures.append(suffix)
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("legacy-save.json"))})
+	await _settled()
+	var original=s.reports[0].duplicate(true)
+	var prestige=s.commander.prestige
+	request({"op":"report","id":original.id})
+	await _settled()
+	_action("battleSkip")
+	_action("battleReplay")
+	_action("battleSkip")
+	if not _campaign38_check(s.reports[0]==original and s.commander.prestige==prestige,"historical rewards unchanged"): return false
+	FileAccess.open(out.path_join("campaign38-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"two_way_navigation":true,"bounded_pages":true,"fixed_toggle_and_retained_selection":true,"main_core_enemy_attributes":true,"world_scout_privacy":true,"deployment_same_stats":true,"battle_snapshot_matches":true,"historical_rewards_unchanged":true,"captures":captures,"save_root":save_root},"  "))
+	return true
+
+func _defense39_qa(out):
+	if not _campaign38_check("smoke" in save_root,"v39 isolated profile"): return false
+	muted=true
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("ready-save.json"))})
+	await _settled()
+	poll=-10000
+	var st=info.unitStats.tank_t7
+	if not _campaign38_check(st.baseDefense==92 and st.defense==147 and st.damageReduction==750,"vehicle defense and independent reduction"): return false
+	if not _campaign38_check(info.attributes.byUnit.tank_t7.rows.size()==11,"eleven attribute rows"): return false
+	var captures=[]
+	for window_size in [Vector2i(1180,680),Vector2i(1920,1080)]:
+		get_window().size=window_size
+		ui_scale=1.2 if window_size.x==1180 else 1.0
+		selected_class=0
+		tier=7
+		attribute_scope="unit"
+		for page in ["attributes","factory","research"]:
+			_navigate(page)
+			if page=="factory": selected_factory="factory";production_mode="produce"
+			if page=="research": research_branch="combat";selected_tech="armorPlating"
+			var name="%s-%dx%d"%[page,window_size.x,window_size.y]
+			await _qa_capture(out,name)
+			captures.append(name)
+	get_window().size=Vector2i(1280,720)
+	ui_scale=1.0
+	_compare_details("tank_t7")
+	if not _campaign38_check("防御 147" in details_text.text and "比例减伤" in details_text.text and "指挥官先手" in details_text.text,"vehicle details"): return false
+	await _qa_capture(out,"vehicle-defense")
+	details_dialog.hide()
+	_enemy_attributes(catalog.dungeons[0].enemy)
+	if not _campaign38_check("本组总防御" in details_text.text and "比例减伤" in details_text.text,"enemy defense display"): return false
+	await _qa_capture(out,"enemy-defense")
+	details_dialog.hide()
+	_navigate("library")
+	_library_choose("defense")
+	if not _campaign38_check("攻击不超过防御时为0伤害" in library_reader.text and "比例减伤" in library_reader.text,"library damage order"): return false
+	await _qa_capture(out,"library-defense")
+	command({"type":"battle","stage":0,"training":true})
+	await _settled()
+	_action("battleSkip")
+	_report_details()
+	if not _campaign38_check(report.ruleset=="classic-combat-v0.39" and "目标组总防御" in details_text.text and "车辆防御" in details_text.text,"new battle snapshot formula"): return false
+	await _qa_capture(out,"report-defense")
+	details_dialog.hide()
+	if not _campaign38_check(_hit_number_style({"miss":false,"critical":true,"damage":0}).label=="未破防","zero hit feedback"): return false
+	request({"op":"import","text":FileAccess.get_file_as_string(out.path_join("legacy-save.json"))})
+	await _settled()
+	var original=s.reports[0].duplicate(true)
+	request({"op":"report","id":original.id})
+	await _settled()
+	_action("battleSkip")
+	_action("battleReplay")
+	_action("battleSkip")
+	if not _campaign38_check(s.reports[0]==original,"old replay unchanged"): return false
+	FileAccess.open(out.path_join("defense39-ui.json"),FileAccess.WRITE).store_string(JSON.stringify({"pass":true,"base_defense":92,"effective_defense":147,"reduction_rating":750,"eleven_rows":true,"enemy_and_vehicle_details":true,"new_report_formula":true,"zero_hit_feedback":true,"old_replay_unchanged":true,"captures":captures,"save_root":save_root},"  "))
 	return true

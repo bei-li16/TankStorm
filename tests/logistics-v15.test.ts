@@ -186,7 +186,7 @@ describe('v0.15 attribute power ledger', () => {
       const row = unitAttributes(s, u.unitId);
       expect(row.base).toBe(tierPower[u.tier - 1]);
       expect(row.power).toBe(row.base);
-      expect(row.rows.map((v) => v.delta)).toEqual(Array(8).fill(0));
+      expect(row.rows.map((v) => v.delta)).toEqual(Array(11).fill(0));
     }
   });
   it('adds to exact total for every vehicle, mixed formation and leadership ceiling without mutation', () => {

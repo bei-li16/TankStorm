@@ -234,7 +234,8 @@ export function stageGrowth(index: number, first: boolean) {
     xp: (index + 1) * 50,
     books: first ? 1 : 0,
     skillPoints: first ? 1 : 0,
-    prestige: first ? prestige : Math.floor(prestige / 2),
+    // Scale the previous payout after repeat rounding, including the original odd early values.
+    prestige: (first ? prestige : Math.floor(prestige / 2)) * 5,
   };
 }
 export const quests: Quest[] = [

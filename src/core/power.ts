@@ -1,8 +1,21 @@
 import { army, extraFireChance, commanderStats } from './battle';
 import { unitList, units, rules } from './content';
 import type { ArmyStack, Formation, GameState, CombatStats } from './types';
+import { leadershipCapacity } from './commander';
+import { defenseStats } from './combat_research';
 
 const coverage = { tank: 3, tank_destroyer: 1, spg: 2, rocket: 6 };
+// Score relative defensive growth, not invulnerability against a chosen victim.
+// Baseline class durability is normalized into the tier's common whiteboard score.
+// Diminishing log gain remains finite for uncapped enemy research curves.
+export function flatDefenseFactor(st: ArmyStack) {
+  const u = units[st.unitId],
+    base = u.defense;
+  const peers = unitList.filter((p) => p.tier === u.tier);
+  const reference = (4 * peers.reduce((sum, p) => sum + p.attack, 0)) / peers.length;
+  const inherent = st.baseDefense !== undefined ? 1 / (1 - base / reference) : 1;
+  return inherent * (1 + 0.25 * Math.log(Math.max(1, defenseStats(st).flat / base)));
+}
 // Neutral, full target coverage. Matchups and conditional team auras remain tactical,
 // not an inflated prediction of damage against a specific enemy.
 function ability(st: ArmyStack) {
@@ -14,8 +27,11 @@ function ability(st: ArmyStack) {
     ((st.attack * (st.attackBonus ?? 10000)) / 10000) *
     coverage[st.classId] *
     hit *
-    (1 + crit * 0.5);
-  const effectiveHp = st.hp / enemyHit / (1 + enemyCrit * 0.5);
+    (1 + crit * ((st.critMultiplierBps ?? 15000) / 10000 - 1));
+  const effectiveHp =
+    (st.hp / enemyHit / (1 + enemyCrit * 0.5)) *
+    flatDefenseFactor(st) *
+    (1 + defenseStats(st).rating / 10000);
   return damage * effectiveHp;
 }
 export const tierPower = Array.from({ length: 7 }, (_, i) => {
@@ -51,7 +67,7 @@ export function powerUnits(s: GameState) {
   );
 }
 export function arrangedFormation(s: GameState, mode: 'power' | 'tier'): Formation {
-  const cap = 20 + (s.commander.leadership - 1) * 5,
+  const cap = leadershipCapacity(s.commander.leadership),
     power = powerUnits(s);
   const candidates = unitList.flatMap((u) => {
     let left = s.available[u.unitId];
@@ -76,7 +92,7 @@ export function arrangedFormation(s: GameState, mode: 'power' | 'tier'): Formati
 }
 export function powerOverview(s: GameState, ready: Formation) {
   const points = powerUnits(s),
-    cap = 20 + (s.commander.leadership - 1) * 5;
+    cap = leadershipCapacity(s.commander.leadership);
   const level = Math.max(s.buildings.factory, s.industry?.factory2 ?? 0);
   const unlocked = unitList.filter(
     (u) => u.unlock.factoryLevel <= level || s.createdUnits[u.unitId] > 0,
@@ -92,6 +108,6 @@ export function powerOverview(s: GameState, ready: Formation) {
     ceiling: points[best.unitId] * cap * 6,
     bestUnit: best.unitId,
     cap,
-    rules: 'power-normalized-v1',
+    rules: 'power-normalized-v3',
   };
 }

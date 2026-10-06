@@ -507,6 +507,14 @@ export class NativeStore {
             .filter((site) => s.intel[site.id])
             .map((site) => [site.id, guardArmy(site, s.intel[site.id].guards)]),
         ),
+        knownGuardCommanders: Object.fromEntries(
+          s.world
+            .filter((site) => s.intel[site.id])
+            .map((site) => {
+              const level = (site.economyVersion ?? 0) >= 2 ? Math.floor(site.level / 2) : 0;
+              return [site.id, commanderStats({ march: level, ballistics: level })];
+            }),
+        ),
         savedAt: this.lastFlush,
         hasBackup: existsSync(this.path(s.id, '.backup')),
         capacity: capacity(s),
@@ -575,6 +583,14 @@ export class NativeStore {
                 repair: productionQuote(s, u.unitId, 'repair'),
                 attack: Math.floor((st.attack * (st.attackBonus ?? 10000)) / 10000),
                 hp: st.hp,
+                accuracy: st.accuracy,
+                evasion: st.evasion,
+                crit: st.crit,
+                armor: st.armor,
+                critMultiplierBps: st.critMultiplierBps ?? 15000,
+                defense: st.defense ?? 0,
+                baseDefense: st.baseDefense ?? 0,
+                damageReduction: st.damageReduction ?? 0,
 
                 load: unitLoad(s, u.unitId),
                 baseLoad: Math.floor(baseUnitLoad(u.unitId)),
@@ -610,6 +626,10 @@ export class NativeStore {
           coreNames,
           dungeons: dungeons.map((d) => ({
             ...d,
+            enemy: {
+              army: dungeonArmy(d),
+              commander: commanderStats({ march: d.guardTech, ballistics: d.guardTech }),
+            },
             repeatGrowth: dungeonGrowth(d, false),
             power: armyPower(
               dungeonArmy(d),
@@ -622,6 +642,7 @@ export class NativeStore {
             name,
             hint: content.stageHints[i],
             formation: content.stageFormation(i),
+            enemy: { army: army(content.stageFormation(i)), commander: commanderStats() },
             reward: content.stageReward(i, true),
             repeatReward: content.stageReward(i, false),
             growth: content.stageGrowth(i, true),

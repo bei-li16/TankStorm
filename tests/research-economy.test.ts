@@ -55,7 +55,7 @@ describe('v09 economy budgets', () => {
   });
 });
 describe('v09 research tree and migration', () => {
-  it('has 21 unique acyclic nodes; all 420 levels reachable via real research commands', () => {
+  it('has 27 unique acyclic nodes; all 540 levels reachable via real research commands', () => {
     let s = rich();
     const done = new Set<string>();
     function learn(id: Technology, level: number) {
@@ -75,9 +75,9 @@ describe('v09 research tree and migration', () => {
       done.add(id);
     }
     for (const n of researchTree) visit(n.id);
-    expect(done.size).toBe(21);
+    expect(done.size).toBe(27);
     for (const n of researchTree) learn(n.id, 20);
-    expect(s.counters.research).toBe(420);
+    expect(s.counters.research).toBe(540);
     assertState(s);
   }, 15000);
   it('enforces completed prerequisite levels and lab requirements atomically', () => {
@@ -149,7 +149,7 @@ describe('v09 research tree and migration', () => {
     const jobs = structuredClone(s.jobs),
       wallet = structuredClone(s.wallet);
     s = await parseSave(await exportSave(s));
-    expect(s.researchVersion).toBe(1);
+    expect(s.researchVersion).toBe(2);
     expect(s.tech.production).toBe(15);
     expect(s.tech.resourceOutput).toBe(0);
     expect(s.jobs).toEqual(jobs);

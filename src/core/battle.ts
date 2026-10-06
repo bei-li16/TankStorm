@@ -1,5 +1,6 @@
 import { rules, units } from './content';
 import { prestigeBonusBps } from './commander';
+import { combatModifiers, defenseStats } from './combat_research';
 import type {
   ArmyStack,
   BattleAction,
@@ -47,10 +48,9 @@ export function army(
         attack: u.attack,
         hp,
         totalHp: hp * s.count,
-        accuracy: 0,
-        evasion: 0,
-        crit: 0,
-        armor: 0,
+        ...combatModifiers(tech),
+        baseDefense: u.defense,
+        defense: Math.floor((u.defense * (10000 + (tech?.armorPlating ?? 0) * 200)) / 10000),
         attackBonus:
           10000 +
           (tech?.attack ?? 0) * rules.economy.techBonusPerLevelBps +
@@ -65,7 +65,7 @@ function alive(a: ArmyStack[]) {
   return a.filter((s) => s.totalHp > 0);
 }
 // Save schema stays compatible; historical reports retain their recorded rules and events.
-export const BATTLE_RULESET = 'classic-combat-v0.31';
+export const BATTLE_RULESET = 'classic-combat-v0.39';
 // Army composition never participates in these commander-level attributes.
 export function commanderStats(
   tech?: Partial<GameState['tech']>,
@@ -230,19 +230,35 @@ export function simulate(
           : source.classId === 'rocket' && enemyClasses.has('rocket')
             ? 10000 - rules.battle.classProfiles.rocket.aura.value
             : 10000;
+      const protection = defenseStats(target);
+      const fireDivisor = action.extra ? 2n : 1n;
+      // Work in fixed-point attack units. Half-strength follow-up is applied
+      // BEFORE each target group's current living count supplies flat defense.
+      const attackTotal =
+        BigInt(Math.ceil(source.totalHp / source.hp)) * BigInt(source.attack) * BigInt(attackBonus);
+      const defenseTotal =
+        BigInt(Math.ceil(target.totalHp / target.hp)) *
+        BigInt(protection.flat) *
+        10000n *
+        fireDivisor;
+      const penetrating = attackTotal > defenseTotal ? attackTotal - defenseTotal : 0n;
       const product =
-        BigInt(Math.ceil(source.totalHp / source.hp)) *
-        BigInt(source.attack) *
-        BigInt(attackBonus) *
+        penetrating *
         BigInt(aura) *
         BigInt(matchup) *
         BigInt(profile.patternMultiplierBps) *
-        BigInt(critical ? rules.battle.critMultiplierBps : 10000) *
+        BigInt(critical ? (source.critMultiplierBps ?? rules.battle.critMultiplierBps) : 10000) *
         BigInt(reduction);
-      // Half attack before downstream multipliers, with only final integer rounding.
+      // Critical, matchup and aura effects only amplify damage that penetrated.
+      // Percentage reduction remains separate; round down once, with no minimum 1.
       const damage = miss
         ? 0
-        : Math.max(1, Number(product / (10000n ** 6n * (action.extra ? 2n : 1n))));
+        : Math.max(
+            0,
+            Number(
+              (product * 10000n) / (10000n ** 6n * fireDivisor * BigInt(10000 + protection.rating)),
+            ),
+          );
       target.totalHp = Math.max(0, target.totalHp - damage);
       events.push({
         action: action.id,

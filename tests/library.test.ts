@@ -18,7 +18,7 @@ const article = (id: string) =>
 describe('classified player library', () => {
   it('has unique, complete and connected articles with valid native destinations', () => {
     expect(libraryCategories).toHaveLength(7);
-    expect(libraryEntries).toHaveLength(39);
+    expect(libraryEntries).toHaveLength(40);
     const ids = new Set(libraryEntries.map((e) => e.id));
     expect(ids.size).toBe(libraryEntries.length);
     for (const entry of libraryEntries) {
@@ -47,7 +47,7 @@ describe('classified player library', () => {
       expect(entry.sources.length).toBeGreaterThan(0);
       expect(article(entry.id)).not.toMatch(/\$[A-Z_]+|undefined|NaN/);
     }
-    expect(fieldLibrary.ruleset).toBe('classic-combat-v0.31');
+    expect(fieldLibrary.ruleset).toBe('classic-combat-v0.39');
   });
   it('searches Chinese terms and aliases across article text without changing the catalog', () => {
     const before = JSON.stringify(fieldLibrary);
@@ -56,7 +56,7 @@ describe('classified player library', () => {
     expect(searchLibrary('all', 'max')).toEqual(searchLibrary('all', 'MAX'));
     expect(searchLibrary('growth', '声望')[0].id).toBe('commander');
     expect(searchLibrary('growth', '不存在的条目')).toHaveLength(0);
-    expect(searchLibrary('battle', ' \t ')).toHaveLength(8);
+    expect(searchLibrary('battle', ' \t ')).toHaveLength(9);
     expect(JSON.stringify(fieldLibrary)).toBe(before);
   });
   it('matches the commander-independent initiative, tie break and extra-fire examples', () => {
@@ -79,10 +79,10 @@ describe('classified player library', () => {
     ]).toEqual([1000, 1500, 500]);
     expect(article('extra-fire')).toContain('高50点为 15%');
   });
-  it('does not invent available evasion or armor upgrades', () => {
+  it('documents actual evasion and armor upgrades while preserving zero-level baselines', () => {
     const st = army([{ unitId: 'tank_t7', count: 1 }])[0];
     expect([st.accuracy, st.evasion, st.crit, st.armor]).toEqual([0, 0, 0, 0]);
-    expect(article('hit-evasion')).toContain('没有常驻命中或闪避加成来源');
+    expect(article('hit-evasion')).toContain('稳定瞄准');
     expect(article('critical')).toContain('减少敌方暴击率');
     expect(article('hit-evasion')).toContain(String(rules.battle.baseHitBps / 100) + '%');
   });

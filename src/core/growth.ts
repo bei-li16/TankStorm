@@ -4,7 +4,7 @@ export const growthLimits = {
   building: MAX_LEVEL,
   research: MAX_LEVEL,
   commander: MAX_LEVEL,
-  skill: MAX_LEVEL,
+  skill: null,
 };
 export const MAX_PRODUCTION_BATCH = 500;
 // Log interpolation keeps adjacent levels continuous without a special level-20 extension.

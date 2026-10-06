@@ -312,6 +312,7 @@
       "tier": 1,
       "name": "轻型坦克",
       "attack": 20,
+      "defense": 5,
       "hp": 160,
       "load": 10,
       "cost": {
@@ -340,6 +341,7 @@
       "tier": 1,
       "name": "轻型歼击车",
       "attack": 32,
+      "defense": 3,
       "hp": 90,
       "load": 8,
       "cost": {
@@ -368,6 +370,7 @@
       "tier": 1,
       "name": "轻型自行火炮",
       "attack": 18,
+      "defense": 2,
       "hp": 80,
       "load": 8,
       "cost": {
@@ -396,6 +399,7 @@
       "tier": 1,
       "name": "轻型火箭车",
       "attack": 18,
+      "defense": 2,
       "hp": 70,
       "load": 8,
       "cost": {
@@ -424,6 +428,7 @@
       "tier": 2,
       "name": "中型坦克",
       "attack": 40,
+      "defense": 10,
       "hp": 320,
       "load": 15,
       "cost": {
@@ -452,6 +457,7 @@
       "tier": 2,
       "name": "中型歼击车",
       "attack": 64,
+      "defense": 6,
       "hp": 180,
       "load": 12,
       "cost": {
@@ -480,6 +486,7 @@
       "tier": 2,
       "name": "中型自行火炮",
       "attack": 36,
+      "defense": 5,
       "hp": 160,
       "load": 12,
       "cost": {
@@ -508,6 +515,7 @@
       "tier": 2,
       "name": "中型火箭车",
       "attack": 36,
+      "defense": 4,
       "hp": 140,
       "load": 12,
       "cost": {
@@ -536,6 +544,7 @@
       "tier": 3,
       "name": "重型坦克",
       "attack": 80,
+      "defense": 19,
       "hp": 640,
       "load": 20,
       "cost": {
@@ -564,6 +573,7 @@
       "tier": 3,
       "name": "重型歼击车",
       "attack": 128,
+      "defense": 13,
       "hp": 360,
       "load": 16,
       "cost": {
@@ -592,6 +602,7 @@
       "tier": 3,
       "name": "重型自行火炮",
       "attack": 72,
+      "defense": 10,
       "hp": 320,
       "load": 16,
       "cost": {
@@ -620,6 +631,7 @@
       "tier": 3,
       "name": "重型火箭车",
       "attack": 72,
+      "defense": 8,
       "hp": 280,
       "load": 16,
       "cost": {
@@ -648,6 +660,7 @@
       "tier": 4,
       "name": "豹式坦克",
       "attack": 120,
+      "defense": 29,
       "hp": 960,
       "load": 30,
       "cost": {
@@ -681,6 +694,7 @@
       "tier": 4,
       "name": "追猎者歼击车",
       "attack": 192,
+      "defense": 19,
       "hp": 540,
       "load": 26,
       "cost": {
@@ -714,6 +728,7 @@
       "tier": 4,
       "name": "野蜂自行火炮",
       "attack": 108,
+      "defense": 14,
       "hp": 480,
       "load": 26,
       "cost": {
@@ -747,6 +762,7 @@
       "tier": 4,
       "name": "冰雹火箭车",
       "attack": 108,
+      "defense": 12,
       "hp": 420,
       "load": 26,
       "cost": {
@@ -780,6 +796,7 @@
       "tier": 5,
       "name": "天启坦克",
       "attack": 180,
+      "defense": 43,
       "hp": 1440,
       "load": 40,
       "cost": {
@@ -813,6 +830,7 @@
       "tier": 5,
       "name": "猛虎歼击车",
       "attack": 288,
+      "defense": 29,
       "hp": 810,
       "load": 36,
       "cost": {
@@ -846,6 +864,7 @@
       "tier": 5,
       "name": "黑豹自行火炮",
       "attack": 162,
+      "defense": 22,
       "hp": 720,
       "load": 36,
       "cost": {
@@ -879,6 +898,7 @@
       "tier": 5,
       "name": "尖啸火箭车",
       "attack": 162,
+      "defense": 18,
       "hp": 630,
       "load": 36,
       "cost": {
@@ -912,6 +932,7 @@
       "tier": 6,
       "name": "虎王坦克",
       "attack": 268,
+      "defense": 64,
       "hp": 2144,
       "load": 50,
       "cost": {
@@ -945,6 +966,7 @@
       "tier": 6,
       "name": "萤火虫歼击车",
       "attack": 429,
+      "defense": 43,
       "hp": 1206,
       "load": 46,
       "cost": {
@@ -978,6 +1000,7 @@
       "tier": 6,
       "name": "猛犸自行火炮",
       "attack": 241,
+      "defense": 32,
       "hp": 1072,
       "load": 46,
       "cost": {
@@ -1011,6 +1034,7 @@
       "tier": 6,
       "name": "怒狮火箭车",
       "attack": 241,
+      "defense": 27,
       "hp": 938,
       "load": 46,
       "cost": {
@@ -1044,6 +1068,7 @@
       "tier": 7,
       "name": "虎II坦克",
       "attack": 384,
+      "defense": 92,
       "hp": 3072,
       "load": 60,
       "cost": {
@@ -1077,6 +1102,7 @@
       "tier": 7,
       "name": "黑鹰歼击车",
       "attack": 614,
+      "defense": 61,
       "hp": 1728,
       "load": 56,
       "cost": {
@@ -1110,6 +1136,7 @@
       "tier": 7,
       "name": "T90自行火炮",
       "attack": 346,
+      "defense": 46,
       "hp": 1536,
       "load": 56,
       "cost": {
@@ -1143,6 +1170,7 @@
       "tier": 7,
       "name": "飓风火箭车",
       "attack": 346,
+      "defense": 38,
       "hp": 1344,
       "load": 56,
       "cost": {

@@ -30,7 +30,7 @@ const legacyMineCapacity = (site: WorldSite) =>
     ? Math.ceil((worldBaseRate(site) * 32) / 4) * 4
     : 6000 + site.level * site.level * 6000;
 // Match a fixed regional reference, never the currently selected player formation.
-// Six full groups, leadership and cargo research at site level, regional vehicle tier.
+// Six reference groups using the pre-v37 regional troop budget and site-level cargo research.
 const referenceLoads = new Map<number, number>();
 export function referenceMineLoad(level: number) {
   const cached = referenceLoads.get(level);

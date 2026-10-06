@@ -66,6 +66,7 @@ describe('classic class combat restored from official attack-pattern guide', () 
         a.attack = 10000;
         a.accuracy = 10000;
         a.crit = -10000;
+        d.defense = 0; // Isolate the matchup multiplier; subtractive defense has separate tests.
         const event = simulate([a], [d], 1).events[0];
         const aura = source === 'tank' ? 1.05 : 1;
         const reduction =

@@ -14,11 +14,12 @@ const durable = (slots: number[], initiative: number) =>
     ),
   ).map((st) => ({
     ...st,
-    attack: 1,
+    attack: 2,
     hp: 1000000,
     totalHp: 1000000,
     accuracy: 10000,
     crit: -10000,
+    defense: 0,
     initiative,
   }));
 
@@ -60,7 +61,7 @@ describe('50 major rounds and first-moving side loses a stalemate', () => {
       b = durable([1], first === 1 ? 200 : 100);
     a[0].extraFire = 0;
     b[0].extraFire = 1000;
-    b[0].hp = b[0].totalHp = 50;
+    b[0].hp = b[0].totalHp = 100;
     const r = simulate(a, b, 66);
     expect(r.rounds).toBe(50);
     expect(r.winner).toBe(0);
