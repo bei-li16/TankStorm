@@ -1,0 +1,44 @@
+\chapter{存档校验、迁移和异常}
+\section{结构与语义双层校验}
+\code{validateShape}对unknown数据检查类型、整数范围、对象键、列表长度、枚举和必要字段，拒绝\code{__proto__/constructor/prototype}危险键。\code{assertState}再检查已知规则、库存关联、队列、时间、内容ID及可达的业务不变量。TypeScript只在开发期生效，不能替代导入校验。
+
+玩家科研/建筑以120为限，经验显示封顶；统率、声望和技能采用更大数值范围但仍必须安全。原生导入文本上限是256000000个JavaScript字符串长度单位，HTTP请求体上限另为280000000字节，不应混称严格同一个256MiB限制。
+
+\section{兼容矩阵}
+\begin{small}\begin{longtable}{@{}P{35mm}P{54mm}P{55mm}@{}}
+\toprule 对象/版本 & 缺失时含义与迁移 & 必须保留\\\midrule\endhead
+\code{arsenal/industry} & 合法早期档补扩展与高阶库存键 & 原有库存、订单、首通\\
+\code{researchVersion=2} & 旧科技树补新节点0级 & 原等级和已付费用\\
+\code{commandVersion=1} & 旧统率作为prestigeFloor & 不补声望、金币、书\\
+\code{leadershipHistory} & 缺失且有last结果时迁为legacy一条 & 不编造过往随机roll\\
+\code{economyVersion=3} & 资源点按新梯度和剩余比例更新 & 在途目标延期，保留出征能力\\
+\code{reserveVersion=1} & 按旧余量比例扩储 & 不载入即满矿\\
+\code{ArmyStack.defense} & 无新标记时按旧比例减伤评级解释 & 不误当平减基础防御\\
+\code{BattleReport} & 按原事件/规则播放 & 不重新模拟、损失或发奖\\
+\code{expeditionLog} & 旧字段可补派生显示 & 不把“无在途队”猜成已入库\\
+\bottomrule\end{longtable}\end{small}
+
+新防御标记由baseDefense或damageReduction字段是否存在判断：存在则defense为平减、damageReduction为评级；都不在时defense解释为旧评级且平减为0。不能对所有旧报告统一补车型当前防御。
+
+\section{导入导出与原生恢复}
+导出对format、schema、ruleset和state规范化求SHA-256。导入先验checksum，再验状态，补扩展后复验；原生安装为新UUID，不覆盖当前档。复制也创建独立ID，导入/复制失败仅清理本次新文件。
+
+主档读取失败尝试backup；列表可标recoverable。恢复先将备份推进至当前时刻并完整校验，再替换主档。原生atomic使用同目录临时文件、文件同步与rename，减少半写；主档和备份之间不具备数据库级共同提交。
+
+\section{异常分类与界面处理}
+\begin{small}\noindent\begin{tabularx}{\linewidth}{@{}P{29mm}Y@{}}
+\toprule 分类 & 处理语义\\\midrule
+业务拒绝 & 材料不足、队列满、前置不满足；提示并保留当前页面与滚动。\\
+乐观并发/幂等 & 陈旧revision拒绝；同ID异命令冲突；同ID同命令取原结果。\\
+协议/连接 & HTTP失败或非法JSON；原命令可能已提交，需要保留原ID判断。\\
+存储故障 & 磁盘写入/rename失败、档案损坏；尝试备份并保留诊断文件。\\
+规模限制 & 时间跨度、事件次数、对象数量或整数上限；中止当前克隆事务。\\\bottomrule
+\end{tabularx}\end{small}
+
+\section{已知实现边界}
+JSON仍保留早期buildingCurve等描述字段，当前资源、成本、时间实际采用TypeScript重建的曲线，不能仅解析旧JSON字段得出游戏行为。少数历史失败建议仍提到高阶战车提升先手，但当前commanderStats不读取车型；应以函数为准。
+
+回执对象校验有默认键数量上限，统率历史保留全部批次，未见独立历史分卷或周期清理机制。长期极大存档可能增长、触及校验规模或造成克隆成本。无玩法等级上限不等于支持数学意义的无限大数值。
+\src{src/core/validate.ts}{validateShape}
+\src{src/core/engine.ts}{assertState}
+\src{src/core/combat_research.ts}{defenseStats}

@@ -1,0 +1,78 @@
+\chapter{世界远征与两类副本}
+\section{地图与区域强度}
+初始地图为32乘32内部网格，基地(16,16)，生成100个不同坐标地点；其中14个NPC据点，其余为矿点。靠近基地的首两点为安全铁/油资源点。其他资源分别按到基地的距离排序，映射到1、3、6、9、12、16、20、25、30、40、50、60、75、90、105、120级固定梯度，不随玩家等级或当前选择的编队缩放。
+
+世界车阶门槛为1/6/12/18/30/50/80级。守军阵位与数量按地点等级增长；新版守军使用约一半地点等级的攻击、生命、弹道、反应装甲与机动科研。NPC数量系数高于矿点。当前世界等级固定到120，不应把核心守军科研的持续延伸误写成世界任意等级生成。
+
+\section{矿储、采速与运力}
+新版世界基础时产\(W_r\)使用资源基础值和地点等级的\(l^{1.35}\)曲线。采集速率为
+\[
+GatherRate=\left\lfloor8W_r\frac{100+E(T_{gather},5)+E(T_{survey},5)}{100}\right\rfloor.
+\]
+采集速度冻结在出发快照，战损后容量按存活车辆重算，但没有另按人数同比降低采集速率。
+
+每阶基础挂载标尺为80/150/250/375/500/625/800，配合规则表旧载重换算成\code{baseUnitLoad}；实际单车载重再乘\(1+E(T_{cargo},5)/100\)并向下取整。总运力为各车数量乘单车实际载重之和，出发保存\code{unitLoads}，战后仍用该快照。
+
+新版矿储为
+\[
+ReserveMax=4\left\lceil\frac{\max(128W_r,2Load_{regional})}{4}\right\rceil.
+\]
+区域参考运力固定用旧区域带兵预算\(6[20+5(l-1)]\)、该地区车阶最大载重和地区载重科技。它不跟随当前玩家编队，故对无封顶的统率不能保证永远“一矿必装满任意大军”。旧矿按剩余比例扩容，不在载入时白送满储。
+
+\section{出发、交战、采集与返回}
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}[node distance=11mm]
+\node[box,text width=28mm] (out) {outbound\\预约车辆去程};
+\node[box,text width=30mm,right=of out] (fight) {到达判守军\\模拟并写战报};
+\node[box,text width=28mm,right=of fight] (gather) {gathering\\矿储与载重约束};
+\node[box,text width=29mm,below=of fight] (back) {returning\\幸存车辆和货物};
+\node[box,text width=28mm,left=of back] (receipt) {归队入库\\独立收据};
+\draw[flow](out)--(fight);\draw[flow](fight)--node[above=7mm,note]{矿点胜利}(gather);
+\draw[flow](gather.south)|-(back.east);\draw[flow](fight)--node[right,note]{突袭或撤退}(back);
+\draw[flow](back)--(receipt);
+\end{tikzpicture}
+\caption{远征状态机。败战全损直接记失败收据；败战有幸存者则返程。}
+\end{figure}
+
+去程按距离、机动科技和VIP行军速度计算，最低1秒。目标守军以到达时实际状态为准，而非侦察时状态。胜利才获得世界战斗经验\(30l\)、声望\(5l\)；这不是副本乘5后的奖励公式。
+
+矿点战胜守军后，检查是否已有己方采集队或矿储为0；有则返程。否则进入采集，收益由时间、剩余运力、剩余矿储三者限制。VIP免费时长可以提前触发采集完成事件；完成处理会补足此次计划剩余装载量并扣矿，不再等待自然速率跑满。
+
+突袭NPC按铁、油、铅、钛、晶固定顺序取\(\min(C_{free},\max(0,wallet-P))\)，其中\(C_{free}\)为剩余运力、\(P\)为该资源保护额，不是按比例平均掠夺。战斗报告可显示携带物资，但实际入账在返程。
+
+返回时先返还幸存车辆，采集货物按仓容入库并记录stored/discarded；突袭货物按当前规则可超仓。无战斗的安全矿也有独立归队收据。Recall在去程按已走时长折返，采集中按完整返程时间返回，已收货物保留。
+
+\section{世界刷新与情报}
+世界按整小时边界更新。矿点若有任一相关在途队伍则暂停补给，否则每小时补最大储量的四分之一，补满且无守军时可重建守军。NPC补充资源，再消耗自身资源重建守军；保护额不禁止其正常支出。
+
+侦察收费：地点6级及以下3水晶，更高为\(\lceil W_{crystal}/120\rceil\)。情报保存当时守军、余额和储量，超过一个刷新周期（1小时）标过期。UI未知不显示空军，过期只供参考。单机回环状态本来包含完整地点数据，这属于玩法呈现约束，不是多人服务器的保密模型。
+\src{src/core/world.ts}{configureSite；mineCapacity；settleWorld；guardArmy}
+\src{src/core/engine.ts}{march；recall；resolveArrival；recordExpedition}
+
+\section{普通主线：36章576关}
+每章16关，正式模式需通过上一关；演习可以评估未解锁目标但不奖励。前12关保留历史兵力和名称，其后按章节、关内步长、轮换车系生成六格敌军。第七阶为车阶上限，后续通过数量增加难度。当前主线敌军由裸车\code{army(stageFormation)}构建，没有额外守军科研；不能把核心敌军加成照搬给主线。
+
+资源首通按历史线性配方增长，重复为首通资源基准的20\%；金币、书和技能点仅首通。经验基数\((index+1)50\)，主线会应用VIP经验倍率。声望首通基数：前12关为\(10+5index\)，其后为\(50+150chapter+10step\)，最后乘5；重复先将旧基数除2取整再乘5，保持早期奇数的历史语义。
+
+\section{核心副本：20章320关}
+每章16关，四车系轮流作为专属核心来源；每关给该车系VI/VII两类核心，首通固定，重复各自独立在闭区间均匀随机。沿用早期16个核心ID，新增ID显式编码章节与关卡，已有首通不会被改写。
+
+核心需任一制造厂达到关卡门槛并逐关解锁，已通关者不因门槛调整失去重刷资格。前五章定义基准曲线，后续承接前章终点并递增跨度；第10章起守军科研不再钳制120，入场厂级仍最多120。当前关卡数量固定为320，不是运行时无限生成地图。
+
+当前核心奖励为核心物品与成长，\code{BattleReport.rewards}没有额外五资源或金币；skillPoints基准为0。经验\(300+45index\)，首通书为\(1+chapter\)，重复无书、声望减半取整。声望首通为\((150+20index)5\)，核心分支当前不再额外乘主线的VIP经验系数。失败/演习不掉核心、不记首通。
+
+满足精密核心相关胜利时，记录单兵种或低战损荣誉；低战损以损失不超过出战5\%判定，只记一次荣誉，不等于新增一笔资源奖励。
+
+\section{奖励对照与结算时点}
+\begin{small}\begin{longtable}{@{}P{31mm}P{67mm}P{46mm}@{}}
+\toprule 场景 & 奖励内容 & 入账或持久化时点\\\midrule\endhead
+主线首通 & 五资源、金币、经验、声望、书与技能点 & battle成功事务内\\
+主线重复 & 20\%基准资源、完整经验、半额声望 & battle成功事务内\\
+核心首通 & 固定两类核心、经验、声望与书 & dungeon成功事务内\\
+核心重复 & 独立随机两类核心、经验、半额声望，无书 & dungeon成功事务内\\
+世界交战胜利 & 世界经验与声望；突袭报告显示携货 & 战斗发生的到达事件\\
+采集/突袭货物 & 实际stored与discarded收据 & returning到达事件\\
+演习/战败 & 无副本奖励；正式战败仍有损失 & 战报与损失按各模式处理\\
+\bottomrule\end{longtable}\end{small}
+\src{src/core/content.ts}{stageFormation；stageReward；stageGrowth}
+\src{src/core/arsenal.ts}{coreCurves；dungeons；dungeonGrowth；dungeonBlock}

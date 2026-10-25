@@ -1,0 +1,59 @@
+\chapter{接口与命令设计}
+\section{原生RPC外层协议}
+服务绑定\code{127.0.0.1}的随机端口，仅接受带Bearer令牌的\code{POST /rpc}与JSON。成功返回\code{ok/state/info/message}，按请求增加\code{catalog/report/settlement/text/saves/progress}等。失败返回HTTP400与\code{ok:false,error}；方法、路径、令牌或Origin不符合条件返回403。超大请求直接断开连接，不保证返回413或完整JSON错误。
+
+\begin{lstlisting}
+{"op":"command","id":"unique-request-id",
+ "command":{"type":"research","tech":"attack"},
+ "prestigePage":0}
+
+{"ok":true,"state":{...},"info":{...},
+ "message":"..."}
+\end{lstlisting}
+请求ID与游戏存档ID不是同一字段：命令请求的\code{id}是收据键，load请求的\code{id}才是存档ID。\code{handle(r:any)}没有统一的外层静态协议类型，具体分支与领域校验负责拒绝错误参数。
+
+\section{op操作目录}
+\begin{small}\begin{longtable}{@{}P{33mm}P{45mm}P{66mm}@{}}
+\toprule 操作 & 主要输入 & 行为与额外输出\\\midrule\endhead
+\code{boot} & 可选prestigePage & 恢复/创建活动档，返回catalog、elapsed、saves\\
+\code{tick} & 页码 & 推进并返回轻量状态；周期性刷盘\\
+\code{command} & command、幂等id & execute后提交；战斗返回原报告；休整返回progress\\
+\code{report} & 报告id & 按需完整报告与settlement，不重新发奖\\
+\code{list} & 无 & 档案摘要与可恢复标记\\
+\code{save} & 可选formation & 可在事务内保存编队，再刷新磁盘\\
+\code{new/load} & nickname/seed或档案id & 新建或切换；切换先刷新当前档\\
+\code{copy} & nickname、可选formation & 新UUID独立副本，原档保留\\
+\code{restore} & 当前活动档 & 读该档backup、推进至当前时间，再替换主文件\\
+\code{export/import} & 无或text & 导出封装；导入校验后新UUID独立安装\\
+\code{autoFormation} & balanced/power/tier & 构建编队并用formation命令提交\\
+\code{previewRest} & minutes & 生成预测，和正式rest命令分开；主基地直接休整不需调用\\
+\code{coreBudget} & 车型、数量等预算输入 & 生成只读材料/核心/时间预算\\
+\code{rootLogin/Logout/Password} & 口令或新口令 & 控制模拟管理解锁；口令不进入GameState\\
+\bottomrule\end{longtable}\end{small}
+
+\section{领域命令矩阵}
+\begin{small}\begin{longtable}{@{}P{37mm}P{49mm}P{58mm}@{}}
+\toprule 命令 & 关键校验 & 成功状态变化\\\midrule\endhead
+\code{upgrade/facilityUpgrade} & HQ限制、120上限、重复项目、建筑工位、余额 & 预扣整单，建立建筑Job\\
+\code{research} & 节点存在、实验室、动态前置、工位、余额 & 原价科研费预扣，建立科研Job\\
+\code{produce/refit/repair} & 车型、模式、厂级、数量、核心/原车/待修 & 预扣费用与预约物料；逐辆交付\\
+\code{cancel/accelerate} & kind+seq存在；加速仅活动单；金币 & 退未完成快照或交付当前整单剩余\\
+\code{repairAll} & quote令牌、空闲订单位、总材料 & 按同一规则排入维修线，不立即修完\\
+\code{formation} & 六格、单格上限、同车型共享库存 & 保存计划；不扣库存\\
+\code{presetSave/Load} & 名称、5预设上限或索引 & 保存计划，或按可用量加载且保留原预设\\
+\code{presetRename/Replace/Delete} & 索引和名称合法 & 修改指定计划，不出战\\
+\code{battle/dungeon} & 目标、解锁、正式模式前置、可用兵 & 模拟并记录；正式模式结算损失与奖励\\
+\code{scout} & 目标、晶体费 & 保存当时守军/矿储/钱包情报\\
+\code{march/recall} & 任务与地点匹配、远征位、可用兵 & 预约车辆出发，或按当前阶段返程\\
+\code{leadership/buyBooks} & 声望资格、批量档、最大预算或购书范围 & 逐次扣费到成功即停；保存全部roll\\
+\code{skill/initiativeSkill/extraFireSkill} & 至少1技能点 & 对应技能+1，扣1点\\
+\code{daily/vipDaily/claim} & 日期、VIP或任务计数、未领取 & 发奖励并写领取标志\\
+\code{vipRecharge/rename} & 模拟金额上限或昵称 & 更新金币/VIP累计或昵称\\
+\bottomrule\end{longtable}\end{small}
+
+\section{失败与重复提交}
+新命令先比较可选revision，再在克隆状态中推进时间、校验、扣费、处理事件并检查全状态。失败不会提交这份克隆。重复ID+同内容返回原result，重复ID+异内容报冲突；签名使用JSON.stringify，不使用导出存档的canonical函数。
+
+客户端防重复按钮与服务器收据是两层保护。断连重试若另造ID，仍可能成为一笔合法的新命令；部署流程专门保留待重试请求。等待项目加速、缺少材料、预设库存不足与返回同一战报，分别属于规则拒绝、可降额加载和幂等读取，不能统一当网络错误处理。
+\src{native/rules/bridge.ts}{handle；serve}
+\src{src/core/engine.ts}{execute}

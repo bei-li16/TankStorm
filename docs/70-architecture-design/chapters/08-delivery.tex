@@ -1,0 +1,24 @@
+\chapter{构建、测试与交付}
+\section{构建链}
+\code{native/build.mjs}同步应用和EXE版本，按新加坡时区生成构建日期，并支持\code{SOURCE_DATE_EPOCH}。随后打包规则、复制当前Node，执行GDScript检查、资源导入和Windows导出，复制许可与指南，更新启动脚本。
+
+正式打包要求Node 24.x；\code{engines}声明的最低版本更宽，不能替代原生构建要求。Godot固定4.6.2。下载脚本校验编辑器SHA-512和解压CRC，验证强度以脚本为准。
+
+\section{验证分层}
+\begin{small}\noindent\begin{tabularx}{\linewidth}{@{}P{28mm}Y@{}}
+\toprule 层次 & 内容和入口\\\midrule
+静态检查 & \code{npm run check}执行TypeScript和Prettier，不覆盖全部GDScript或视觉缺陷。\\
+领域测试 & Vitest覆盖原子性、库存、分段时间、收益、兼容、回合和伤害。\\
+原生检查 & Godot的\code{--check-only}、资源导入和导出。\\
+隔离UI & MJS生成测试档；\code{-- --smoke --...-only}在独立用户目录运行真实控件。\\
+交付包 & ZIP解压、逐文件校验、运行解压版、核对完整运行依赖。\\
+视觉检查 & 不同窗口、字号检查裁切、返回入口、遮挡和位置稳定性。\\\bottomrule
+\end{tabularx}\end{small}
+
+\section{版本与资产}
+Git保存源码、源素材、导入设置、规则、测试和关键截图，忽略工具链、缓存、发行物、EXE与ZIP。正式附件提供完整便携包及校验文件。旧生成包可清理，构建工具和用户档案另有生命周期。
+
+\section{本次文档的验证边界}
+文档任务重新读取源码并运行领域测试，不重新发布软件。规则和架构图由LaTeX绘制，配套数字表从源码生成。PDF经XeLaTeX编译并检查目录、公式、长表和示意图，最后删除编译与渲染中间文件。
+
+自动验证覆盖规则和曲线，不等于全部896个副本关卡都完成长期人工平衡体验。全状态克隆、视图构造、收据规模和长时间推进仍有性能边界；本地备份也不是多版本灾备服务。

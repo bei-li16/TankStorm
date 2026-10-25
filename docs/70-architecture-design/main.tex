@@ -1,0 +1,22 @@
+\documentclass[UTF8,fontset=none,zihao=-4,oneside,openany]{ctexbook}
+\usepackage{docstyle}
+\hypersetup{pdftitle={坦克风云 v0.40.0 架构设计},pdfauthor={TankStorm 工程文档}}
+\begin{document}
+\doccover{架构设计}{运行边界、模块职责、状态一致性与工程交付}{本册回答系统如何组织、数据由谁维护、界面与规则怎样协作，以及存档、兼容和验证如何构成闭环。具体公式、字段与命令行为见配套《详细设计》。}
+\frontmatter
+\setcounter{tocdepth}{0}
+\hypersetup{bookmarksdepth=2}
+\tableofcontents
+\mainmatter
+\input{chapters/01-scope}
+\input{chapters/02-runtime}
+\input{chapters/03-modules}
+\input{chapters/04-transactions}
+\input{chapters/05-time}
+\input{chapters/06-presentation}
+\input{chapters/07-storage}
+\input{chapters/08-delivery}
+\input{chapters/09-evolution}
+\appendix
+\input{generated/source-map}
+\end{document}

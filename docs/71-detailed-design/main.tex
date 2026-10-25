@@ -1,0 +1,24 @@
+\documentclass[UTF8,fontset=none,zihao=-4,oneside,openany]{ctexbook}
+\usepackage{docstyle}
+\hypersetup{pdftitle={坦克风云 v0.40.0 详细设计},pdfauthor={TankStorm 工程文档}}
+\makeatletter
+\renewcommand*\l@chapter[2]{\addpenalty{-\@highpenalty}\vskip 2pt\@dottedtocline{0}{0em}{4.0em}{\bfseries #1}{\bfseries #2}}
+\makeatother
+\begin{document}
+\doccover{详细设计}{数据契约、状态转换、计算公式与边界验证}{本册按当前工程说明字段、命令、工位、经济、科研、战斗、世界、成长和存档兼容。附表直接取自源码，说明的是现有实现，不承诺历史设想已全部落地。}
+\frontmatter
+\begingroup\linespread{1.0}\selectfont\tableofcontents\endgroup
+\mainmatter
+\input{chapters/01-data-model}
+\input{chapters/02-protocol}
+\input{chapters/03-jobs-time}
+\input{chapters/04-economy-industry}
+\input{chapters/05-research-command}
+\input{chapters/06-battle}
+\input{chapters/07-world-campaign}
+\input{chapters/08-ui-archive}
+\input{chapters/09-validation}
+\input{chapters/10-traces}
+\appendix
+\input{generated/rules-tables}
+\end{document}

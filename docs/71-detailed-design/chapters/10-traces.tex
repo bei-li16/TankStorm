@@ -1,0 +1,37 @@
+\chapter{端到端流程与验证追踪}
+\section{科研原地升级到即时完成}
+主基地打开research右栏，\code{research_list.sync}按科技ID复用行；点击直接研究发command/research。引擎在克隆上推进、验前置、扣五资源原价、入科研线，宿主commit后返回booked。活动行在原按钮槽显示剩余和金币加速；等待行保留费用快照与排队状态。点击加速只作用活动seq，完成后FIFO提升下项，列表不重建也不回顶部。
+
+需要同时验证：双击只提交一单；缺材料不改钱包；满队列保留提示；费用与报价一致；详情返回保留位置；免费短任务同刻完成；等待项不可越位。入口测试由\code{research36.mjs}配合隔离原生\code{--research36-only}执行。
+
+\section{旧预设缺车后直接挑战下一关}
+加载预设先逐格共享库存分配，不变更原preset。确认时formation和battle在同一个事务；规则按真实可用车模拟并结算。结算页下一关重新读取可用库存，直接提交下一目标。若战损后无可用编队，留在原结果页提示补兵；重复点击待响应期间不生成两场战斗。
+
+预设计划不能成为库存预约；在途同车型已从available扣除；同型多格不能各取一次总库存。对应\code{tests/preset-loading.test.ts}与\code{tests/deployment.test.ts}，主要规则在\code{formationAvailability}。
+
+\section{8小时休整跨越采集归队}
+休整把逻辑时间推进8小时，依次经历已有生产交付、到达矿点战斗、采集、返程和归队。攻矿时先写战斗报告；归队再创建独立收据，计算实际stored与discarded。progress汇总同时出现新增战报与returns，资源净变化只反映实际入库。
+
+必须测试无守军安全矿、战败全损、有幸存者失败返程、矿点已占、枯竭、部分仓容和已超仓。不能把m.phase直接置returning、只结束倒计时或通过不存在march推断货物已到账。
+
+\section{防御、暴击与零伤害}
+针对同一真实车型快照验证：先扣当前数量总防御；追加先减半攻击；暴伤只放大穿透量；比例减伤最后参与；一发只在末尾取整；不能破防时0而非1。攻击后目标存活数量变化，后续动作要重算总防御；火箭空位不消费命中/暴击roll。
+
+旧defense评级快照不能突然拥有巨额平减。加载旧报告跳过和重播不更新经验、首通或核心。对应\code{defense-v39.test.ts}、\code{battle-round-limit.test.ts}和原生\code{--defense39-only}。
+
+\Needspace{95mm}
+\section{验证与源码矩阵}
+\begin{small}\begin{longtable}{@{}P{32mm}P{58mm}P{54mm}@{}}
+\toprule 能力 & 主要实现 & 验证材料\\\midrule\endhead
+事务与时间 & engine、storage、bridge & engine.test；时间分段与重复命令\\
+工位与取消 & engine、vip、industry & workstations-v26；operations-v34\\
+材料与科研 & content、research、arsenal & research-economy；materials-v27\\
+基础防御 & battle、combat\_research & defense-v39；classic-combat\\
+统率与技能 & commander、engine & combat-growth-v37；operations-v34\\
+副本与情报 & content、arsenal、bridge & campaign-intel-v38；chapters-research-v35\\
+采集与归队 & world、cargo、engine、archive & expeditions-v31；logistics系列\\
+原地列表 & native脚本和控件 & research36；operations34原生隔离测试\\
+导入兼容 & validate、storage、启用扩展函数 & 存档损坏、旧战报与迁移相关测试\\
+\bottomrule\end{longtable}\end{small}
+
+文档任务重新运行42个测试文件、905项测试，全部通过。附录数字表从同一源码构建临时只读证据模块，不启动玩家存档服务。自动测试通过不替代全关卡长期平衡体验；本次另外检查两册PDF的视觉布局和编译诊断。

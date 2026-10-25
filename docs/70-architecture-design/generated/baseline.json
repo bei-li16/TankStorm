@@ -1,0 +1,2110 @@
+{
+  "documentDate": "2026-10-23",
+  "application": "0.40.0",
+  "commit": "570e6694ba1d13123850502bd0aa5764c2ad1483",
+  "sourceFiles": 40,
+  "testFiles": 42,
+  "tests": 905,
+  "passed": 905,
+  "failed": 0,
+  "units": 28,
+  "research": 27,
+  "mainChapters": 36,
+  "mainStages": 576,
+  "coreChapters": 20,
+  "coreStages": 320,
+  "libraryEntries": 40,
+  "inventory": [
+    {
+      "path": "src/core/archive.ts",
+      "lines": 66,
+      "sha256": "75632b553a1919b7c6cf06a94618edc952d4bcde46e586231a245ea33ccd9f53",
+      "symbols": [
+        {
+          "name": "trimArchive",
+          "line": 10
+        },
+        {
+          "name": "archiveRows",
+          "line": 21
+        }
+      ]
+    },
+    {
+      "path": "src/core/arsenal.ts",
+      "lines": 319,
+      "sha256": "0ba990da95db7c1d8443e6b598f3873f898efe146d7ff93c0ecd89a53bb7ea66",
+      "symbols": [
+        {
+          "name": "dungeonArmy",
+          "line": 153
+        },
+        {
+          "name": "dungeonBlock",
+          "line": 163
+        },
+        {
+          "name": "repairAllQuote",
+          "line": 173
+        },
+        {
+          "name": "enableArsenal",
+          "line": 228
+        },
+        {
+          "name": "productionQuote",
+          "line": 240
+        }
+      ]
+    },
+    {
+      "path": "src/core/attributes.ts",
+      "lines": 133,
+      "sha256": "57418c4b48c155944eaf5927cf1226621466d5badba7b899c8b43fc2aade001d",
+      "symbols": [
+        {
+          "name": "unitAttributes",
+          "line": 10
+        },
+        {
+          "name": "attributeSheet",
+          "line": 108
+        }
+      ]
+    },
+    {
+      "path": "src/core/battle.ts",
+      "lines": 358,
+      "sha256": "25f89b5586d8db6a570894fcc15b3b27c325bb8dd2549f71941a41cb422a23c6",
+      "symbols": [
+        {
+          "name": "rng32",
+          "line": 14
+        },
+        {
+          "name": "army",
+          "line": 23
+        },
+        {
+          "name": "alive",
+          "line": 64
+        },
+        {
+          "name": "commanderStats",
+          "line": 70
+        },
+        {
+          "name": "attackSlots",
+          "line": 80
+        },
+        {
+          "name": "attackTargets",
+          "line": 101
+        },
+        {
+          "name": "casualtySummary",
+          "line": 109
+        },
+        {
+          "name": "combatStats",
+          "line": 127
+        },
+        {
+          "name": "extraFireChance",
+          "line": 135
+        },
+        {
+          "name": "simulate",
+          "line": 138
+        },
+        {
+          "name": "survivors",
+          "line": 352
+        }
+      ]
+    },
+    {
+      "path": "src/core/cargo.ts",
+      "lines": 16,
+      "sha256": "be8a3db0dacaf13c47f3202cb60ec768966cda28d5e5db9a5cd05cbc733d5ef2",
+      "symbols": []
+    },
+    {
+      "path": "src/core/combat_research.ts",
+      "lines": 33,
+      "sha256": "1c2a7dc50e8b9d41be0c17f8032bc5e08afc83a4692a8680dc6a1ea0552c46a7",
+      "symbols": [
+        {
+          "name": "defenseStats",
+          "line": 15
+        },
+        {
+          "name": "combatModifiers",
+          "line": 23
+        }
+      ]
+    },
+    {
+      "path": "src/core/commander.ts",
+      "lines": 111,
+      "sha256": "8b63544e7275c7490b774e1cbfdf2eda7d55f24caf6758e015b88d1d5ae071f4",
+      "symbols": [
+        {
+          "name": "leadershipCapacity",
+          "line": 7
+        },
+        {
+          "name": "enableCommander",
+          "line": 13
+        },
+        {
+          "name": "prestigeRequired",
+          "line": 23
+        },
+        {
+          "name": "prestigeOverview",
+          "line": 47
+        },
+        {
+          "name": "prestigeLevel",
+          "line": 80
+        },
+        {
+          "name": "leadershipChance",
+          "line": 86
+        },
+        {
+          "name": "leadershipQuote",
+          "line": 92
+        }
+      ]
+    },
+    {
+      "path": "src/core/content.ts",
+      "lines": 332,
+      "sha256": "4e0598630d83fac39d36b2394beb4ccdf4c13b748380063e8a451fa94432e653",
+      "symbols": [
+        {
+          "name": "upgradeCost",
+          "line": 65
+        },
+        {
+          "name": "researchCost",
+          "line": 75
+        },
+        {
+          "name": "legacyStageFormation",
+          "line": 116
+        },
+        {
+          "name": "legacyStageReward",
+          "line": 128
+        },
+        {
+          "name": "stageFormation",
+          "line": 205
+        },
+        {
+          "name": "stageReward",
+          "line": 225
+        },
+        {
+          "name": "stageGrowth",
+          "line": 230
+        }
+      ]
+    },
+    {
+      "path": "src/core/dispatch.ts",
+      "lines": 116,
+      "sha256": "6bca893304c133b1b5cdfd00a6b2ffd6d9d17f4cb38bf597cabb37c489224a84",
+      "symbols": [
+        {
+          "name": "expeditionStatus",
+          "line": 8
+        },
+        {
+          "name": "dispatchOverview",
+          "line": 34
+        }
+      ]
+    },
+    {
+      "path": "src/core/engine.ts",
+      "lines": 1533,
+      "sha256": "428a3f0772df6d6b4589a2081da63b4cbfc371850c4cca9ed4b3b7552de23443",
+      "symbols": [
+        {
+          "name": "fail",
+          "line": 126
+        },
+        {
+          "name": "commanderRank",
+          "line": 131
+        },
+        {
+          "name": "commanderLevel",
+          "line": 134
+        },
+        {
+          "name": "leadershipCap",
+          "line": 137
+        },
+        {
+          "name": "capacity",
+          "line": 140
+        },
+        {
+          "name": "protectedAmount",
+          "line": 147
+        },
+        {
+          "name": "rate",
+          "line": 150
+        },
+        {
+          "name": "scaleCost",
+          "line": 161
+        },
+        {
+          "name": "afford",
+          "line": 164
+        },
+        {
+          "name": "pay",
+          "line": 167
+        },
+        {
+          "name": "credit",
+          "line": 177
+        },
+        {
+          "name": "count",
+          "line": 180
+        },
+        {
+          "name": "notice",
+          "line": 183
+        },
+        {
+          "name": "nextSeed",
+          "line": 187
+        },
+        {
+          "name": "generateWorld",
+          "line": 191
+        },
+        {
+          "name": "newGame",
+          "line": 239
+        },
+        {
+          "name": "validateFormation",
+          "line": 304
+        },
+        {
+          "name": "formationAvailability",
+          "line": 319
+        },
+        {
+          "name": "usableFormation",
+          "line": 355
+        },
+        {
+          "name": "maxFormation",
+          "line": 358
+        },
+        {
+          "name": "reserve",
+          "line": 371
+        },
+        {
+          "name": "returnArmy",
+          "line": 375
+        },
+        {
+          "name": "applyLoss",
+          "line": 378
+        },
+        {
+          "name": "battleFormation",
+          "line": 386
+        },
+        {
+          "name": "report",
+          "line": 395
+        },
+        {
+          "name": "upgradeBlock",
+          "line": 403
+        },
+        {
+          "name": "facilityUpgradeQuote",
+          "line": 412
+        },
+        {
+          "name": "startJob",
+          "line": 447
+        },
+        {
+          "name": "removeJob",
+          "line": 487
+        },
+        {
+          "name": "commandJob",
+          "line": 503
+        },
+        {
+          "name": "finishJob",
+          "line": 508
+        },
+        {
+          "name": "grow",
+          "line": 543
+        },
+        {
+          "name": "sendHome",
+          "line": 574
+        },
+        {
+          "name": "resolveArrival",
+          "line": 580
+        },
+        {
+          "name": "recordExpedition",
+          "line": 682
+        },
+        {
+          "name": "advanceInPlace",
+          "line": 711
+        },
+        {
+          "name": "advance",
+          "line": 761
+        },
+        {
+          "name": "execute",
+          "line": 771
+        },
+        {
+          "name": "assertState",
+          "line": 1239
+        }
+      ]
+    },
+    {
+      "path": "src/core/format.ts",
+      "lines": 19,
+      "sha256": "c77a10be86c8785cd87649d8991c92daad9ba687266fd49dbd5fd1deef1196d2",
+      "symbols": [
+        {
+          "name": "compactAmount",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "path": "src/core/growth.ts",
+      "lines": 60,
+      "sha256": "857a734611b0ab5a40a862646553701f7da5e3ea0d6ef859fa26ba090f1ff644",
+      "symbols": [
+        {
+          "name": "milestoneCurve",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "path": "src/core/industry.ts",
+      "lines": 35,
+      "sha256": "32b48b1daa8109cfd89995f2d9c1e236d89ca7756a78cb6cd5887de33956e747",
+      "symbols": [
+        {
+          "name": "enableIndustry",
+          "line": 14
+        },
+        {
+          "name": "facilityLevel",
+          "line": 19
+        },
+        {
+          "name": "facilityBlock",
+          "line": 22
+        },
+        {
+          "name": "jobFacility",
+          "line": 27
+        },
+        {
+          "name": "productionKey",
+          "line": 30
+        }
+      ]
+    },
+    {
+      "path": "src/core/library.ts",
+      "lines": 1472,
+      "sha256": "974ccf22c0622feda71d5964a9ec8f8cfce3aa2485a51d73bd0f523d81017c65",
+      "symbols": [
+        {
+          "name": "searchLibrary",
+          "line": 1454
+        }
+      ]
+    },
+    {
+      "path": "src/core/overview.ts",
+      "lines": 279,
+      "sha256": "9bc981242ca1d671992053dec265e56d24e56f5d8cca3cb80c366eccb9dfbe4e",
+      "symbols": [
+        {
+          "name": "inventoryView",
+          "line": 7
+        },
+        {
+          "name": "battleSummary",
+          "line": 77
+        },
+        {
+          "name": "battleFeedback",
+          "line": 126
+        },
+        {
+          "name": "transportStatus",
+          "line": 197
+        },
+        {
+          "name": "progressSummary",
+          "line": 228
+        }
+      ]
+    },
+    {
+      "path": "src/core/planning.ts",
+      "lines": 213,
+      "sha256": "4962b7536879694d529bf6dd8fc8b64dc2de9cebb477d29ba8da7bad34e0595f",
+      "symbols": [
+        {
+          "name": "restPreview",
+          "line": 9
+        },
+        {
+          "name": "coreBudget",
+          "line": 29
+        },
+        {
+          "name": "progression",
+          "line": 100
+        }
+      ]
+    },
+    {
+      "path": "src/core/power.ts",
+      "lines": 114,
+      "sha256": "e66507f3ecf6c29e12a378a2f382f3e4571f06035d21183349395f43828a2da7",
+      "symbols": [
+        {
+          "name": "flatDefenseFactor",
+          "line": 11
+        },
+        {
+          "name": "ability",
+          "line": 21
+        },
+        {
+          "name": "unitPower",
+          "line": 43
+        },
+        {
+          "name": "armyPower",
+          "line": 55
+        },
+        {
+          "name": "powerUnits",
+          "line": 58
+        },
+        {
+          "name": "arrangedFormation",
+          "line": 69
+        },
+        {
+          "name": "powerOverview",
+          "line": 93
+        }
+      ]
+    },
+    {
+      "path": "src/core/protection.ts",
+      "lines": 17,
+      "sha256": "be29e8977fd55ba00582f7f560c0b228d2d7de5b312393b852bd76080c8da249",
+      "symbols": [
+        {
+          "name": "protectionBps",
+          "line": 5
+        },
+        {
+          "name": "protectionLedger",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "path": "src/core/research.ts",
+      "lines": 165,
+      "sha256": "025661923cbb15375ea30a493aaa495f1bd5c9dbbe6a7914162c01143fb30a70",
+      "symbols": [
+        {
+          "name": "enableResearch",
+          "line": 115
+        },
+        {
+          "name": "researchRequirements",
+          "line": 120
+        },
+        {
+          "name": "materialCost",
+          "line": 144
+        },
+        {
+          "name": "researchEffect",
+          "line": 155
+        }
+      ]
+    },
+    {
+      "path": "src/core/rest.ts",
+      "lines": 7,
+      "sha256": "b9697ce0ffb6268c267129fda8bcd0e1238fa7260d04ac8d83cd8f09d3f9ad24",
+      "symbols": [
+        {
+          "name": "validateRestMinutes",
+          "line": 3
+        }
+      ]
+    },
+    {
+      "path": "src/core/storage.ts",
+      "lines": 197,
+      "sha256": "d94263781835574678eab2380869ceae61043736d9bc04973a74b212fb6df055",
+      "symbols": [
+        {
+          "name": "database",
+          "line": 9
+        },
+        {
+          "name": "listSaves",
+          "line": 20
+        },
+        {
+          "name": "loadSave",
+          "line": 35
+        },
+        {
+          "name": "createSave",
+          "line": 55
+        },
+        {
+          "name": "updateSave",
+          "line": 73
+        },
+        {
+          "name": "restoreBackup",
+          "line": 114
+        },
+        {
+          "name": "canonical",
+          "line": 142
+        },
+        {
+          "name": "digest",
+          "line": 154
+        },
+        {
+          "name": "exportSave",
+          "line": 158
+        },
+        {
+          "name": "parseSave",
+          "line": 163
+        }
+      ]
+    },
+    {
+      "path": "src/core/types.ts",
+      "lines": 319,
+      "sha256": "aa493b9cfbff171392b7f5fd8825972a0375b1ae6e4b0858699fefc857a37589",
+      "symbols": []
+    },
+    {
+      "path": "src/core/validate.ts",
+      "lines": 474,
+      "sha256": "0fce869c3da3a3c653f833cdba66ed77f213b7e4a3be6281cd89791e37262672",
+      "symbols": [
+        {
+          "name": "validateShape",
+          "line": 348
+        }
+      ]
+    },
+    {
+      "path": "src/core/vip.ts",
+      "lines": 200,
+      "sha256": "325219380a0ceb4d3bd2df4f67d60028c47a04b86b4ab7d1e6af2805d2a74c24",
+      "symbols": [
+        {
+          "name": "vipBenefits",
+          "line": 30
+        },
+        {
+          "name": "allJobs",
+          "line": 33
+        },
+        {
+          "name": "queueStatus",
+          "line": 36
+        },
+        {
+          "name": "queueWait",
+          "line": 75
+        },
+        {
+          "name": "accelerationCost",
+          "line": 82
+        },
+        {
+          "name": "queueView",
+          "line": 85
+        },
+        {
+          "name": "buildingDuration",
+          "line": 119
+        },
+        {
+          "name": "researchDuration",
+          "line": 125
+        },
+        {
+          "name": "travelDuration",
+          "line": 152
+        },
+        {
+          "name": "marchQuote",
+          "line": 181
+        }
+      ]
+    },
+    {
+      "path": "src/core/world.ts",
+      "lines": 225,
+      "sha256": "e472711e0eebfe28070b3cee13d3c50da6fcaff3aa9385c82961f1950c32166d",
+      "symbols": [
+        {
+          "name": "referenceMineLoad",
+          "line": 35
+        },
+        {
+          "name": "guardTemplate",
+          "line": 68
+        },
+        {
+          "name": "legacyGuards",
+          "line": 83
+        },
+        {
+          "name": "guardArmy",
+          "line": 93
+        },
+        {
+          "name": "worldLevels",
+          "line": 104
+        },
+        {
+          "name": "configureSite",
+          "line": 123
+        },
+        {
+          "name": "enableRenewableWorld",
+          "line": 147
+        },
+        {
+          "name": "nextWorldEvent",
+          "line": 174
+        },
+        {
+          "name": "settleWorld",
+          "line": 177
+        }
+      ]
+    },
+    {
+      "path": "src/client/diagnostics.ts",
+      "lines": 49,
+      "sha256": "f9a6bd501f00fe44db3674ab414a7136a848e25b0799a8dcc297acde87808fb0",
+      "symbols": [
+        {
+          "name": "reportReady",
+          "line": 3
+        },
+        {
+          "name": "reportBattleFrames",
+          "line": 11
+        },
+        {
+          "name": "probeFrames",
+          "line": 15
+        }
+      ]
+    },
+    {
+      "path": "src/client/game.worker.ts",
+      "lines": 50,
+      "sha256": "12464869caf7752718e0ad2edd9bed9bb47acd3a39de0b4ffb0319660f45f6a5",
+      "symbols": [
+        {
+          "name": "handle",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "path": "src/client/local.ts",
+      "lines": 41,
+      "sha256": "deae9739bd2e7d99e67e38de03b448580123cddccdc54bf3851d5445265ce78b",
+      "symbols": [
+        {
+          "name": "rpc",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "path": "src/client/protocol.ts",
+      "lines": 9,
+      "sha256": "16eaae4f4312a3477599a481c0618bdd94610d283e060e47b3b9c98f3c991004",
+      "symbols": []
+    },
+    {
+      "path": "native/rules/bridge.ts",
+      "lines": 915,
+      "sha256": "312e79bfd705989cfac9996728f7a453654bb3ce1104d4df8a24c3c987b41b32",
+      "symbols": [
+        {
+          "name": "NativeStore",
+          "line": 111
+        },
+        {
+          "name": "serve",
+          "line": 840
+        }
+      ]
+    },
+    {
+      "path": "native/scripts/game.gd",
+      "lines": 9692,
+      "sha256": "79ea715865bc34ac2b9afa985787ccf8f2f29eb52318d2bb88b88c706ec5c77a",
+      "symbols": [
+        {
+          "name": "_ready",
+          "line": 185
+        },
+        {
+          "name": "_start_runtime",
+          "line": 256
+        },
+        {
+          "name": "_setup_dialogs",
+          "line": 275
+        },
+        {
+          "name": "_confirm",
+          "line": 370
+        },
+        {
+          "name": "_confirm_action",
+          "line": 381
+        },
+        {
+          "name": "_cancel_action",
+          "line": 390
+        },
+        {
+          "name": "_switch_request",
+          "line": 394
+        },
+        {
+          "name": "_details",
+          "line": 403
+        },
+        {
+          "name": "_cost_text",
+          "line": 416
+        },
+        {
+          "name": "_process",
+          "line": 423
+        },
+        {
+          "name": "request",
+          "line": 455
+        },
+        {
+          "name": "_command_pending",
+          "line": 467
+        },
+        {
+          "name": "command",
+          "line": 471
+        },
+        {
+          "name": "_response",
+          "line": 474
+        },
+        {
+          "name": "toast_message",
+          "line": 573
+        },
+        {
+          "name": "_gui_input",
+          "line": 577
+        },
+        {
+          "name": "_unhandled_key_input",
+          "line": 621
+        },
+        {
+          "name": "_go_back",
+          "line": 668
+        },
+        {
+          "name": "_return_button",
+          "line": 685
+        },
+        {
+          "name": "_navigate",
+          "line": 690
+        },
+        {
+          "name": "_action",
+          "line": 747
+        },
+        {
+          "name": "_text_prompt",
+          "line": 1057
+        },
+        {
+          "name": "_text_confirmed",
+          "line": 1077
+        },
+        {
+          "name": "_map_clamp",
+          "line": 1112
+        },
+        {
+          "name": "_map_zoom",
+          "line": 1116
+        },
+        {
+          "name": "_locate_coordinates",
+          "line": 1120
+        },
+        {
+          "name": "_map_point",
+          "line": 1139
+        },
+        {
+          "name": "_file_selected",
+          "line": 1142
+        },
+        {
+          "name": "_toggle_fullscreen",
+          "line": 1154
+        },
+        {
+          "name": "_show_preset_load",
+          "line": 1157
+        },
+        {
+          "name": "_begin_deployment",
+          "line": 1170
+        },
+        {
+          "name": "_deployment_problem",
+          "line": 1187
+        },
+        {
+          "name": "_confirm_deployment",
+          "line": 1202
+        },
+        {
+          "name": "_free_for_slot",
+          "line": 1216
+        },
+        {
+          "name": "_assign",
+          "line": 1223
+        },
+        {
+          "name": "_unit_id",
+          "line": 1231
+        },
+        {
+          "name": "_set_quantity",
+          "line": 1234
+        },
+        {
+          "name": "_validate_repair_quantity",
+          "line": 1238
+        },
+        {
+          "name": "_sound",
+          "line": 1244
+        },
+        {
+          "name": "_setup_library",
+          "line": 1264
+        },
+        {
+          "name": "_library_entries",
+          "line": 1298
+        },
+        {
+          "name": "_library_entry",
+          "line": 1301
+        },
+        {
+          "name": "_library_filtered",
+          "line": 1306
+        },
+        {
+          "name": "_library_remember",
+          "line": 1321
+        },
+        {
+          "name": "_library_choose",
+          "line": 1325
+        },
+        {
+          "name": "_library_filter_changed",
+          "line": 1333
+        },
+        {
+          "name": "_library_restore",
+          "line": 1339
+        },
+        {
+          "name": "_library_sync",
+          "line": 1346
+        },
+        {
+          "name": "_library_action",
+          "line": 1372
+        },
+        {
+          "name": "_draw_library",
+          "line": 1405
+        },
+        {
+          "name": "_draw",
+          "line": 1447
+        },
+        {
+          "name": "_modal_open",
+          "line": 1518
+        },
+        {
+          "name": "_fit_text",
+          "line": 1521
+        },
+        {
+          "name": "_text",
+          "line": 1531
+        },
+        {
+          "name": "_small",
+          "line": 1535
+        },
+        {
+          "name": "_panel",
+          "line": 1538
+        },
+        {
+          "name": "_button",
+          "line": 1545
+        },
+        {
+          "name": "_hit",
+          "line": 1562
+        },
+        {
+          "name": "_image",
+          "line": 1565
+        },
+        {
+          "name": "_cover",
+          "line": 1584
+        },
+        {
+          "name": "_icon",
+          "line": 1592
+        },
+        {
+          "name": "_bar",
+          "line": 1600
+        },
+        {
+          "name": "_stock_bar",
+          "line": 1605
+        },
+        {
+          "name": "_amount",
+          "line": 1615
+        },
+        {
+          "name": "_time",
+          "line": 1618
+        },
+        {
+          "name": "_resource_color",
+          "line": 1625
+        },
+        {
+          "name": "_cost",
+          "line": 1628
+        },
+        {
+          "name": "_title",
+          "line": 1638
+        },
+        {
+          "name": "_loading",
+          "line": 1643
+        },
+        {
+          "name": "_header",
+          "line": 1655
+        },
+        {
+          "name": "_navbar",
+          "line": 1676
+        },
+        {
+          "name": "_draw_base",
+          "line": 1695
+        },
+        {
+          "name": "_find_job",
+          "line": 1772
+        },
+        {
+          "name": "_job",
+          "line": 1778
+        },
+        {
+          "name": "_draw_job_card",
+          "line": 1787
+        },
+        {
+          "name": "_draw_queues",
+          "line": 1807
+        },
+        {
+          "name": "_dispatch_groups",
+          "line": 1844
+        },
+        {
+          "name": "_dispatch_station",
+          "line": 1847
+        },
+        {
+          "name": "_dispatch_text",
+          "line": 1852
+        },
+        {
+          "name": "_dispatch_wait_label",
+          "line": 1861
+        },
+        {
+          "name": "_draw_dispatch_station",
+          "line": 1866
+        },
+        {
+          "name": "_draw_base_dispatch",
+          "line": 1893
+        },
+        {
+          "name": "_dispatch_destination",
+          "line": 1900
+        },
+        {
+          "name": "_dispatch_project",
+          "line": 1909
+        },
+        {
+          "name": "_draw_dispatch_job",
+          "line": 1929
+        },
+        {
+          "name": "_draw_dispatch_march",
+          "line": 1942
+        },
+        {
+          "name": "_draw_vip",
+          "line": 1952
+        },
+        {
+          "name": "_draw_sprite_polygon",
+          "line": 1996
+        },
+        {
+          "name": "_unit_recipe",
+          "line": 2008
+        },
+        {
+          "name": "_draw_factory",
+          "line": 2025
+        },
+        {
+          "name": "_factory_quote",
+          "line": 2107
+        },
+        {
+          "name": "_facility_job",
+          "line": 2110
+        },
+        {
+          "name": "_draw_industry",
+          "line": 2127
+        },
+        {
+          "name": "_draw_repair",
+          "line": 2130
+        },
+        {
+          "name": "_formation_tactics",
+          "line": 2191
+        },
+        {
+          "name": "_draw_army",
+          "line": 2197
+        },
+        {
+          "name": "_affordable",
+          "line": 2321
+        },
+        {
+          "name": "_core_texture",
+          "line": 2327
+        },
+        {
+          "name": "_core_icon",
+          "line": 2330
+        },
+        {
+          "name": "_item_icon",
+          "line": 2338
+        },
+        {
+          "name": "_inventory_entries",
+          "line": 2346
+        },
+        {
+          "name": "_draw_inventory",
+          "line": 2358
+        },
+        {
+          "name": "_inventory_details",
+          "line": 2401
+        },
+        {
+          "name": "_settlement_rewards",
+          "line": 2430
+        },
+        {
+          "name": "_cargo_label",
+          "line": 2447
+        },
+        {
+          "name": "_draw_settlement",
+          "line": 2450
+        },
+        {
+          "name": "_next_battle_target",
+          "line": 2514
+        },
+        {
+          "name": "_reward_icon",
+          "line": 2525
+        },
+        {
+          "name": "_effective_time",
+          "line": 2547
+        },
+        {
+          "name": "_eta",
+          "line": 2550
+        },
+        {
+          "name": "_tech_rect",
+          "line": 2553
+        },
+        {
+          "name": "_draw_research",
+          "line": 2556
+        },
+        {
+          "name": "_chapter_pager",
+          "line": 2635
+        },
+        {
+          "name": "_world_enemy_attributes",
+          "line": 2640
+        },
+        {
+          "name": "_research_gain_text",
+          "line": 2644
+        },
+        {
+          "name": "_flat_defense",
+          "line": 2651
+        },
+        {
+          "name": "_damage_reduction",
+          "line": 2654
+        },
+        {
+          "name": "_enemy_attribute_text",
+          "line": 2658
+        },
+        {
+          "name": "_enemy_attributes",
+          "line": 2693
+        },
+        {
+          "name": "_draw_campaign",
+          "line": 2696
+        },
+        {
+          "name": "_draw_dungeons",
+          "line": 2750
+        },
+        {
+          "name": "_core_route_details",
+          "line": 2801
+        },
+        {
+          "name": "_mini_formation",
+          "line": 2816
+        },
+        {
+          "name": "_site",
+          "line": 2826
+        },
+        {
+          "name": "_draw_world",
+          "line": 2832
+        },
+        {
+          "name": "_draw_commander",
+          "line": 2949
+        },
+        {
+          "name": "_draw_reports",
+          "line": 2981
+        },
+        {
+          "name": "_draw_settings",
+          "line": 3038
+        },
+        {
+          "name": "open_report",
+          "line": 3090
+        },
+        {
+          "name": "_battle_step",
+          "line": 3118
+        },
+        {
+          "name": "_play_hit",
+          "line": 3138
+        },
+        {
+          "name": "_same_battle_action",
+          "line": 3167
+        },
+        {
+          "name": "_next_same_action",
+          "line": 3172
+        },
+        {
+          "name": "_next_fire_interval",
+          "line": 3175
+        },
+        {
+          "name": "_hit_number_style",
+          "line": 3183
+        },
+        {
+          "name": "_apply_hit",
+          "line": 3189
+        },
+        {
+          "name": "_ground_displacement",
+          "line": 3216
+        },
+        {
+          "name": "_crater_position",
+          "line": 3219
+        },
+        {
+          "name": "_draw_battle_craters",
+          "line": 3222
+        },
+        {
+          "name": "_alive_position",
+          "line": 3241
+        },
+        {
+          "name": "_unit_position",
+          "line": 3245
+        },
+        {
+          "name": "_battle_end_time",
+          "line": 3251
+        },
+        {
+          "name": "_seek_battle_end",
+          "line": 3257
+        },
+        {
+          "name": "_volley_class",
+          "line": 3271
+        },
+        {
+          "name": "_battle_sound",
+          "line": 3277
+        },
+        {
+          "name": "_stop_battle_audio",
+          "line": 3298
+        },
+        {
+          "name": "_sync_battle_audio",
+          "line": 3302
+        },
+        {
+          "name": "_battle_pose",
+          "line": 3309
+        },
+        {
+          "name": "_shot_point",
+          "line": 3329
+        },
+        {
+          "name": "_shot_trail",
+          "line": 3358
+        },
+        {
+          "name": "_fold_y",
+          "line": 3373
+        },
+        {
+          "name": "_ground_polygon",
+          "line": 3376
+        },
+        {
+          "name": "_battle_ground",
+          "line": 3383
+        },
+        {
+          "name": "_fold_edge",
+          "line": 3400
+        },
+        {
+          "name": "_effect",
+          "line": 3403
+        },
+        {
+          "name": "_battle_position",
+          "line": 3409
+        },
+        {
+          "name": "_battle_width",
+          "line": 3415
+        },
+        {
+          "name": "_battle_done",
+          "line": 3418
+        },
+        {
+          "name": "_draw_battle_vehicle",
+          "line": 3424
+        },
+        {
+          "name": "_draw_battle_label",
+          "line": 3446
+        },
+        {
+          "name": "_wreck_in_view",
+          "line": 3466
+        },
+        {
+          "name": "_destruction_frame",
+          "line": 3470
+        },
+        {
+          "name": "_draw_wreck",
+          "line": 3476
+        },
+        {
+          "name": "_draw_destructions",
+          "line": 3492
+        },
+        {
+          "name": "_draw_volley",
+          "line": 3516
+        },
+        {
+          "name": "_draw_shot",
+          "line": 3522
+        },
+        {
+          "name": "_battle_actor_label",
+          "line": 3592
+        },
+        {
+          "name": "_battle_round_label",
+          "line": 3600
+        },
+        {
+          "name": "_battle_header",
+          "line": 3605
+        },
+        {
+          "name": "_draw_battle",
+          "line": 3630
+        },
+        {
+          "name": "_unit_guide",
+          "line": 3691
+        },
+        {
+          "name": "_report_details",
+          "line": 3714
+        },
+        {
+          "name": "_smoke_test",
+          "line": 3766
+        },
+        {
+          "name": "_battle_preview",
+          "line": 4314
+        },
+        {
+          "name": "_battle_scene_qa",
+          "line": 4330
+        },
+        {
+          "name": "_v07_qa",
+          "line": 4408
+        },
+        {
+          "name": "_dispatch_qa_click",
+          "line": 4508
+        },
+        {
+          "name": "_core_chapters_qa",
+          "line": 4522
+        },
+        {
+          "name": "_dispatch_qa",
+          "line": 4618
+        },
+        {
+          "name": "_qa_capture",
+          "line": 4752
+        },
+        {
+          "name": "_v08_qa",
+          "line": 4758
+        },
+        {
+          "name": "_v06_qa",
+          "line": 4836
+        },
+        {
+          "name": "_v09_qa",
+          "line": 4947
+        },
+        {
+          "name": "_v091_qa",
+          "line": 4989
+        },
+        {
+          "name": "_settled",
+          "line": 5081
+        },
+        {
+          "name": "_qa_drain_jobs",
+          "line": 5087
+        },
+        {
+          "name": "_v10_qa",
+          "line": 5095
+        },
+        {
+          "name": "_v11_qa",
+          "line": 5203
+        },
+        {
+          "name": "_apply_field_theme",
+          "line": 5337
+        },
+        {
+          "name": "_save_preferences",
+          "line": 5358
+        },
+        {
+          "name": "_experience_action",
+          "line": 5367
+        },
+        {
+          "name": "_missing_resources",
+          "line": 5545
+        },
+        {
+          "name": "_disabled_reason",
+          "line": 5552
+        },
+        {
+          "name": "_disabled_help",
+          "line": 5605
+        },
+        {
+          "name": "_notify_progress",
+          "line": 5620
+        },
+        {
+          "name": "_draw_rest_report",
+          "line": 5631
+        },
+        {
+          "name": "_expedition_history",
+          "line": 5678
+        },
+        {
+          "name": "_upgrade_benefits",
+          "line": 5700
+        },
+        {
+          "name": "_refit_details",
+          "line": 5724
+        },
+        {
+          "name": "_battle_advice",
+          "line": 5733
+        },
+        {
+          "name": "_step_action",
+          "line": 5739
+        },
+        {
+          "name": "_same_turn",
+          "line": 5751
+        },
+        {
+          "name": "_reserve_entries",
+          "line": 5757
+        },
+        {
+          "name": "_pattern_name",
+          "line": 5764
+        },
+        {
+          "name": "_counter_label",
+          "line": 5767
+        },
+        {
+          "name": "_draw_replacement",
+          "line": 5773
+        },
+        {
+          "name": "_compare_details",
+          "line": 5791
+        },
+        {
+          "name": "_draw_doctrine",
+          "line": 5811
+        },
+        {
+          "name": "_begin_world_deployment",
+          "line": 5838
+        },
+        {
+          "name": "_map_matches",
+          "line": 5852
+        },
+        {
+          "name": "_battle_environment",
+          "line": 5862
+        },
+        {
+          "name": "_draw_environment_border",
+          "line": 5873
+        },
+        {
+          "name": "_v12_qa",
+          "line": 5888
+        },
+        {
+          "name": "_progress_details",
+          "line": 6022
+        },
+        {
+          "name": "_filtered_reports",
+          "line": 6033
+        },
+        {
+          "name": "_rest_preview_text",
+          "line": 6047
+        },
+        {
+          "name": "_show_core_budget",
+          "line": 6058
+        },
+        {
+          "name": "_draw_objectives",
+          "line": 6070
+        },
+        {
+          "name": "_draw_presets",
+          "line": 6092
+        },
+        {
+          "name": "_draw_intel",
+          "line": 6111
+        },
+        {
+          "name": "_scout_details",
+          "line": 6150
+        },
+        {
+          "name": "_formation_power",
+          "line": 6172
+        },
+        {
+          "name": "_power_details",
+          "line": 6178
+        },
+        {
+          "name": "_counter_details",
+          "line": 6181
+        },
+        {
+          "name": "_draw_command_training",
+          "line": 6190
+        },
+        {
+          "name": "_draw_leadership_history",
+          "line": 6236
+        },
+        {
+          "name": "_leadership_record_details",
+          "line": 6262
+        },
+        {
+          "name": "_repair_all_ready",
+          "line": 6273
+        },
+        {
+          "name": "_repair_all_button",
+          "line": 6276
+        },
+        {
+          "name": "_repair_material_text",
+          "line": 6279
+        },
+        {
+          "name": "_draw_attributes",
+          "line": 6283
+        },
+        {
+          "name": "_v21_qa",
+          "line": 6329
+        },
+        {
+          "name": "_experience25_qa",
+          "line": 6417
+        },
+        {
+          "name": "_round_hud_qa",
+          "line": 6522
+        },
+        {
+          "name": "_indirect_fire_qa",
+          "line": 6584
+        },
+        {
+          "name": "_rocket_live_failure",
+          "line": 6617
+        },
+        {
+          "name": "_rocket_live_qa",
+          "line": 6622
+        },
+        {
+          "name": "_rocket_salvo_check",
+          "line": 6672
+        },
+        {
+          "name": "_combat_qa",
+          "line": 6699
+        },
+        {
+          "name": "_v19_qa",
+          "line": 6857
+        },
+        {
+          "name": "_v18_qa",
+          "line": 6987
+        },
+        {
+          "name": "_v17_qa",
+          "line": 7075
+        },
+        {
+          "name": "_v16_qa",
+          "line": 7164
+        },
+        {
+          "name": "_v15_qa",
+          "line": 7293
+        },
+        {
+          "name": "_v14_qa",
+          "line": 7394
+        },
+        {
+          "name": "_v13_qa",
+          "line": 7505
+        },
+        {
+          "name": "_district_action",
+          "line": 7640
+        },
+        {
+          "name": "_construction_block",
+          "line": 7697
+        },
+        {
+          "name": "_upgrade_progress",
+          "line": 7700
+        },
+        {
+          "name": "_construction_card",
+          "line": 7707
+        },
+        {
+          "name": "_draw_base_construction",
+          "line": 7726
+        },
+        {
+          "name": "_draw_base_research",
+          "line": 7732
+        },
+        {
+          "name": "_draw_resource_zone",
+          "line": 7738
+        },
+        {
+          "name": "_dispatch_quote",
+          "line": 7741
+        },
+        {
+          "name": "_validate_dispatch_repair",
+          "line": 7745
+        },
+        {
+          "name": "_dispatch_submit_block",
+          "line": 7752
+        },
+        {
+          "name": "_research_job_button",
+          "line": 7765
+        },
+        {
+          "name": "_draw_dispatch_arrange",
+          "line": 7773
+        },
+        {
+          "name": "_draw_prestige",
+          "line": 7821
+        },
+        {
+          "name": "_workstations26_qa",
+          "line": 7849
+        },
+        {
+          "name": "_materials27_fail",
+          "line": 8056
+        },
+        {
+          "name": "_materials27_qa",
+          "line": 8060
+        },
+        {
+          "name": "_presets271_fail",
+          "line": 8148
+        },
+        {
+          "name": "_presets271_qa",
+          "line": 8152
+        },
+        {
+          "name": "_scene_pin",
+          "line": 8218
+        },
+        {
+          "name": "_draw_district_scene",
+          "line": 8233
+        },
+        {
+          "name": "_draw_district_facility",
+          "line": 8259
+        },
+        {
+          "name": "_protection_details",
+          "line": 8316
+        },
+        {
+          "name": "_library29_fail",
+          "line": 8326
+        },
+        {
+          "name": "_library29_qa",
+          "line": 8330
+        },
+        {
+          "name": "_districts28_fail",
+          "line": 8455
+        },
+        {
+          "name": "_districts28_qa",
+          "line": 8459
+        },
+        {
+          "name": "_workshops30_fail",
+          "line": 8539
+        },
+        {
+          "name": "_workshops30_qa",
+          "line": 8543
+        },
+        {
+          "name": "_archive_type_label",
+          "line": 8647
+        },
+        {
+          "name": "_wallet_total",
+          "line": 8650
+        },
+        {
+          "name": "_return_receipt",
+          "line": 8655
+        },
+        {
+          "name": "_expeditions31_qa",
+          "line": 8665
+        },
+        {
+          "name": "_base32_check",
+          "line": 8758
+        },
+        {
+          "name": "_base32_mouse",
+          "line": 8762
+        },
+        {
+          "name": "_base32_qa",
+          "line": 8776
+        },
+        {
+          "name": "_command33_check",
+          "line": 8897
+        },
+        {
+          "name": "_command33_qa",
+          "line": 8901
+        },
+        {
+          "name": "_operations34_check",
+          "line": 8984
+        },
+        {
+          "name": "_operations34_mouse",
+          "line": 8988
+        },
+        {
+          "name": "_operations34_wheel",
+          "line": 9003
+        },
+        {
+          "name": "_operations34_qa",
+          "line": 9015
+        },
+        {
+          "name": "_research35_check",
+          "line": 9113
+        },
+        {
+          "name": "_research35_qa",
+          "line": 9117
+        },
+        {
+          "name": "_combat37_check",
+          "line": 9231
+        },
+        {
+          "name": "_combat37_qa",
+          "line": 9235
+        },
+        {
+          "name": "_research36_check",
+          "line": 9369
+        },
+        {
+          "name": "_research36_seek",
+          "line": 9373
+        },
+        {
+          "name": "_research36_qa",
+          "line": 9386
+        },
+        {
+          "name": "_campaign38_check",
+          "line": 9514
+        },
+        {
+          "name": "_campaign38_qa",
+          "line": 9518
+        },
+        {
+          "name": "_defense39_qa",
+          "line": 9636
+        }
+      ]
+    },
+    {
+      "path": "native/scripts/construction_list.gd",
+      "lines": 146,
+      "sha256": "0a6f34d0f590ff78050216fa6545295f20a86b7b04fadd0ab0178b6e7e491dda",
+      "symbols": [
+        {
+          "name": "_ready",
+          "line": 9
+        },
+        {
+          "name": "_label",
+          "line": 28
+        },
+        {
+          "name": "_button",
+          "line": 37
+        },
+        {
+          "name": "_add_row",
+          "line": 55
+        },
+        {
+          "name": "_compact_cost",
+          "line": 94
+        },
+        {
+          "name": "_row_scale",
+          "line": 103
+        },
+        {
+          "name": "sync",
+          "line": 110
+        }
+      ]
+    },
+    {
+      "path": "native/scripts/research_list.gd",
+      "lines": 54,
+      "sha256": "0c622effad537fdfdedff292c659d1b86d47f5a23c125d90bc080c7bf916612b",
+      "symbols": [
+        {
+          "name": "_add_row",
+          "line": 4
+        },
+        {
+          "name": "sync",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "path": "native/scripts/rest_summary.gd",
+      "lines": 141,
+      "sha256": "c64c2441b698e5f38dcf9344e674bd833974d713dc28c09e868ef5659d804400",
+      "symbols": [
+        {
+          "name": "_ready",
+          "line": 10
+        },
+        {
+          "name": "_label",
+          "line": 47
+        },
+        {
+          "name": "_input",
+          "line": 57
+        },
+        {
+          "name": "show_summary",
+          "line": 66
+        },
+        {
+          "name": "_fit_panel",
+          "line": 128
+        }
+      ]
+    },
+    {
+      "path": "native/scripts/quantity_format.gd",
+      "lines": 25,
+      "sha256": "239460e22c0ad840bba9c6243441f8d9aaee0d6f8f17fd3c6360c12ceeff1ec7",
+      "symbols": []
+    },
+    {
+      "path": "native/build.mjs",
+      "lines": 97,
+      "sha256": "f78edefbc36a24b6effc2c1069d5a1d209b6d50477250273b1337530acf907eb",
+      "symbols": []
+    },
+    {
+      "path": "native/dev.mjs",
+      "lines": 24,
+      "sha256": "f60c5ecb52c6fcf5c5a2c066a5101cf6312ecf67373fe55cbe4bcf01562498c4",
+      "symbols": []
+    },
+    {
+      "path": "native/project.godot",
+      "lines": 29,
+      "sha256": "221e4abe70f5e08189197752fc8310dfeef206ecc6df1dca4de09a913978fc85",
+      "symbols": []
+    },
+    {
+      "path": "design/classic-prototype-rules.json",
+      "lines": 1402,
+      "sha256": "3443b517394248a0fb910c79bbb5442b73dab60dbef59abcda219ad028be8097",
+      "symbols": []
+    },
+    {
+      "path": "package.json",
+      "lines": 42,
+      "sha256": "120522505974e44638cf20926763ce65c1746b5c9e5f4c18dbb609b7e870136b",
+      "symbols": []
+    }
+  ]
+}

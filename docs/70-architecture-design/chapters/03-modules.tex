@@ -1,0 +1,30 @@
+\chapter{模块划分与依赖}
+\section{职责矩阵}
+\begin{small}\begin{longtable}{@{}P{43mm}P{54mm}P{47mm}@{}}
+\toprule 模块 & 职责 & 边界\\\midrule\endhead
+\code{types.ts} & 状态、命令、订单、战报、行军结构 & 类型不替代运行时校验\\
+\code{content.ts}与JSON & 车型、基础曲线、战役、任务 & 内容与动态状态分离\\
+\code{engine.ts} & 创建、命令、库存预约、统一推进 & 核心状态变更入口\\
+\code{battle.ts} & 目标、回合、随机流、伤害、战损 & 无存档IO和动画\\
+\code{growth.ts/research.ts} & 上限、时间、前置、材料节省 & 前置与效果分开\\
+\code{vip.ts/industry.ts} & 工位、加速、独立车间解锁 & 每厂单独生产线\\
+\code{arsenal.ts} & 报价、核心副本、批量维修 & 计算报价但不提交\\
+\code{world.ts/cargo.ts} & 矿储、守军、刷新、运力 & 固定区域梯度\\
+\code{commander.ts} & 声望、统率、概率和容量 & 效果进入战斗快照\\
+\code{power.ts/attributes.ts} & 战力、十一项贡献 & 估值不替代模拟\\
+\code{archive.ts/overview.ts} & 收据、分类、结算汇总 & 读模型与发奖分离\\
+\code{dispatch.ts/planning.ts} & 调度、休整与核心预算 & 基于事实派生\\
+\code{validate.ts/storage.ts} & 校验、导入导出、网页存储 & 原生IO由桥接负责\\
+\code{library.ts/format.ts} & 分类手册、数值缩写 & 缩写不参与计算\\
+\code{native/rules/bridge.ts} & 宿主、RPC、视图和文件 & 适配层复用核心规则\\
+\bottomrule\end{longtable}\end{small}
+
+\section{实际依赖与配置归属}
+职责上表现调用适配、适配调用领域。源码有跨职责引用：引擎使用报价和校验，存储使用\code{assertState}，世界和报价共享战斗及内容。分层表达职责；工程未强制单向依赖约束，不应仅凭此图推断循环依赖。
+
+车型参数、克制和基础经济集中于JSON；科技、战役、核心、世界梯度、VIP及统率由TypeScript生成；布局、颜色、声音与节奏属于GDScript。新增数值应通过目录和读模型下发，避免多个界面各自计算正式报价。
+
+\section{写模型与读模型}
+\code{GameState}是唯一事实集合。\code{NativeStore.view()}生成\code{info}，包含可用编队、工位、报价、建筑收益、维修、声望、战力、敌军情报和运输状态。\code{boot}额外返回\code{catalog}，承载车型、科技树、副本、VIP表和图书馆。
+
+常规响应剔除收据和战报事件/初末快照，完整战报按需读取。但\code{view()}仍计算全量表，不是增量同步。

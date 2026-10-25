@@ -1,0 +1,63 @@
+\chapter{经济、仓储与工业计算}
+\section{自产与容量曲线}
+令\(l\)为已完成资源场等级，\(B_r\)为资源基础时产，五项依次为600、400、330、150、100。定义
+\begin{align}
+C_{rate}(l)&=\operatorname{round}(10000l^{1.35}),\\
+E(l,s)&=\operatorname{round}_{0.01}\!\left(40s(l/120)^{0.8}\right),\\
+Rate_r&=\left\lfloor\frac{B_r C_{rate}(l)}{10000}
+ \frac{100+E(T_{all},5)+E(T_r,8)}{100}\right\rfloor.
+\end{align}
+\(E\)的等级钳制在0至120，返回百分数。钛自产还要求HQ至少6级。全部资源统筹和专属产出在同一百分比组相加，不能把每级5\%或8\%线性累加到120级。
+
+仓库基础容量与实际单资源容量分别为
+\begin{align}
+C_0(l)&=\left\lceil600l^{1.35}\left(48+432\frac{l-1}{119}\right)\right\rceil,\\
+C&=\left\lfloor C_0(l)\frac{100+VIP_{storage}+E(T_{storage},5)}{100}\right\rfloor.
+\end{align}
+此容量分别约束五项资源，不是五项合计空间；金币不走此仓容。
+
+\section{入库来源与保护额度}
+\begin{small}\noindent\begin{tabularx}{\linewidth}{@{}P{30mm}Y@{}}
+\toprule 来源 & 仓容处理\\\midrule
+基地自产 & 达到容量即停；增长钳制到容量，清除该资源余数。\\
+世界采集归队 & stored=min(cargo,max(0,C-wallet))；多余进入discarded并丢弃。\\
+NPC突袭归队 & 当前实现直接入账所携货物，可以超仓。\\
+副本、任务、每日奖励 & credit直接加余额，可以超仓；随后自产暂停直到余额降低。\\\bottomrule
+\end{tabularx}\end{small}
+
+仓库保护比例按等级由20\%增加至40\%，保护的是容量额度而非当前余额比例：
+\[
+b(l)=2000+\left\lfloor2000\frac{\operatorname{clamp}(l,1,120)-1}{119}\right\rfloor,
+\quad P=\lfloor Cb(l)/10000\rfloor.
+\]
+受保护库存为\(\min(wallet,P)\)，可掠夺为\(\max(0,wallet-P)\)。保护不禁止正常消费。当前没有真实玩家自动来袭，该公式同时服务玩家展示和本地NPC掠夺计算。
+\src{src/core/engine.ts}{rate；capacity；grow；resolveArrival}
+\src{src/core/protection.ts}{protectionBps；protectionLedger}
+
+\section{建设与科研材料}
+建设费用按\emph{当前等级}取系数\(Q_l=\lceil1.125\max(1,l)^{2.65}\rceil\)。HQ铁费为\(160Q_l\)，其他建筑\(90Q_l\)，油\(60Q_l\)，铅\(40Q_l\)，只有实验室另收水晶\(30Q_l\)。当前建设配方没有钛费；不能把科研和制造的钛调整泛化到所有消费入口。
+
+科研以\(S=1.2(l+1)^{2.65}\)计算下一等级费用。当前等级0至4使用铁/油/铅/晶系数80/55/65/26，无钛；从当前5级开始使用60/39/46/17，并收
+\[
+Titanium=\left\lceil1.5\left\lceil1.5\left\lceil32S\right\rceil\right\rceil\right\rceil.
+\]
+嵌套取整保留历史两次50\%调整的报价语义，不能仅将最后整数乘2.25后任意取整。
+
+材料利用科技节省\(\min(6000,50l)\)基点，作用于建设、制造、改装、维修，逐项向上取整；金币不打折，\textbf{科研费用不应用材料节省}。已付单保持原价，取消按原快照退。
+
+\section{工时曲线与车间差异}
+建筑和科研基准时间由锚点间对数插值产生；不是保留前20级再接续增长。当前等级100的基准为4天，119为5天；实际工时再乘项目系数，并只加速可变工序：
+\[
+Work(D,v,f)=\left\lceil D\left(f+\frac{1-f}{1+v/100}\right)\right\rceil.
+\]
+建筑系数HQ1、实验室0.9、工厂0.8、仓库0.6、资源场0.35，固定份额0.5，速度由工程管理提供。科研固定份额0.5，速度来自科研管理与VIP；不同节点系数0.3至1。免费分钟在整单末段另减。
+
+制造固定份额0.7，改装0.5，维修0.25。车间速度为\(100\%\times(l-1)/119\)，夹在0至100\%。两厂等级不同，生产同车工时因此不同。生产科技每级加5\%可变速度；改装/维修专属科技每级加8\%；制造/改装另取各自VIP速度，维修不取这两项VIP速度。
+
+\section{制造、改装和维修}
+单次制造或改装1至500辆，快捷50/100/500/MAX；维修上限10000辆且不能超过damaged。制造要求当前选中厂满足车型解锁级，第二厂和改装厂需HQ13解锁并先建设。VII阶须60级厂，整条车型解锁为1/6/14/24/36/48/60。
+
+改装消耗低一阶同车系的待命车辆；单项基础费是目标成本减原车成本且最低为0，再应用材料节省；基础工时为新造的60\%。改装厂与至少一个制造厂均须满足目标解锁级。VI/VII阶新造和改装每辆另外用一个对应核心；维修不再收核心或原车。
+
+MAX同时受资源、核心、原车或待修约束。quote.block表示前置不满足，busy表示等待位已满，是不同原因。附录列出全部制造/维修原价和基础工时，实际以当前工厂与科技报价为准。
+\src{src/core/arsenal.ts}{productionQuote；repairAllQuote}

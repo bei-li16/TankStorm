@@ -1,0 +1,27 @@
+\chapter{命令、一致性与幂等}
+\section{命令执行链}
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}[node distance=5mm,every node/.append style={inner sep=4pt}]
+\node[box,text width=125mm,inner sep=4pt] (a) {接收命令内容、命令ID、时间与可选预期revision};
+\node[box,text width=125mm,inner sep=4pt,below=of a] (b) {检查历史收据与revision；克隆状态，推进至当前时间};
+\node[box,text width=125mm,inner sep=4pt,below=of b] (c) {校验前置、余额、库存和队列；扣费、预约并计算结果};
+\node[box,text width=125mm,inner sep=4pt,below=of c] (d) {排空同刻免费事件；递增revision；写收据；校验状态};
+\node[box,text width=125mm,inner sep=4pt,below=of d] (e) {宿主备份旧值、替换主文件、发布新状态与派生视图};
+\draw[flow](a)--(b);\draw[flow](b)--(c);\draw[flow](c)--(d);\draw[flow](d)--(e);
+\end{tikzpicture}
+\caption{成功写入路径。规则抛错时不发布克隆状态。}
+\end{figure}
+\code{execute()}先查询\code{receipts[id]}。ID与\code{JSON.stringify(command)}签名相同则返回原结果；相同ID、不同内容则拒绝。新的命令才比较revision、克隆与执行。收据检查早于revision比较，允许一次已经成功的重试取得原结果。
+
+\section{双重串行与revision边界}
+Godot维持一个当前HTTP请求和待发数组，Node再用Promise链串行处理。\code{_command_pending()}区别背景tick与真实操作，避免轮询吞掉点击，也防止按钮待响应期间反复扣费。
+
+\code{execute}支持\code{expectedRevision}，但原生调用采用当前状态的默认值，主要依靠单宿主、串行和收据；不能视为已开放给远程客户端的CAS协议。网页存储另有可选revision比较。
+
+\section{提交、失败和恢复}
+\code{commit()}先将旧内存状态写\code{.backup}，再写新主文件，最后更新\code{this.state}。\code{atomic()}采用临时文件、文件\code{fsync}和rename。主档与备份是两个独立替换，不是多文件原子事务，也未实现目录级\code{fsync}。
+
+规则错误发生在克隆阶段，不改旧状态；磁盘失败则属于另一层：备份可能已成功但主文件替换失败，不能承诺所有文件均未变化。恢复目标是保有可读历史状态。断连时命令可能已提交，重试应复用原ID，避免把重试变成第二笔操作。
+
+副本命令返回前已结算，动画只是播放器；战斗重试按原报告ID读取，回放不重发奖励。演习仍推进时间、消耗种子并写报告，不是完全只读。
+\src{src/core/engine.ts}{execute；battleFormation；report}

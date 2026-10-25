@@ -1,0 +1,43 @@
+\chapter{时间、工位与订单详细流程}
+\section{工位分配}
+建筑提供VIP决定的1至7个并行位，没有建筑等待位。第一厂、第二厂、改装厂分别独立“1活动+3等待”；科研和维修各自“1活动+3等待”。VIP不再增加这些等待位。汇总production的容量是已解锁生产线之和，不能把汇总当一个共享的大工位。
+
+建筑键为\code{building}、\code{building:2}等；第一厂沿用\code{production}，其他为\code{production:factory2/refit}；科研和维修使用各自kind。老无facility订单默认归第一厂；老档已付超额等待单允许保留，但满额时不再加单。
+
+\section{订单生命周期}
+提交先检查队列与重复目标，再按\code{unitCost*total}支付。空工位立刻活动，忙工位写等待数组。改装另预约原车和每辆核心，维修从damaged扣预约量。等待单尚不使用旧dueAt交付。
+
+到达单辆dueAt，创建/修复一辆到available，completed加1。未完则下一辆以当前时刻开工；完单删除活动项，并按seq提升同工位最早等待单。科技或建筑完成只加一个等级，不重算其他已付单的工时或价格。
+
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}[node distance=8mm]
+\node[box,text width=28mm] (submit) {预扣费用\\预约原车/核心};
+\node[box,text width=27mm,right=of submit] (wait) {等待FIFO\\最多3单};
+\node[box,text width=28mm,right=of wait] (work) {活动订单\\逐辆交付};
+\node[box,text width=23mm,right=of work] (done) {完成\\提升下一单};
+\draw[flow](submit)--(wait);\draw[flow](wait)--(work);\draw[flow](work)--(done);
+\draw[flow](work.south)--++(0,-8mm)-|node[pos=.25,below,note]{下一辆}(work.south east);
+\end{tikzpicture}
+\caption{串行工位。空闲时提交可直接进入活动，不必先等待。}
+\end{figure}
+
+\section{剩余、加速和取消}
+设\(t\)为逻辑当前时间，\(d\)为单辆工时，\(n,c\)为total、completed，免费时长为\(F\)：
+\begin{align}
+R_{raw}&=\max(0,dueAt-t+(n-c-1)d),\\
+R_{eff}&=\max(0,R_{raw}-F),\\
+Gold_{speed}&=\left\lceil R_{eff}/60000\right\rceil.
+\end{align}
+加速只允许活动单，支付后循环交付本单剩余车辆；等待单不能绕过前项。取消返还\((n-c)unitCost\)，并返还相同份数的核心、改装原车或待修预约。已交付车辆保留，已耗部分单辆时间不产生部分退款折扣。
+
+免费时长在整单剩余进入F时结束整单，不能给100辆各减一次F；FIFO新单晋升后也可即时免费完成。界面预计交付需要包含队列等待与有效整批工时。
+
+\section{休整的统一推进}
+休整1至720整数小时，minutes必须是60的倍数。逻辑偏移累计和单次推进均有315360000000毫秒安全边界；事件循环最多100000轮。休整走与正常tick相同的事件路径，不能只修改dueAt或直接将队伍标成归队。
+
+每段先按旧产率增长到最近事件，然后交付升级、世界事件或到达，再用新值计算下一段。相同时间先订单，再采集完成，再去返程，最后同刻世界补给；个人事件内部按seq稳定排序。这样矿储减少、入库溢出和新产率都有确定结果。
+
+\section{批量维修报价一致性}
+\code{repairAllQuote}按当前可用活动+等待名额截取待修车型，每型最多10000辆，累加费用与等待。令牌包含车型、数量、单费、工时和当前队列seq/completed；纯倒计时不使报价失效，预约和交付变化会失效。执行先确认整笔预算，再逐单预约，失败不留部分送修。
+\src{src/core/engine.ts}{startJob；removeJob；finishJob；advanceInPlace}
+\src{src/core/vip.ts}{queueStatus；queueView；jobRemaining；accelerationCost}

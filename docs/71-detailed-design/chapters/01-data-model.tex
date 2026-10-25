@@ -1,0 +1,55 @@
+\chapter{数据模型与所有权}
+\section{基础类型与计量}
+资源\code{Resource}固定为铁、油、铅、钛、水晶；\code{Currency}另外包含金币。\code{Wallet}具有全部六项，\code{Cost}允许只出现所需项目。车型ID为四兵种乘七阶的28项，阵位在\code{Formation}中用长度6数组表示，空位为null；数组下标0至5，战斗快照\code{slot}为1至6。
+
+数值基本使用安全整数。时间单位为毫秒，速率为资源/小时，概率/部分比例用基点；不能将\code{economyBonus}返回的百分数直接与基点相加。浮点曲线只用于生成确定的整数报价或倍率；资源累计和伤害乘除中的关键部分采用BigInt。
+
+\section{GameState字段字典}
+\begin{small}\begin{longtable}{@{}P{43mm}P{44mm}P{57mm}@{}}
+\toprule 字段组 & 数据与所有权 & 约束/用途\\\midrule\endhead
+\code{schema/ruleset} & 固定schema=1、总规则标识 & 导入封装检查，不等于应用版本\\
+\code{id/nickname} & 档案身份和名称 & ID仅字母数字、下划线、横线；名称1至16字符\\
+\code{revision/sequence} & 写版本、事件序号 & revision随推进/命令增长；sequence为订单、战报、通知排序和标识来源\\
+\code{now/createdAt/timeOffset} & 逻辑时间、创建时间、休整偏移 & now不倒退，偏移使未来轮询延续休整后时钟\\
+\code{seed/worldSeed} & 运行随机种子、地图初始种子 & 重放读取事件，不重新消耗seed\\
+\code{wallet/remainders} & 资源余额与自产余数 & 余额不使用K/M格式；满仓清自产余数\\
+\code{buildings} & HQ、lab、factory、warehouse与5资源场 & 已完成等级最高120\\
+\code{industry} & 额外制造厂、改装厂、扩展版本 & factory2/refit可为0，表示未建\\
+\code{tech/researchVersion} & 27项科技及版本 & 玩家0至120；迁移补合法旧缺项\\
+\code{available/damaged} & 待命、尚未预约维修的受损车 & 出发、送修与改装分别预约扣除\\
+\code{createdUnits/destroyedUnits} & 创建与永久损毁累计 & 不能与当前库存混为一项\\
+\code{formation/presets} & 当前计划、最多5个命名计划 & 不占库存；加载按阵位顺序缩减\\
+\code{jobs/jobBacklog} & 活动订单映射、等待数组 & seq关联取消/加速；老档超额已付单保留\\
+\code{marches} & 独立远征队列 & 保存车辆、属性、工时、运力和货物快照\\
+\code{world/home/intel} & 100地点、基地坐标、侦察快照 & home初始(16,16)；未知情报不是空守军\\
+\code{reports/expeditionLog} & 战斗事件、归队收据 & 共同受最近400条保留预算约束\\
+\code{cleared/arsenal.cleared} & 主线索引、核心ID首通集合 & 决定解锁与首通，不依赖战报是否保留\\
+\code{arsenal.cores/converted} & 8种核心、改装累计 & 核心为四系VI/VII阶，不进入Wallet\\
+\code{commander} & xp、leadership、books、prestige、skillPoints与3技能 & 经验等级、统率、声望是不同成长轴\\
+\code{leadershipHistory/lastLeadership} & 所有训练批次、最近结果 & 批次保留逐次roll，旧结果可带legacy标记\\
+\code{prestigeFloor/commandVersion} & 旧档训练资格底线与迁移版本 & 不伪造声望或给予未赚取加成\\
+\code{vip} & paidGold、lastDaily、版本 & 本机模拟，等级由累计paidGold派生\\
+\code{counters/claimed/lastDaily} & 任务计数、已领奖、每日标记 & 去重由规则执行；日期按UTC+8\\
+\code{receipts/notices/honors} & 命令回执、最近60通知、荣誉 & 回执实现幂等；荣誉记录来源战报ID\\
+\bottomrule\end{longtable}\end{small}
+\src{src/core/types.ts}{GameState；Command}
+
+每个车型的守恒检查为：待命+待修+在途+维修剩余预约+改装剩余原车预约+已转换为高阶数量+永久损毁=createdUnits。createdUnits从新档初始赠车数量开始累计，包含新造及改装产生的目标车。预设和编队不在守恒式中，因为它们不预约库存。制造未完目标也不提前计入已创建量。
+
+\section{Job：可分批交付的订单}
+\begin{small}\noindent\begin{tabularx}{\linewidth}{@{}P{39mm}Y@{}}
+\toprule 字段 & 语义\\\midrule
+\code{kind/target/facility} & building、research、production、repair；目标是建筑、科技或车型。制造按factory/factory2/refit分线。\\
+\code{total/completed} & 总件数与已交付件数；建筑、科研均为1。\\
+\code{unitCost/duration} & 下单时的单件资源费与工时快照；不因后续科技升级追改。\\
+\code{startedAt/dueAt/seq} & 当前单件开始/完成时间和稳定序号；等待时的旧时间不代表实际已开工。\\
+\code{sourceUnitId/coreCost} & 改装预约原车与高阶核心；取消只退未完成份数。\\\bottomrule
+\end{tabularx}\end{small}
+
+\section{March：远征状态机数据}
+\code{phase}为outbound、gathering、returning，\code{mission}为gather或raid。\code{troops}记录当前存活阵位；\code{combatArmy/commanderStats/unitLoads/gatherRate/travelMs}冻结出发时能力；\code{capacity}在战后按幸存车辆重算。\code{cargo}是携带物，不等于入库；\code{battleId/battleWon/casualties}把战斗与最终收据连接。\code{remainder}用于采集小数累计，\code{startedAt/dueAt/seq}供调度排序。
+
+\section{战斗与快照}
+\code{ArmyStack}保存阵位、车型、数量、单车攻击/生命、整组剩余生命、命中、闪避、暴击、抗暴、暴伤、基础/有效防御、减伤评级及攻击倍率。\code{CombatStats}单独保存指挥官先手与二次开火值，避免车辆阵亡改变指挥属性。
+
+\code{BattleAction}描述一次普通或追加攻击，含大回合、小交换、来源、追加判定；\code{HitEvent}描述该动作内一发，含目标、发序、伤害、暴击、未命中、地面、剩余生命/数量。\code{BattleReport}保存初末双方、动作、事件、战损、结果、规则、种子、目标、奖励和成长。它是回放依据，不是待计算指令。

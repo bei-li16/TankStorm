@@ -1,0 +1,100 @@
+\chapter{战斗计算与战力解释}
+\section{单位快照与指挥官属性}
+车辆来自28项基础表。构建\code{ArmyStack}时，攻击保持基础整数A，另存攻击倍率；生命和有效防御先逐车向下取整：
+\begin{align}
+B_A&=10000+500T_{attack}+200T_{ballistics}+200S_{attack}+B_{prestige},\\
+HP&=\left\lfloor HP_0(10000+500T_{hp}+300T_{armor}+B_{prestige})/10000\right\rfloor,\\
+d&=\left\lfloor d_0(10000+200T_{armor})/10000\right\rfloor.
+\end{align}
+整组初始总HP为HP乘数量。部分受伤的存活数采用\(\lceil totalHp/HP\rceil\)，攻击与抵扣防御均按当前存活数计算，不用初始count。
+
+先手\(I=100+3T_{march}+3S_{initiative}\)，二次开火值\(E=100+4T_{ballistics}+4S_{extra}\)，是指挥官整军属性。新战斗显式传入双方快照，与车系、阵位数量和阵亡无关；只有旧在途快照缺失时使用兼容路径。
+
+\section{先手、大回合和连击}
+先手值较大的一方先攻；相同值固定攻击方（side=0）先攻，不随机。大回合开始时分别按阵位号收集存活单位，每方每次交换取一个尚存活阵位，先手方先行动。阵位被击毁则跳过，少阵位方耗尽后等待，不能提前绕回首阵再攻击。
+
+普通动作结束且敌人尚存时，判一次连击：
+\[
+P_{extra}=\operatorname{clamp}(1000+10(E_{own}-E_{enemy}),0,3500).
+\]
+1000基点为10\%，最高35\%。连击紧跟同一阵位，使用50\%攻击，不再次触发连击；不要求普通攻击必须命中。命中/暴击流与连击流独立，后者初始seed异或\code{0x9e3779b9}，避免连击判定改变后续命中随机序列。
+
+最多50个大回合。任何完整动作消灭敌军即胜，包括第50回合的普通或追加动作；若第50回合打完双方仍存活，先手方判负。报告记录\code{roundLimit/endReason/tactics}供界面与回放解释。
+\src{src/core/battle.ts}{commanderStats；extraFireChance；simulate}
+
+\section{四兵种选目标}
+\begin{center}\begin{tikzpicture}
+\foreach \s/\x/\y in {1/0/0,2/1.7/0,3/3.4/0,4/0/-1,5/1.7/-1,6/3.4/-1}{\node[box,minimum width=13mm,minimum height=7mm] at (\x,\y){\s};}
+\node[note,left] at (-0.8,0){前排};\node[note,left] at (-0.8,-1){后排};
+\end{tikzpicture}\end{center}
+\begin{small}\begin{longtable}{@{}P{22mm}P{23mm}P{99mm}@{}}
+\toprule 兵种 & 每次发数 & 目标规则\\\midrule\endhead
+坦克 & 1至3 & 逐列取首个活目标：列(1,4)、(2,5)、(3,6)分别前排优先。前排空但后排有车仍射该列，整列空才少一发。\\
+自行火炮 & 1至2 & 取自身对应列的所有活目标；空列则按到本列距离寻找邻列，相同距离优先较小列号。\\
+歼击车 & 1 & 同列搜索规则，但只取所选列最前一个活目标。\\
+火箭车 & 固定6 & 依次射1至6，空位记ground事件、0伤害，无命中/暴击随机判定，表现落地弹坑。\\
+\bottomrule\end{longtable}\end{small}
+目标在每个完整动作开始时固定。追加攻击是新的动作，会重新选目标。每发对所选目标使用完整攻击组火力，不把总伤害平均分配给目标数；车系差异由基础攻击、目标覆盖和其他倍率共同平衡。
+
+\section{命中、暴击和车系光环}
+\begin{align}
+Hit&=\operatorname{clamp}(9500+Accuracy-Evasion,1000,10000),\\
+Crit&=\operatorname{clamp}(1000+CritBonus-Armor+Aura_{TD},0,7500).
+\end{align}
+Accuracy等均为基点。真实目标每发从命中/暴击流取两个0至9999的roll；即使命中失败仍消费该次暴击roll，报告最终critical=false。抗暴装甲降低暴击率，不直接抵扣伤害。
+
+每个动作检查双方存活车系集合；同车系多个阵位不重复叠光环。己方有坦克则全军伤害乘1.05，有歼击车则暴击率额外+500基点；目标方有自行火炮时歼击车伤害乘0.9，目标方有火箭时火箭伤害乘0.9。车系全部阵亡后后续动作失去对应光环。
+
+克制矩阵如下，行为是当前项目实际表值，不按想象补对称弱势：
+\begin{center}\begin{tabular}{lrrrr}\toprule 攻击\textbackslash 目标 & 坦克 & 歼击 & 火炮 & 火箭\\\midrule
+坦克 & 1.00&1.00&1.00&1.25\\
+歼击 & 1.25&1.00&0.80&1.00\\
+火炮 & 0.80&1.25&1.00&1.00\\
+火箭 & 1.00&0.80&1.25&1.00\\\bottomrule\end{tabular}\end{center}
+
+\section{先扣总防御，再计算伤害}
+设\(N_A,N_D\)为当前存活数量，\(A\)为单车基础攻击，\(d\)为目标单车有效防御。普通动作\(f=1\)，追加\(f=2\)。以比例而非基点表示后续倍率：
+\begin{align}
+Attack_{group}&=N_AA\frac{B_A}{10000f},\\
+Defense_{group}&=N_Dd,\\
+Penetration&=\max(0,Attack_{group}-Defense_{group}),\\
+Damage&=\left\lfloor Penetration\times M_{aura}\times M_{match}\times M_{pattern}
+ \right.\notag\\[-3pt]
+ &\hspace{18mm}\left.\times M_{critical}\times M_{classProtect}\times\frac{10000}{10000+R}\right\rfloor.
+\end{align}
+未命中时直接记0伤害。式中\(R\)是纵深防护减伤评级。普通命中的暴击倍率取1；暴击时取\(1.5+0.005T_{criticalDamage}\)。四车系当前pattern倍率均为1，协议仍保留配置。伤害没有最小1的下限，未破防可以为0。
+
+实现使用BigInt定点乘积，保留半攻击的分数部分到最后一次取整。\textbf{不是先把最终普通伤害除2，也不是用防御评级替代总防御抵扣。}生命和单车防御在快照构建时的取整，是独立于本次最终伤害取整的规则。
+
+例如10辆I阶坦克对10辆I阶火箭车，无科技/指挥加成，已判普通命中：总攻击200、总防御20，穿透180；有坦克光环及1.25克制，伤害\(\lfloor180\times1.05\times1.25\rfloor=236\)。基础暴击为354。同一初始目标快照下独立比较追加火力，攻击降为100、穿透80、普通伤害105，不能用236/2得到118。真实连续攻击须按首击后目标的幸存数量重新算防御，不直接沿用这个10辆目标的对照值。
+
+报告保存名义damage，可能大于目标剩余HP；实际HP扣至0。结算的有效伤害将溢出剔除，UI可以同时展示名义与有效结果。0伤害但未miss显示“未破防”，与闪避区分。
+\src{src/core/battle.ts}{army；attackSlots；simulate}
+
+\section{战损与幸存}
+\code{survivors()}按剩余HP向上取整还原数量；未持久化每辆车的残余HP，下次建军重新按完整单车HP构建。正式主线、核心和世界可修复数量为\(\lceil lost\times0.8\rceil\)，其余永久损毁；演习不转入待修、不扣实际兵。
+
+\section{战力估值与十一项贡献}
+战力用于比较成长和库存排布，不预言某个具体敌人的伤害。中立覆盖固定坦克3、歼击1、火炮2、火箭6。估值用自身命中、暴击、敌方中立命中/暴击、HP、平减防御成长和减伤评级组成ability；同阶白板取统一分，消除车系基础差异对展示的偏置。
+
+令\(F_D\)为防御估值因子，含同阶平均攻击基准与\(1+0.25\ln(\max(1,d/d_0))\)递减成长。则ability大意为“中立期望覆盖伤害\(\times\)中立有效生命”；单车分为同阶白板乘\(\sqrt{ability/ability_0}\)，再乘统一指挥官先手和连击成长系数。
+
+条件光环、克制、运力和经济属性不重复计分。属性表依次为攻击、生命、命中、闪避、暴击、暴伤、抗暴、车辆防御、比例减伤、指挥官先手、二次开火。乘算增益以对数权重分配贡献，取整尾差归最后非零项，保证基础+所有增量=总分。当前编队、库存可编最大和成长满编上限分别展示，不混成一个数。
+
+具体令\(h,c\)为自身对中立敌人的命中与暴击概率，\(h_e,c_e\)为中立敌人对自身的概率，\(v\)为车系覆盖数，\(m_c\)为总暴伤倍率，则
+\begin{align}
+D_{neutral}&=A(B_A/10000)\,v\,h\,[1+c(m_c-1)],\\
+H_{effective}&=\frac{HP}{h_e(1+0.5c_e)}F_D(1+R/10000),\\
+ability&=D_{neutral}H_{effective}.
+\end{align}
+概率仍按实战的10\%最低命中、100\%最高命中和75\%最高暴击夹限，但中立对手没有额外科技。防御基准用同阶四车型基础攻击均值的4倍，而非某个当前敌军人数。
+
+同阶基础分\(P_t\)为该阶四种白板\(\sqrt{ability_0}\)均值乘10后取整。单车实际分为
+\begin{align}
+P_{unit}=\operatorname{round}\!\left[P_t\sqrt{\frac{ability}{ability_0}}\right.
+&\left.\left(1+\frac{\max(0,I-100)}{1000}\right)\right.\notag\\[-3pt]
+&\left.\frac{1+P_{extra}(E,100)/20000}{1.05}\right].
+\end{align}
+这里\(P_{extra}\)返回基点，分母20000体现追加半火力，1.05对齐白板10\%触发的基准。编队按存活数累加单车分；满编上限取当前制造解锁/已造最高可用估值车型乘单格容量乘6，不等于当前已有车辆。
+\src{src/core/power.ts}{flatDefenseFactor；unitPower；powerOverview}
+\src{src/core/attributes.ts}{unitAttributes；attributeSheet}

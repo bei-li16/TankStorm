@@ -1,0 +1,43 @@
+\chapter{运行架构与部署}
+\section{正式客户端的职责层次}
+\begin{figure}[htbp]\centering
+\begin{tikzpicture}[node distance=10mm]
+\node[box,text width=130mm] (ui) {\textbf{表现进程：TankStorm.exe / Godot 4.6.2}\\地图、控件、输入、回放、音效、导航与用户偏好};
+\node[box,text width=130mm,below=of ui] (host) {\textbf{规则宿主：runtime/node.exe + rules/bridge.cjs}\\RPC、请求串行、派生视图、文件存储与生命周期};
+\node[box,text width=130mm,below=of host] (core) {\textbf{领域实现：src/core + design规则}\\命令、事件、战斗、经济、世界、科研与校验};
+\node[box,text width=130mm,below=of core] (disk) {\textbf{本机持久化}\\主档、上次操作备份、活动档、锁文件；Godot偏好另存};
+\draw[flow] (ui)--node[right,note]{HTTP / JSON}(host);
+\draw[flow] (host)--node[right,note]{函数调用}(core);
+\draw[flow] (host.east)--++(8mm,0)|-(disk.east);
+\draw[flow] (core)--node[right,note]{经宿主提交}(disk);
+\end{tikzpicture}
+\caption{运行职责。领域模块是Node包内部代码，不是额外的独立进程。}
+\end{figure}
+通信实际采用\code{127.0.0.1}随机端口上的\code{POST /rpc}，不是标准输入输出管道。正式PNG/WAV资源进入Godot包，规则由esbuild打包为CommonJS。
+\src{native/scripts/game.gd}{_start_runtime；request；_response}
+\src{native/rules/bridge.ts}{NativeStore；serve}
+
+\section{启动、握手与退出}
+Godot初始化1600\(\times\)900设计画布、字体、纹理、16路声音池和控件，读取偏好，再定位运行时与桥接文件。正式存档位于\code{\%APPDATA\%/TankStormClassic/saves}；\code{--smoke}使用带进程号的隔离目录。
+
+客户端生成24字节随机令牌，启动Node并传入存档根、ready文件、令牌和父进程号。Node取得\code{session.lock}，监听回环端口，原子写ready文件。Godot读取端口后发\code{boot}取得目录和状态。启动超过20秒显示错误，HTTP超时为12秒。
+
+Node每秒探测父进程。父进程结束或收到终止信号后刷新脏数据、释放锁、清理ready文件、关闭服务。锁中PID仍存活时拒绝第二实例；失效锁被移除。该锁是本机进程互斥，不是联网账户锁。
+
+\Needspace{55mm}
+\section{便携包与开发结构}
+\begin{lstlisting}
+TankStorm-v0.40.0/
+  TankStorm.exe
+  runtime/node.exe
+  rules/bridge.cjs
+  licenses/Godot.txt
+  licenses/Node.txt
+  README.txt
+\end{lstlisting}
+用户存档不保存在程序目录。EXE嵌入Godot资源，但外置Node与规则不可删除。开发模式使用\code{release/development}；正式版本目录独立，启动脚本指向最新完成构建。
+
+\section{网页原型的独立路径}
+\code{src/main.tsx}加载React。\code{local.ts}将消息交给模块Worker，\code{game.worker.ts}调用同一规则引擎，IndexedDB适配器提交。Worker通过\code{requestId}匹配Promise，原生RPC则由单个\code{HTTPRequest}排队发送。
+
+\impl{近期正式界面的紧凑清单、区域和战斗表现主要在GDScript实现。仅修改React页面不能视为原生客户端已同步更新。}

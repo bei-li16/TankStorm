@@ -1,0 +1,88 @@
+\chapter{源码定位与核对基线}
+本表按当前工作树自动提取；路径均相对工程根目录。行号用于定位，函数名比后续变动的行号更稳定。完整SHA-256与符号清单保存在同目录的\code{baseline.json}。
+\section{核对规模}
+当前版本0.40.0，28款车、27项科技、36章576关主线、20章320关核心、40篇手册。文档任务实际执行42个测试文件、905项测试，通过905项，失败0项。此结果仅代表该源码基线。
+\begin{small}
+\begin{longtable}{@{}P{63mm}rP{66mm}@{}}
+\toprule 文件 & 行数 & 主要符号（起始行） \\
+\midrule\endhead
+\code{src/core/archive.ts} & 66 & \code{trimArchive}:10；\code{archiveRows}:21 \\
+\code{src/core/arsenal.ts} & 319 & \code{dungeonArmy}:153；\code{dungeonBlock}:163；\code{repairAllQuote}:173；\code{enableArsenal}:228 \\
+\code{src/core/attributes.ts} & 133 & \code{unitAttributes}:10；\code{attributeSheet}:108 \\
+\code{src/core/battle.ts} & 358 & \code{rng32}:14；\code{army}:23；\code{alive}:64；\code{commanderStats}:70 \\
+\code{src/core/cargo.ts} & 16 & 配置或数据 \\
+\code{src/core/combat_research.ts} & 33 & \code{defenseStats}:15；\code{combatModifiers}:23 \\
+\code{src/core/commander.ts} & 111 & \code{leadershipCapacity}:7；\code{enableCommander}:13；\code{prestigeRequired}:23；\code{prestigeOverview}:47 \\
+\code{src/core/content.ts} & 332 & \code{upgradeCost}:65；\code{researchCost}:75；\code{legacyStageFormation}:116；\code{legacyStageReward}:128 \\
+\code{src/core/dispatch.ts} & 116 & \code{expeditionStatus}:8；\code{dispatchOverview}:34 \\
+\code{src/core/engine.ts} & 1,533 & \code{fail}:126；\code{commanderRank}:131；\code{commanderLevel}:134；\code{leadershipCap}:137 \\
+\code{src/core/format.ts} & 19 & \code{compactAmount}:3 \\
+\code{src/core/growth.ts} & 60 & \code{milestoneCurve}:11 \\
+\code{src/core/industry.ts} & 35 & \code{enableIndustry}:14；\code{facilityLevel}:19；\code{facilityBlock}:22；\code{jobFacility}:27 \\
+\code{src/core/library.ts} & 1,472 & \code{searchLibrary}:1454 \\
+\code{src/core/overview.ts} & 279 & \code{inventoryView}:7；\code{battleSummary}:77；\code{battleFeedback}:126；\code{transportStatus}:197 \\
+\code{src/core/planning.ts} & 213 & \code{restPreview}:9；\code{coreBudget}:29；\code{progression}:100 \\
+\code{src/core/power.ts} & 114 & \code{flatDefenseFactor}:11；\code{ability}:21；\code{unitPower}:43；\code{armyPower}:55 \\
+\code{src/core/protection.ts} & 17 & \code{protectionBps}:5；\code{protectionLedger}:11 \\
+\code{src/core/research.ts} & 165 & \code{enableResearch}:115；\code{researchRequirements}:120；\code{materialCost}:144；\code{researchEffect}:155 \\
+\code{src/core/rest.ts} & 7 & \code{validateRestMinutes}:3 \\
+\code{src/core/storage.ts} & 197 & \code{database}:9；\code{listSaves}:20；\code{loadSave}:35；\code{createSave}:55 \\
+\code{src/core/types.ts} & 319 & 配置或数据 \\
+\code{src/core/validate.ts} & 474 & \code{validateShape}:348 \\
+\code{src/core/vip.ts} & 200 & \code{vipBenefits}:30；\code{allJobs}:33；\code{queueStatus}:36；\code{queueWait}:75 \\
+\code{src/core/world.ts} & 225 & \code{referenceMineLoad}:35；\code{guardTemplate}:68；\code{legacyGuards}:83；\code{guardArmy}:93 \\
+\code{src/client/diagnostics.ts} & 49 & \code{reportReady}:3；\code{reportBattleFrames}:11；\code{probeFrames}:15 \\
+\code{src/client/game.worker.ts} & 50 & \code{handle}:14 \\
+\code{src/client/local.ts} & 41 & \code{rpc}:6 \\
+\code{src/client/protocol.ts} & 9 & 配置或数据 \\
+\code{native/rules/bridge.ts} & 915 & \code{NativeStore}:111；\code{serve}:840 \\
+\code{native/scripts/game.gd} & 9,692 & \code{_ready}:185；\code{_start_runtime}:256；\code{_setup_dialogs}:275；\code{_confirm}:370；\code{_confirm_action}:381 \\
+\code{native/scripts/construction_list.gd} & 146 & \code{_ready}:9；\code{_label}:28；\code{_button}:37；\code{_add_row}:55 \\
+\code{native/scripts/research_list.gd} & 54 & \code{_add_row}:4；\code{sync}:11 \\
+\code{native/scripts/rest_summary.gd} & 141 & \code{_ready}:10；\code{_label}:47；\code{_input}:57；\code{show_summary}:66 \\
+\code{native/scripts/quantity_format.gd} & 25 & 配置或数据 \\
+\code{native/build.mjs} & 97 & 配置或数据 \\
+\code{native/dev.mjs} & 24 & 配置或数据 \\
+\code{native/project.godot} & 29 & 配置或数据 \\
+\code{design/classic-prototype-rules.json} & 1,402 & 配置或数据 \\
+\code{package.json} & 42 & 配置或数据 \\
+\bottomrule
+\end{longtable}
+\end{small}
+\clearpage
+\section{常用问题定位}
+\begin{small}
+\begin{longtable}{@{}P{57mm}P{70mm}r@{}}
+\toprule 文件 & 符号 & 行 \\
+\midrule\endhead
+\code{src/core/arsenal.ts} & \code{productionQuote} & 240 \\
+\code{src/core/arsenal.ts} & \code{repairAllQuote} & 173 \\
+\code{src/core/arsenal.ts} & \code{dungeonArmy} & 153 \\
+\code{src/core/arsenal.ts} & \code{dungeonBlock} & 163 \\
+\code{src/core/battle.ts} & \code{army} & 23 \\
+\code{src/core/battle.ts} & \code{commanderStats} & 70 \\
+\code{src/core/battle.ts} & \code{attackSlots} & 80 \\
+\code{src/core/battle.ts} & \code{extraFireChance} & 135 \\
+\code{src/core/battle.ts} & \code{simulate} & 138 \\
+\code{src/core/engine.ts} & \code{execute} & 771 \\
+\code{src/core/engine.ts} & \code{advance} & 761 \\
+\code{src/core/engine.ts} & \code{advanceInPlace} & 711 \\
+\code{src/core/engine.ts} & \code{startJob} & 447 \\
+\code{src/core/engine.ts} & \code{finishJob} & 508 \\
+\code{src/core/engine.ts} & \code{resolveArrival} & 580 \\
+\code{src/core/engine.ts} & \code{formationAvailability} & 319 \\
+\code{src/core/engine.ts} & \code{assertState} & 1239 \\
+\code{src/core/storage.ts} & \code{canonical} & 142 \\
+\code{src/core/storage.ts} & \code{parseSave} & 163 \\
+\code{src/core/storage.ts} & \code{updateSave} & 73 \\
+\code{native/scripts/game.gd} & \code{_start_runtime} & 256 \\
+\code{native/scripts/game.gd} & \code{request} & 455 \\
+\code{native/scripts/game.gd} & \code{command} & 471 \\
+\code{native/scripts/game.gd} & \code{_response} & 474 \\
+\code{native/scripts/game.gd} & \code{_navigate} & 690 \\
+\code{native/scripts/game.gd} & \code{_battle_step} & 3118 \\
+\code{native/scripts/game.gd} & \code{_next_fire_interval} & 3175 \\
+\code{native/scripts/game.gd} & \code{_research36_seek} & 9373 \\
+\bottomrule
+\end{longtable}
+\end{small}
