@@ -94,3 +94,7 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Binary game assets and screenshots are distributed via release packages only
+*.png
+*.wav
